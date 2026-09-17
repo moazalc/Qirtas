@@ -1,0 +1,13 @@
+# Virtualenv
+.venv/
+__pycache__/
+*.pyc
+
+# Generated output: .docx, rendered PDFs, extracted media, reports
+out/
+
+# Corpus. Deliberately NOT committed:
+#  - corpus/*.pdf are someone's unpublished thesis chapters, not ours to publish
+#  - corpus/wild/ is ~600MB of PDFs downloaded from Zenodo, reproducible with
+#    `python -m harness.fetch_corpus`
+corpus/
