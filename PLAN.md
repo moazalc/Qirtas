@@ -1,4 +1,4 @@
-# Arabic PDF → Word: the plan
+# Qirtas - Arabic PDF back to Word: the plan
 
 Last updated 2026-09-17.
 

@@ -1,4 +1,7 @@
-# arabic-pdf2docx
+# Qirtas  ·  قرطاس
+
+Arabic PDF back to editable Word - with the right-to-left parts actually
+correct, which no free tool and not Acrobat currently manage.
 
 ## setup
 
