@@ -20,7 +20,7 @@ from convert.v0 import convert as convert_v0
 from convert.v1 import convert as convert_v1
 from convert.fit import convert as convert_fit
 
-SOFFICE = "/opt/libreoffice26.8/program/soffice"
+SOFFICE = "/snap/bin/libreoffice"
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
 
