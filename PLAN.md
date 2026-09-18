@@ -1,6 +1,6 @@
 # Qirtas - Arabic PDF back to Word: the plan
 
-Last updated 2026-09-17.
+Last updated 2026-09-18.
 
 ## The problem
 
@@ -95,20 +95,68 @@ scores will never reach 100% even when the output is right. Watch the trend.
     v1  lines joined into paragraphs         100%      88.7%       -
     v2  page breaks, headings, footnotes     100%      97.6%      38%
     v3  measured layout, page alignment      100%      96.7%      65%
+    v4  images, footnotes, page decoration   100%      98.3%      49%
 
     on 14 unseen files pulled from the wild: no text lost 100%,
-    words 97.9%, right page 23%
+    words 97.9%, right page 23%  (v3 figures; not re-run since)
+
+The v0-v3 rows are kept as they were recorded, but **they were measured with a
+scorer that has since been found wrong twice** - see below. Do not compare them
+against v4.
 
 **No text lost is the hard gate** and it holds on all 22 files. "Right page"
 means words landing on the matching page; unrelated documents score ~13%, so it
 is measured against that floor, not against zero.
+
+**The drop from 65% to 49% on right page is not a regression, and the jump to
+98.3% on words is not an improvement.** Both are the scorer changing under us.
+Two of its own bugs were found and fixed during v4, and both were flattering us:
+
+  - It counted a repeated sentence once, so a document that repeats a phrase -
+    which every one of these theses does, constantly - could not score 100% even
+    against itself. Fixed in 999270d. **This is why `words` jumped.** The
+    converter did not get better at keeping text; the ruler got fixed.
+  - It counted pictures by *stored file* rather than by *placement*. Word stores
+    one copy of a picture drawn forty times, so a file that dropped most of its
+    pictures could still score 100% on images. Fixed in 67879bb.
+
+The two runs that can be compared directly are `out/regression.json` (v3,
+15:50) and `out/roundtrip.json` (v4, 18:31). **`page_score` is the one column
+whose algorithm was untouched by either fix**, so only that column is a
+like-for-like comparison:
+
+    file                                  right page    words        pages   images
+                                          v3    v4    v3*   v4      v4       v4
+    ödev (Turkish, LTR control)          100   100   100   100     1->1     0/0
+    عن بعد (short Arabic)                 92    92   100   100     1->1     1/1
+    الفصل الثاني - انفرادات القراء         15    58    83   100    20->20   44/44
+    مقدمة البحث                            26    31    89   100    16->17   21/21
+    الفصل الرابع - مبحث أول                14    57    91    99    24->24   64/64
+    الفصل الخامس المبحث الأول              15    47    88    98    25->26   66/66
+    الفصل الخامس المبحث الثالث             14    48    85    97    18->19   48/48
+    الفصل الثالث قراءات انفرادات           19    41    93    97    25->26   71/71
+
+    weighted by words:                    17    49    88    98
+
+    * v3 words measured with the broken scorer; not comparable to v4.
+
+So the real v4 result is **right page 17% -> 49%**, which is the number to
+quote. Pictures: **315 of 315 placements**, every file at 100%; the v3 figure
+cannot be restated because the old scorer could not measure placements at all.
+Two files now land on exactly the right page count and none is more than one
+page out, where under v3 the worst was four.
 
 ## What works now
 
 - correct right-to-left Arabic, correct letters, correct word order
 - lines joined into real paragraphs
 - headings found and styled (from heading labels, font size, or line shape)
-- footnotes moved to the foot of the page under a rule
+- real Word footnotes, renumbering per page, not paragraphs pretending to be
+  footnotes
+- pictures: 315 of 315 placements across the corpus, including JPEGs Word's own
+  library refuses to identify
+- a decoration that repeats on most pages is recognised as a running header and
+  put in the Word header, where it costs the text column nothing
 - page size, margins, font size and line spacing measured off the original
 - the document's own Arabic font carried through, not a substitute
 - page breaks aligned to the original's pages
@@ -120,8 +168,13 @@ is measured against that floor, not against zero.
 1. DONE. The check now locates each sentence of the original in the output and
    measures the longest run that stayed in order - O(n log n). A 418,000
    character document scores in 0.14s where the character comparison held a
-   core at 97% for an hour. Validated: identical 100%, unrelated 0%, same text
-   shuffled 0.6%.  Was: O(n-squared) on characters. It pinned a core at
+   core at 97% for an hour. Validated: identical 100%, unrelated 0%, reversed
+   25%, one sentence moved 75%, half the document 50% - see
+   `harness/test_text_score.py`.
+   The "identical 100%" claim was **false when first written**: the scorer found
+   only the first occurrence of a repeated sentence, so a document that repeats
+   a phrase scored below 100% against itself. Repeated-sentence cases are now
+   part of the test.  Was: O(n-squared) on characters. It pinned a core at
    97% for an hour on a 72-page file and never finished. Everything else waits
    on this.
 2. DONE. Scoring now counts tables and pictures.  Was: blind to tables and images. A chemistry page whose table and two
@@ -145,10 +198,21 @@ is measured against that floor, not against zero.
    The molecular structures turned out not to be images at all but VECTOR
    DRAWINGS, which is why nothing extracted them. Table cells that hold line
    art and no text are now rendered to a raster and placed in the cell.
-   STILL WRONG: image counts are inconsistent across files - 33/33, 7/7 and 5/5
-   on some, but 62->13, 53->3, 11->0 and 6->0 on others. Works sometimes; the
-   failures are not yet diagnosed.
+   RESOLVED 2026-09-18, and it was two separate things, only one a real bug:
+     - Mostly a **counting** error. The check counted files in `word/media/`
+       against placements in the PDF. Word stores one copy of a picture drawn
+       forty times, so ratios like 62->13 were measuring deduplication, not
+       loss. Counting `<a:blip>` placements instead - and multiplying a header
+       or footer picture by the page count, since Word draws it on every page -
+       gives 315/315 across all eight files.
+     - One **real** loss. `عن بعد.pdf` holds a bare DCT JPEG with no APP0/JFIF
+       segment. python-docx identifies images by literal signature bytes and
+       only accepts `JFIF` or `Exif` at offset 6, so it raised
+       `UnrecognizedImageError` - which `_emit_image`'s bare `except` swallowed.
+       Anything python-docx will not take is now re-rendered to PNG first.
    A chart's axis labels are still picked up as a table.
+   `_emit_image` still has a bare `except` that drops a picture silently. It
+   should at minimum count what it discards.
 
 4b. DIRECTION IS NOW PER-BLOCK, NOT BLANKET. Everything used to be forced
    right-to-left, so an all-English chemistry table was mirrored and Latin
@@ -175,26 +239,64 @@ is measured against that floor, not against zero.
 
 **Fidelity**
 
-8. Bold and italic inside a paragraph (only whole-block boldness is carried).
-9. Heading detection over-fires on any short line ending in a colon.
-10. Real Word footnotes. Ours are ordinary paragraphs at the foot of the page;
-    Word cannot renumber them. Needs hand-built footnotes.xml.
+8. Bold and italic inside a paragraph. DONE in the writer: each block carries a
+   list of spans and each span becomes its own run.
+   **But it is inert on 6 of the 8 corpus files.** Their Arabic glyphs expose
+   almost no font information - one page with 1,305 Arabic characters yields 9
+   spans covering 4 of them. The writer is ready; the reader cannot see the
+   formatting to hand it over. Fixing that is a different job, in extraction.
+9. Heading detection over-fires on any short line ending in a colon. DONE.
+   The colon rule cannot just be deleted - it is the only thing that finds real
+   sub-headings in theses that use no Word heading styles. Length does not
+   separate the good from the bad: the shortest colon line in the corpus
+   ("على قسمين:") is a sentence fragment, the longest is a real heading.
+   Grammar does: a heading is a noun phrase, so no comma, no second colon, no
+   leading connective particle, 60 characters at most. 80 headings -> 58, and
+   all 22 dropped were checked by hand and are sentences.
+10. Real Word footnotes. DONE. `convert/footnotes.py` hand-builds
+    `word/footnotes.xml` plus the `[Content_Types].xml` override and the
+    document relationship, then rewrites the saved .docx.
+    Anchoring comes from the documents themselves: the note carries its number
+    ("1- انظر") and the body carries the marker inline ("ابن مجاهد(2)").
+    **373 of 399 notes anchor (93.5%)**, and every note written carries exactly
+    one reference - refs and notes match per file. The remaining 26 have no
+    findable marker and stay as plain paragraphs rather than being attached to
+    the wrong sentence.
+    Word and LibreOffice both number footnotes continuously by default, which
+    renumbered page 3's first note as 5; `w:numRestart eachPage` fixes it.
+    Note for whoever touches the checker next: footnote text lives in
+    `footnotes.xml`, not `document.xml`. `text_of_docx` has to splice each
+    page's notes in at its page break or the score reads them as lost text.
 
 **Last**
 
 11. Open the holdout set once, to find out whether any of this generalised.
 
-## Known unfinished## Known unfinished
+## Known unfinished
 
-- **Pagination on ordinary files.** Our 8 files land 65% of words on the right
-  page; unseen files manage 23%, with pages inflating about 1.5x. A page that
-  overflows even slightly becomes two, and the error repeats on every page.
-- **Tables and images** are not handled at all (steps 7 and 8).
-- **Real Word footnotes.** Ours are ordinary paragraphs at the foot of the page,
-  not footnote objects Word can renumber. python-docx cannot write them without
-  hand-building footnotes.xml.
-- **Bold and italic inside a paragraph.** Only whole-block boldness is carried.
-- **Heading detection over-fires** on lines ending in a colon.
+- **Pagination.** 49% of words land on the right page, up from 17%. The story
+  that used to be written here - "a page overflows by one line and becomes two"
+  - was wrong, and checking it was what moved the number. Mapping where each
+  page's words actually landed showed **pure drift**: content intact and in
+  order, shifted +1, then +2, then +4. Neither cause was text overflow.
+    1. Two decorations sat at y=31 against a 71.6pt top margin - above the text
+       column, so they were a running header. Emitted as ordinary paragraphs
+       they stole 96pt from every page's 735pt.
+    2. A title page of 14 pictures was stacked one under another to 1158pt
+       against 735pt, taking two pages before a word had been read. That is
+       where the first +1 came from.
+  What is left is line-break drift *within* correctly numbered pages, which is
+  a wrapping difference between renderers and may not be worth chasing.
+- **`fit.py` cannot rescue a picture-only page.** `_spilled()` matches output
+  pages to original pages by shared words and skips originals that have none, so
+  a page of nothing but pictures is invisible to the correction loop. Its fill
+  factor has to be right on the first pass, which is why `IMAGE_PAGE_FILL` is
+  measured (0.95 spilled, 0.88 fitted) rather than chosen.
+- **`مقدمة البحث` is the outlier**, 26% -> 31% where its siblings went to ~50%.
+  Undiagnosed. Its text and picture scores are both perfect, so whatever is
+  wrong is positional.
+- **Inline bold and italic are carried but almost never seen** - see item 8.
+- **Shrinkage is judged by LibreOffice, not Word** - see item 5.
 
 ## Measurement caveats, learned the hard way
 
