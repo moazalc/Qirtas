@@ -264,11 +264,22 @@ def count_pdf_structure(pdf_path):
     return tables, images
 
 
+BLIP = re.compile(r"<a:blip\b")
+
+
 def count_docx_structure(docx_path):
+    """Pictures are counted where they are PLACED, not where they are stored.
+
+    Counting files in word/media/ undercounted badly: Word stores each distinct
+    picture once and references it from every place it appears. One chapter
+    drew the same six separators 44 times, so it stored 6 files and scored
+    6/44 = 14% while having lost nothing at all. count_pdf_structure counts
+    placements, so this has to count placements too or the two sides are not
+    the same question.
+    """
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
-        media = [n for n in z.namelist() if n.startswith("word/media/")]
-    return xml.count("<w:tbl>"), len(media)
+    return xml.count("<w:tbl>"), len(BLIP.findall(xml))
 
 
 def structure_score(orig_pdf, docx_path):

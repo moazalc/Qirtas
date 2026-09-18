@@ -444,12 +444,47 @@ MIN_IMAGE_PT = 24.0      # drawn size below this is a spacer, not a picture
 MIN_IMAGE_PX = 16        # Word scatters 2x2 pixel images across every page
 
 
+def _word_can_read(blob):
+    """Ask python-docx itself whether it can identify these bytes.
+
+    Measured, not predicted. The file extension does not tell us: a PDF hands
+    back valid JPEGs that python-docx rejects, and guessing which ones from the
+    format name would mean reimplementing its parser.
+    """
+    try:
+        from docx.image.image import Image
+        Image.from_blob(blob)
+        return True
+    except Exception:
+        return False
+
+
+def _repaint(doc, xref):
+    """Re-render one image through pymupdf as a PNG, or None if that fails."""
+    try:
+        pix = pymupdf.Pixmap(doc, xref)
+        if pix.colorspace and pix.n - pix.alpha > 3:      # CMYK and friends
+            pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
+        return pix.tobytes("png")
+    except Exception:
+        return None
+
+
 def read_images(path, outdir):
     """Pull the real pictures out of the PDF, ignoring Word's pixel litter.
 
     One page carried 276 images of which 275 were 2x2 pixels stretched into
     thin bars. Filtering on both the stored size and the drawn size leaves the
     actual figures.
+
+    Anything Word cannot identify is re-rendered as a PNG. PDFs routinely store
+    bare DCT streams with no JFIF wrapper, because the PDF object already
+    carries the colorspace and size, so the APP0 segment is redundant.
+    python-docx identifies a JPEG only by the literal bytes "JFIF" or "Exif" at
+    offset 6, so those images raise UnrecognizedImageError, and the writer
+    caught that and dropped the picture without a word. Re-rendering costs
+    nothing on the common path: images Word already accepts are written through
+    untouched.
     """
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -470,8 +505,13 @@ def read_images(path, outdir):
                     raw = d.extract_image(xref)
                 except Exception:
                     continue
-                dest = outdir / f"p{i}_x{xref}.{raw.get('ext', 'png')}"
-                dest.write_bytes(raw["image"])
+                blob, ext = raw["image"], raw.get("ext", "png")
+                if not _word_can_read(blob):
+                    blob, ext = _repaint(d, xref), "png"
+                    if blob is None:
+                        continue
+                dest = outdir / f"p{i}_x{xref}.{ext}"
+                dest.write_bytes(blob)
                 r = rects[0]
                 blocks.append(Block(kind=IMAGE, text="", page=i, image=str(dest),
                                     x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1))
