@@ -211,8 +211,14 @@ page out, where under v3 the worst was four.
        `UnrecognizedImageError` - which `_emit_image`'s bare `except` swallowed.
        Anything python-docx will not take is now re-rendered to PNG first.
    A chart's axis labels are still picked up as a table.
-   `_emit_image` still has a bare `except` that drops a picture silently. It
-   should at minimum count what it discards.
+   The bare `except` that made the loss silent is gone. All three placement
+   sites go through one `_place` helper which records (path, reason) on the
+   model, and `write()` warns on stderr. It also turned out to be hiding a
+   second defect: `_emit_image` added its paragraph *before* placing the
+   picture, so a failure left an empty paragraph eating a line - the very thing
+   the page-break comment warns about. A failed placement now removes its own
+   paragraph. The corpus converts with zero drops, so 315/315 is now measured
+   rather than inferred.
 
 4b. DIRECTION IS NOW PER-BLOCK, NOT BLANKET. Everything used to be forced
    right-to-left, so an all-English chemistry table was mirrored and Latin
