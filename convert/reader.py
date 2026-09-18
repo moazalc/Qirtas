@@ -488,15 +488,21 @@ MIN_IMAGE_PX = 16        # Word scatters 2x2 pixel images across every page
 
 
 def _word_can_read(blob):
-    """Ask python-docx itself whether it can identify these bytes.
+    """Ask python-docx itself whether it can actually USE these bytes.
 
     Measured, not predicted. The file extension does not tell us: a PDF hands
     back valid JPEGs that python-docx rejects, and guessing which ones from the
     format name would mean reimplementing its parser.
+
+    Identifying the bytes is not enough. A JPEG may declare a pixel density of
+    zero, which python-docx parses happily and only trips over later, when it
+    works out the native size as pixels / dpi. Asking for the dimensions here
+    turns that into a re-render instead of a lost picture.
     """
     try:
         from docx.image.image import Image
-        Image.from_blob(blob)
+        im = Image.from_blob(blob)
+        im.width, im.height
         return True
     except Exception:
         return False

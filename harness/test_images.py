@@ -11,6 +11,13 @@ bytes "JFIF" or "Exif" at offset 6. With no APP0 segment those six bytes are
 quantization-table data, no signature matches, and add_picture raises
 UnrecognizedImageError. _emit_image caught it and returned None, so the
 picture vanished silently.
+
+A second, different case turned up on the wild corpus once drops were being
+counted: z20496510.pdf carries JPEGs that declare a pixel density of ZERO.
+python-docx identifies those perfectly well and only fails later, when it works
+out the native size as pixels / dpi and divides by zero. So "can python-docx
+identify these bytes" is the wrong question - the right one is "can it actually
+use them", which means asking for the dimensions too.
 """
 import sys
 from pathlib import Path
@@ -39,6 +46,20 @@ def _strip_app0(jpeg):
     return jpeg[:2] + jpeg[2 + 2 + seg:]
 
 
+def _zero_dpi(jpeg):
+    """Set the JFIF pixel density to zero, as z20496510.pdf's pictures do.
+
+    APP0 layout: FFE0, length(2), "JFIF\\0"(5), version(2), units(1),
+    Xdensity(2), Ydensity(2).
+    """
+    j = bytearray(jpeg)
+    assert j[2:4] == b"\xff\xe0" and j[6:11] == b"JFIF\x00", "expected a JFIF APP0"
+    off = 4 + 2 + 5 + 2                      # start of units
+    j[off + 1:off + 3] = b"\x00\x00"         # Xdensity
+    j[off + 3:off + 5] = b"\x00\x00"         # Ydensity
+    return bytes(j)
+
+
 def _pdf_with(tmp, blob, w, h):
     """A one-page PDF carrying blob as its only picture, drawn large."""
     doc = pymupdf.open()
@@ -59,6 +80,7 @@ def main():
     pix.clear_with(128)
     jfif = pix.tobytes("jpeg")
     bare = _strip_app0(jfif)
+    nodpi = _zero_dpi(jfif)
 
     print("the trigger: python-docx cannot identify a JPEG with no APP0 segment")
     from docx.image.image import Image as DocxImage
@@ -68,11 +90,25 @@ def main():
             return True
         except Exception:
             return False
+    def usable(b):
+        """Identifying it is not enough - Word needs its size in real units."""
+        try:
+            im = DocxImage.from_blob(b)
+            im.width, im.height
+            return True
+        except Exception:
+            return False
     check("with JFIF header", readable(jfif), True)
     check("with JFIF header stripped", readable(bare), False)
 
+    print("\nand a zero pixel density passes identification, then divides by zero")
+    check("zero-dpi JPEG identifies fine", readable(nodpi), True)
+    check("...but cannot be measured", usable(nodpi), False)
+    check("a normal JPEG can be measured", usable(jfif), True)
+
     print("\nread_images must hand back something Word can actually open")
-    for label, blob in (("normal JPEG", jfif), ("bare JPEG, no JFIF header", bare)):
+    for label, blob in (("normal JPEG", jfif), ("bare JPEG, no JFIF header", bare),
+                        ("JPEG declaring zero dpi", nodpi)):
         pdf = _pdf_with(tmp, blob, 320, 120)
         out = tmp / label.replace(" ", "_").replace(",", "")
         blocks = read_images(str(pdf), out)
@@ -80,6 +116,7 @@ def main():
         if blocks:
             data = Path(blocks[0].image).read_bytes()
             check(f"{label}: Word can read it", readable(data), True)
+            check(f"{label}: Word can measure it", usable(data), True)
 
     print("\na picture drawn many times must not score as lost")
     # Same picture on 4 pages: Word stores it once and points at it 4 times.
