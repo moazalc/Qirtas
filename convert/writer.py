@@ -249,10 +249,17 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     else:
         pf.first_line_indent = Pt(24)
 
-    run = p.add_run(block.text)
-    run.font.size = Pt(size)
-    run.bold = bold
-    _rtl_run(run, size, font, rtl)
+    # One Word run per run of like-formatted text, so a bold phrase inside a
+    # paragraph stays a bold phrase. A heading is bold as a whole, so its own
+    # spans do not get to override that.
+    parts = block.spans if (block.spans and block.kind != HEADING) else \
+        [(block.text, bold, False)]
+    for n, (text, sbold, sital) in enumerate(parts):
+        run = p.add_run((" " if n else "") + text)
+        run.font.size = Pt(size)
+        run.bold = sbold
+        run.italic = sital
+        _rtl_run(run, size, font, rtl)
     return p
 
 

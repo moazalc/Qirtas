@@ -22,7 +22,10 @@ class Block:
     page: int = 0
     level: int = 0            # heading depth, 1-6
     size: float = 0.0         # font size in points, 0 if unknown
-    bold: bool = False
+    bold: bool = False         # whole-block boldness, kept for joining and headings
+    # (text, bold, italic) per run of like-formatted text. Empty when the route
+    # could not read formatting, in which case the writer falls back to `bold`.
+    spans: List[tuple] = field(default_factory=list)
     y: float = 0.0       # top edge on the page, 0 if unknown
     y1: float = 0.0      # bottom edge
     x0: float = 0.0

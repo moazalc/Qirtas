@@ -183,6 +183,7 @@ def read_tags(path):
 # ------------------------------------------------------------ geometry
 
 BOLD_FLAG = 1 << 4
+ITALIC_FLAG = 1 << 1
 
 
 def read_geometry(path):
@@ -214,18 +215,27 @@ def _page_rich(page, i):
     for b in sorted(page.get_text("dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
         if b.get("type") != 0:
             continue
-        text, size, bold, spans = [], 0.0, False, 0
+        text, size, bold, spans = [], 0.0, False, []
         for line in b["lines"]:
             for sp in line["spans"]:
                 if not sp["text"].strip():
                     continue
                 text.append(sp["text"])
                 size = max(size, sp["size"])
-                bold = bold or bool(sp["flags"] & BOLD_FLAG)
-                spans += 1
+                it = bool(sp["flags"] & ITALIC_FLAG)
+                bo = bool(sp["flags"] & BOLD_FLAG)
+                bold = bold or bo
+                # Merge with the previous span when it reads the same. A line
+                # often arrives as a dozen spans of identical formatting, and
+                # one Word run each would bloat the file for no effect.
+                if spans and spans[-1][1] == bo and spans[-1][2] == it:
+                    spans[-1] = (spans[-1][0] + " " + sp["text"], bo, it)
+                else:
+                    spans.append((sp["text"], bo, it))
         if spans:
             out.append(Block(kind=PARAGRAPH, text=_clean(" ".join(text)),
                              page=i, size=round(size, 1), bold=bold,
+                             spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
                              y=round(b["bbox"][1], 1), y1=round(b["bbox"][3], 1),
                              x0=round(b["bbox"][0], 1), x1=round(b["bbox"][2], 1)))
     return _join_lines(out)
@@ -260,6 +270,7 @@ def _join_lines(blocks):
         wide = (a.x1 - a.x0) > 0 and (b.x1 - b.x0) > (a.x1 - a.x0) * 0.4
         if stacked and same_size and open_end and wide:
             a.text = (a.text + " " + b.text).strip()
+            a.spans = a.spans + b.spans
             a.y1 = b.y1
             a.x0 = min(a.x0, b.x0); a.x1 = max(a.x1, b.x1)
         else:
