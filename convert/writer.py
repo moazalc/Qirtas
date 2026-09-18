@@ -4,6 +4,7 @@ The only part that knows about Word. Everything right-to-left lives here -
 paragraph direction, run direction, and the complex-script font - the three
 things every other tool we tested forgets.
 """
+import hashlib
 import re
 from collections import OrderedDict
 from pathlib import Path
@@ -38,6 +39,15 @@ ARABIC_FONT = "Arial"
 BODY_PT = 12
 FIT = 0.95              # small safety margin: a slight overflow turns every page into two
 FOOTNOTE_PT = 9
+# How much of a page a stack of pictures may claim. Measured, not chosen: at
+# 0.95 a picture-only title page still needed two pages, at 0.88 it fitted, and
+# below that nothing more was gained. 0.85 leaves room for the paragraph each
+# picture sits in and for a header taller than the top margin.
+#
+# This has to be right first time. fit.py cannot rescue it: _spilled() matches
+# rendered pages to original ones by shared words and skips any original page
+# that has none, so a page of nothing but pictures is invisible to it.
+IMAGE_PAGE_FILL = 0.85
 HEADING_PT = {1: 16, 2: 14}
 
 
@@ -98,6 +108,100 @@ def _page_setup(doc, model: Doc):  # noqa: C901
     restart.set(qn("w:val"), "eachPage")
     pr.append(restart)
     s._sectPr.append(pr)
+
+
+def _text_column(model):
+    return model.margin_top, model.page_height - model.margin_bottom
+
+
+def _running_furniture(model):
+    """Pictures that are page decoration rather than content.
+
+    A picture whose middle sits outside the text column is not part of the
+    flow - it is a running header or footer. One thesis carries two of them at
+    y=31 with a top margin of 71.6, and emitting them as ordinary paragraphs
+    stole 96pt from every page's 735pt of usable height. That 13% is what drove
+    content steadily onto later pages until the whole document was four pages
+    out of step.
+
+    Only pictures that RECUR are treated this way, because a Word header is
+    drawn on every page: something appearing once is a one-off, and putting it
+    in the header would stamp it across the document. -> {id(block): "header"
+    or "footer"} for the blocks to lift out, plus the file to draw in each.
+    """
+    top, bottom = _text_column(model)
+    outside = [b for b in model.blocks if b.kind == IMAGE and b.image
+               and not (top <= (b.y + b.y1) / 2 <= bottom)]
+    if not outside:
+        return {}, {}
+    pages = max(1, model.pages)
+    groups = {}
+    for b in outside:
+        try:
+            key = hashlib.md5(Path(b.image).read_bytes()).hexdigest()
+        except OSError:
+            continue
+        groups.setdefault(key, []).append(b)
+    lift, draw = {}, {}
+    for key, blocks in groups.items():
+        if len({b.page for b in blocks}) < max(2, pages // 2):
+            continue                       # a one-off, leave it in the flow
+        where = "header" if (blocks[0].y + blocks[0].y1) / 2 < top else "footer"
+        draw.setdefault(where, []).append(blocks[0])
+        for b in blocks:
+            lift[id(b)] = where
+    return lift, draw
+
+
+def _draw_furniture(doc, draw, model):
+    """Put each running picture into the Word header or footer, once."""
+    section = doc.sections[0]
+    column = model.page_width - model.margin_left - model.margin_right
+    for where, blocks in draw.items():
+        part = section.header if where == "header" else section.footer
+        part.is_linked_to_previous = False
+        p = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for b in blocks:
+            width = min(b.x1 - b.x0, column)
+            if width <= 0:
+                continue
+            try:
+                p.add_run().add_picture(b.image, width=Emu(int(width * PT_PER_EMU)))
+            except Exception:
+                continue
+
+
+def _image_fit(model, lift):
+    """How much to shrink each page's pictures so they still fit on one page.
+
+    Pictures are emitted one under another, but in the original they overlap and
+    sit side by side. A title page of 14 pictures stacked to 1158pt against
+    735pt of usable height, so it took two pages - and every page after it was
+    one out of step for the rest of the document.
+
+    -> {page: factor}. 1.0 for pages that already fit, which is nearly all.
+    """
+    top, bottom = _text_column(model)
+    usable = max(1.0, bottom - top)
+    column = model.page_width - model.margin_left - model.margin_right
+    tall = {}
+    for b in model.blocks:
+        if b.kind != IMAGE or id(b) in lift:
+            continue
+        w0 = b.x1 - b.x0
+        if w0 <= 0:
+            continue
+        # Height follows from the width Word will actually use, not from the
+        # rectangle in the PDF: a picture wider than the column gets capped.
+        w = min(w0, column)
+        tall[b.page] = tall.get(b.page, 0.0) + (b.y1 - b.y) * (w / w0)
+    out = {}
+    for page, h in tall.items():
+        room = usable * IMAGE_PAGE_FILL
+        if h > room:
+            out[page] = room / h
+    return out
 
 
 def _interleave(body, pics, model):
@@ -328,8 +432,18 @@ def write(model: Doc, out_path, scale=None):
     _page_setup(doc, model)
 
     scale = scale or {}
+    # Page decoration goes to the header or footer, and a page whose pictures
+    # would not fit gets them shrunk. Both exist to stop a page spilling: one
+    # page taking two pushes every page after it out of step, permanently.
+    lift, draw = _running_furniture(model)
+    if draw:
+        _draw_furniture(doc, draw, model)
+    img_fit = _image_fit(model, lift)
+
     by_page = {}
     for b in model.blocks:
+        if id(b) in lift:
+            continue
         by_page.setdefault(b.page, []).append(b)
 
     # Walk every page of the original, including ones with no text (title pages
@@ -376,7 +490,7 @@ def write(model: Doc, out_path, scale=None):
         column = model.page_width - model.margin_left - model.margin_right
         for b in body + notes:
             if b.kind == IMAGE:
-                para = _emit_image(doc, b, column, k)
+                para = _emit_image(doc, b, column, k * img_fit.get(page, 1.0))
                 if para is None:
                     continue
             elif b.kind == TABLE:

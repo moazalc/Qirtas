@@ -304,7 +304,7 @@ def count_pdf_structure(pdf_path):
 BLIP = re.compile(r"<a:blip\b")
 
 
-def count_docx_structure(docx_path):
+def count_docx_structure(docx_path, pages=1):
     """Pictures are counted where they are PLACED, not where they are stored.
 
     Counting files in word/media/ undercounted badly: Word stores each distinct
@@ -313,16 +313,25 @@ def count_docx_structure(docx_path):
     6/44 = 14% while having lost nothing at all. count_pdf_structure counts
     placements, so this has to count placements too or the two sides are not
     the same question.
+
+    A running header or footer is stored once and drawn by Word on every page,
+    so its one blip stands for `pages` placements - which is how the same
+    decoration is counted on the PDF side, once per page it appears on.
     """
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
-    return xml.count("<w:tbl>"), len(BLIP.findall(xml))
+        furniture = sum(len(BLIP.findall(z.read(n).decode("utf-8")))
+                        for n in z.namelist()
+                        if re.match(r"word/(header|footer)\d*\.xml$", n))
+    return xml.count("<w:tbl>"), len(BLIP.findall(xml)) + furniture * pages
 
 
 def structure_score(orig_pdf, docx_path):
     """-> dict of what the original had and what we produced."""
     ot, oi = count_pdf_structure(orig_pdf)
-    dt, di = count_docx_structure(docx_path)
+    with pymupdf.open(orig_pdf) as d:
+        pages = len(d)
+    dt, di = count_docx_structure(docx_path, pages)
     def keep(want, got):
         if not want:
             return 1.0
