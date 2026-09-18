@@ -11,7 +11,7 @@ Gives two numbers per file:
 
     python -m harness.roundtrip corpus/*.pdf
 """
-import argparse, json, shutil, subprocess, sys, tempfile
+import argparse, atexit, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -24,16 +24,37 @@ SOFFICE = "/snap/bin/libreoffice"
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
 
+_PROFILE = None
+
+
+def _profile():
+    """One LibreOffice profile per process, built once and reused.
+
+    It used to be a fresh throwaway directory per call, which meant LibreOffice
+    built a profile from scratch on every render - and fit.py renders a file up
+    to four times, so that cost was paid five times per document. Building it
+    once per process is most of the speed-up.
+
+    Still one profile PER PROCESS, not one shared globally: concurrent
+    LibreOffice instances cannot share a profile, and pointing several at the
+    same directory makes them fight over the lock file instead of working.
+    """
+    global _PROFILE
+    if _PROFILE is None:
+        _PROFILE = tempfile.mkdtemp(prefix=f"qirtas-lo-{os.getpid()}-")
+        atexit.register(shutil.rmtree, _PROFILE, ignore_errors=True)
+    return _PROFILE
+
+
 def docx_to_pdf(docx, outdir):
-    """LibreOffice, headless, with a throwaway profile so runs don't collide."""
+    """LibreOffice, headless, on this process's own profile."""
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory() as profile:
-        r = subprocess.run(
-            [SOFFICE, "--headless", "--norestore",
-             f"-env:UserInstallation=file://{profile}",
-             "--convert-to", "pdf", "--outdir", str(outdir), str(docx)],
-            capture_output=True, text=True, timeout=300)
+    r = subprocess.run(
+        [SOFFICE, "--headless", "--norestore",
+         f"-env:UserInstallation=file://{_profile()}",
+         "--convert-to", "pdf", "--outdir", str(outdir), str(docx)],
+        capture_output=True, text=True, timeout=600)
     pdf = outdir / (Path(docx).stem + ".pdf")
     if not pdf.exists():
         raise RuntimeError((r.stderr or r.stdout).strip()[:200] or "no pdf produced")

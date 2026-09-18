@@ -10,6 +10,7 @@ opening it during development destroys the only safeguard there is.
     python -m harness.eval --set holdout     # once, at the end
 """
 import argparse, json, random, statistics, sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -27,12 +28,32 @@ def files_for(which, split_path="out/split.json"):
     return [r["file"] for r in rows if r["usable"] and r["set"] == which]
 
 
+def _pages_of(path):
+    try:
+        import pymupdf
+        with pymupdf.open(path) as d:
+            return len(d)
+    except Exception:
+        return 0
+
+
+def score_one(args):
+    """One file, start to finish. Top level so it can be sent to a worker."""
+    f, work = args
+    r = run_one(f, work)
+    cov, _ = coverage(text_of(f), text_of_docx(r["docx"]))
+    r["kept"] = round(cov, 4)
+    return r
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--work", default="out/eval")
+    ap.add_argument("--jobs", type=int, default=6,
+                    help="files in parallel; 1 to run serially")
     ap.add_argument("--json")
     a = ap.parse_args()
 
@@ -44,18 +65,42 @@ def main():
         random.Random(a.seed).shuffle(files)
         files = sorted(files[:a.n])
 
+    # Longest first. With workers running in parallel the run cannot finish
+    # before its slowest file does, so a 432-page document left until last would
+    # sit alone on the critical path with everything else already idle.
+    files.sort(key=_pages_of, reverse=True)
+
     rows, losses = [], []
-    for i, f in enumerate(files, 1):
-        try:
-            r = run_one(f, a.work)
-            cov, _ = coverage(text_of(f), text_of_docx(r["docx"]))
-            r["kept"] = round(cov, 4)
-            rows.append(r)
-            losses.append(cov)
-        except Exception as e:
-            print(f"  {RED}FAIL{OFF} {Path(f).name}: {type(e).__name__}: {e}"[:130])
-        if i % 10 == 0:
-            print(f"{DIM}  ...{i}/{len(files)}{OFF}", flush=True)
+    done = 0
+    if a.jobs > 1:
+        with ProcessPoolExecutor(max_workers=a.jobs) as pool:
+            futures = {pool.submit(score_one, (f, a.work)): f for f in files}
+            for fut in as_completed(futures):
+                done += 1
+                f = futures[fut]
+                try:
+                    r = fut.result()
+                    rows.append(r)
+                    losses.append(r["kept"])
+                except Exception as e:
+                    print(f"  {RED}FAIL{OFF} {Path(f).name}: {type(e).__name__}: {e}"[:130])
+                if done % 10 == 0:
+                    print(f"{DIM}  ...{done}/{len(files)}{OFF}", flush=True)
+    else:
+        for f in files:
+            done += 1
+            try:
+                r = score_one((f, a.work))
+                rows.append(r)
+                losses.append(r["kept"])
+            except Exception as e:
+                print(f"  {RED}FAIL{OFF} {Path(f).name}: {type(e).__name__}: {e}"[:130])
+            if done % 10 == 0:
+                print(f"{DIM}  ...{done}/{len(files)}{OFF}", flush=True)
+
+    # Order of completion is arbitrary under a pool; sort so two runs of the
+    # same set produce byte-identical json.
+    rows.sort(key=lambda r: r["file"])
 
     if not rows:
         return
