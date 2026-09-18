@@ -55,6 +55,9 @@ class Doc:
     font: str = ""       # the document's own Arabic font, if we can tell
     line_spacing: float = 1.15
     line_pitch: float = 0.0     # measured distance between lines, in points
+    # (path, reason) for every picture the writer could not place. Filled by
+    # write(); a silent drop is how one lost picture went unnoticed for weeks.
+    dropped_images: List[tuple] = field(default_factory=list)
 
     def add(self, block: Block):
         if block:

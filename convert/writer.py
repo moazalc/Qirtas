@@ -6,6 +6,7 @@ things every other tool we tested forgets.
 """
 import hashlib
 import re
+import sys
 from collections import OrderedDict
 from pathlib import Path
 
@@ -153,7 +154,7 @@ def _running_furniture(model):
     return lift, draw
 
 
-def _draw_furniture(doc, draw, model):
+def _draw_furniture(doc, draw, model, dropped):
     """Put each running picture into the Word header or footer, once."""
     section = doc.sections[0]
     column = model.page_width - model.margin_left - model.margin_right
@@ -166,10 +167,7 @@ def _draw_furniture(doc, draw, model):
             width = min(b.x1 - b.x0, column)
             if width <= 0:
                 continue
-            try:
-                p.add_run().add_picture(b.image, width=Emu(int(width * PT_PER_EMU)))
-            except Exception:
-                continue
+            _place(p, b.image, width, dropped)
 
 
 def _image_fit(model, lift):
@@ -229,8 +227,10 @@ def _interleave(body, pics, model):
     return out
 
 
-def _emit_table(doc, block, body_pt, font):
+def _emit_table(doc, block, body_pt, font, dropped=None):
     """A real Word table, mirrored so column one sits on the right."""
+    if dropped is None:
+        dropped = []
     rows = [r for r in block.rows if r]
     if not rows:
         return None
@@ -256,11 +256,8 @@ def _emit_table(doc, block, body_pt, font):
             para = cell.paragraphs[0]
             pic = block.cell_images.get((ri, ci))
             if pic:
-                try:
-                    w = (block.col_widths[ci] if ci < len(block.col_widths) else 90) - 6
-                    para.add_run().add_picture(pic, width=Emu(int(max(24.0, w) * PT_PER_EMU)))
-                except Exception:
-                    pass
+                w = (block.col_widths[ci] if ci < len(block.col_widths) else 90) - 6
+                _place(para, pic, max(24.0, w), dropped)
                 if not text.strip():
                     continue
                 para = cell.add_paragraph()
@@ -309,20 +306,39 @@ def _fix_columns(table, widths_pt, rows):
                 pass
 
 
-def _emit_image(doc, block, column_pt, k=1.0):
+def _place(para, path, width_pt, dropped):
+    """Draw a picture into a paragraph. -> True if it went in.
+
+    python-docx identifies an image by its literal signature bytes and raises on
+    anything it does not recognise - a bare DCT JPEG with no APP0/JFIF segment,
+    for instance. The reader re-renders those to PNG before we ever get here, so
+    reaching this `except` means something got past that. Record it: a silent
+    drop is how one missing picture survived weeks of runs unnoticed.
+    """
+    try:
+        para.add_run().add_picture(path, width=Emu(int(width_pt * PT_PER_EMU)))
+        return True
+    except Exception as e:
+        dropped.append((str(path), f"{type(e).__name__}: {e}"))
+        return False
+
+
+def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
     """Place a picture at the width it was drawn at, capped to the text column."""
+    width = (block.x1 - block.x0) * k
+    if width <= 0 or width > column_pt:
+        width = column_pt
     p = doc.add_paragraph()
     _rtl_paragraph(p)
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     pf = p.paragraph_format
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
-    width = (block.x1 - block.x0) * k
-    if width <= 0 or width > column_pt:
-        width = column_pt
-    try:
-        p.add_run().add_picture(block.image, width=Emu(int(width * PT_PER_EMU)))
-    except Exception:
+    if not _place(p, block.image, width, dropped if dropped is not None else []):
+        # Take the paragraph back out. Left in, it is an empty paragraph eating
+        # a line on the page - the same defect the page-break comment in write()
+        # warns about, and it would push pagination out of step for free.
+        p._element.getparent().remove(p._element)
         return None
     return p
 
@@ -430,6 +446,9 @@ def _footnote_ref(run, wid):
 def write(model: Doc, out_path, scale=None):
     doc = Document()
     _page_setup(doc, model)
+    # write() is called repeatedly on the same model by the fit loop, so start
+    # from empty rather than accumulating the same drops once per round.
+    model.dropped_images = []
 
     scale = scale or {}
     # Page decoration goes to the header or footer, and a page whose pictures
@@ -437,7 +456,7 @@ def write(model: Doc, out_path, scale=None):
     # page taking two pushes every page after it out of step, permanently.
     lift, draw = _running_furniture(model)
     if draw:
-        _draw_furniture(doc, draw, model)
+        _draw_furniture(doc, draw, model, model.dropped_images)
     img_fit = _image_fit(model, lift)
 
     by_page = {}
@@ -490,11 +509,13 @@ def write(model: Doc, out_path, scale=None):
         column = model.page_width - model.margin_left - model.margin_right
         for b in body + notes:
             if b.kind == IMAGE:
-                para = _emit_image(doc, b, column, k * img_fit.get(page, 1.0))
+                para = _emit_image(doc, b, column, k * img_fit.get(page, 1.0),
+                                   model.dropped_images)
                 if para is None:
                     continue
             elif b.kind == TABLE:
-                if _emit_table(doc, b, model.body_size * k, model.font) is None:
+                if _emit_table(doc, b, model.body_size * k, model.font,
+                               model.dropped_images) is None:
                     continue
                 para = doc.add_paragraph()
                 _rtl_paragraph(para)
@@ -515,4 +536,12 @@ def write(model: Doc, out_path, scale=None):
         install(str(out_path), build_xml(real_notes,
                                          font=model.font or ARABIC_FONT,
                                          size_pt=max(7.0, model.body_size * 0.78)))
+    if model.dropped_images:
+        n = len(model.dropped_images)
+        print(f"warning: {n} picture{'s' if n > 1 else ''} could not be placed "
+              f"in {Path(out_path).name}", file=sys.stderr)
+        for path, why in model.dropped_images[:5]:
+            print(f"  {Path(path).name}: {why}", file=sys.stderr)
+        if n > 5:
+            print(f"  ... and {n - 5} more", file=sys.stderr)
     return out_path
