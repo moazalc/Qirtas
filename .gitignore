@@ -11,3 +11,6 @@ out/
 #  - corpus/wild/ is ~600MB of PDFs downloaded from Zenodo, reproducible with
 #    `python -m harness.fetch_corpus`
 corpus/
+
+# Corpus archive staged from USB, 556MB. Same reason as corpus/ above.
+corpus.zip

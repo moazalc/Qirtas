@@ -96,6 +96,18 @@ def _lis_weight(items):
     return total
 
 
+MAX_OCCURRENCES = 64     # a phrase repeated more than this tells us nothing new
+
+
+def _positions(hay, s, limit=MAX_OCCURRENCES):
+    """Every place this sentence occurs, in order."""
+    out, i = [], hay.find(s)
+    while i >= 0 and len(out) < limit:
+        out.append(i)
+        i = hay.find(s, i + 1)
+    return out
+
+
 def text_score(a, b, strip_marks=False):
     """0-1. How much of A survives in B, in the same order.
 
@@ -108,20 +120,27 @@ def text_score(a, b, strip_marks=False):
     the longest run of them that appears in increasing order. Substring lookup
     tolerates differences around a sentence; the ordering test is what
     distinguishes text that moved from text that stayed put. O(n log n).
+
+    Every occurrence is offered, not just the first. Taking only the first
+    match silently punished repetition: classical Arabic repeats formulae
+    constantly - صلى الله عليه وسلم appeared 8 times in one chapter - and all 8
+    lookups returned the same position, so at most one could sit on an
+    increasing run and the other 7 were scored as lost. A chapter scored 82.8%
+    against an output that was missing nothing at all. The occurrences of one
+    sentence are offered newest-first so that a run can still take only one.
     """
     sents = _sentences(a, strip_marks)
     if not sents:
         return 0.0
     hay = _norm(b, strip_marks)
     total = sum(len(s) for s in sents)
-    found, at = [], 0
+    found = []
     for s in sents:
-        pos = hay.find(s)
-        if pos < 0 and len(s) > 24:          # allow a damaged edge
+        at = _positions(hay, s)
+        if not at and len(s) > 24:           # allow a damaged edge
             pad = len(s) // 8
-            pos = hay.find(s[pad:-pad])
-        if pos >= 0:
-            found.append((pos, len(s)))
+            at = _positions(hay, s[pad:-pad])
+        found += [(p, len(s)) for p in reversed(at)]
     if not found:
         return 0.0
     return min(1.0, _lis_weight(found) / total)
