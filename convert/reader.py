@@ -275,6 +275,38 @@ HEAD_WORDS = ("المطلب", "المبحث", "الفصل", "تمهيد", "ال�
 ENDS_SENTENCE = (".", "،", "؛", "؟", "!")
 MAX_HEADING_CHARS = 90
 
+# Particles that open a continuation, never a heading. The waw and the fa are
+# written joined to the following word, so "وقد" and "فالقراءة" are caught by
+# their first letter.
+CONNECTIVES = ("و", "ف", "ثم", "بل", "أو", "على", "حتى", "كما", "إذ",
+               "أما", "أمَّا", "لكن", "لأن", "قال")
+COLONS = (":", "：")
+MAX_LABEL_CHARS = 60
+
+
+def _is_label_heading(t):
+    """Is this short line ending in a colon a real sub-heading?
+
+    These theses use no Word heading styles, so a line like "أهداف البحث:" is
+    the only marker a section gets and the rule has to stay. But promoting
+    EVERY colon-terminated line swept up sentence tails - "على قسمين:"
+    ("...into two categories:") became a heading.
+
+    Length cannot separate them: "على قسمين:" is the shortest such line in the
+    corpus and it is wrong, while "مولده وصفاته وبركات بيت النبوَّة عليه:" is
+    the longest and it is right. Grammar separates them. A heading is a noun
+    phrase, so it carries no comma and no second colon, and it does not open
+    with a connective particle - those always continue the sentence before.
+    """
+    t = (t or "").strip()
+    if not t.endswith(COLONS) or len(t) > MAX_LABEL_CHARS:
+        return False
+    if "," in t or "،" in t:            # a comma means a clause, not a label
+        return False
+    if any(c in t[:-1] for c in COLONS):   # "أهمية البحث: البحث له أهميتان,"
+        return False
+    return not t.startswith(CONNECTIVES)
+
 
 def detect_headings(doc):
     """Mark headings.
@@ -303,7 +335,7 @@ def detect_headings(doc):
         t = b.text.strip()
         if len(t) > MAX_HEADING_CHARS or t.endswith(ENDS_SENTENCE):
             continue
-        if t.startswith(HEAD_WORDS) or t.endswith(":") or t.endswith("："):
+        if t.startswith(HEAD_WORDS) or _is_label_heading(t):
             b.kind = HEADING
             b.level = 1 if t.startswith(HEAD_WORDS[:6]) else 2
     return doc
