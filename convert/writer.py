@@ -16,6 +16,8 @@ from docx.shared import Emu, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
+from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
+                               build_xml, install)
 
 PT_PER_EMU = 12700
 RTL_CHARS = re.compile(r"[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]")
@@ -87,6 +89,15 @@ def _page_setup(doc, model: Doc):  # noqa: C901
     s.bottom_margin = Emu(int(model.margin_bottom * PT_PER_EMU))
     if is_rtl(" ".join(b.text for b in model.blocks[:400])):
         _flag(s._sectPr, "w:bidi")       # only when the document really is RTL
+    # These theses restart footnote numbering on every page - page 1 runs 1..4
+    # and page 3 starts again at 1. Word and LibreOffice both number
+    # continuously unless told otherwise, which would renumber that first note
+    # on page 3 as 5.
+    pr = OxmlElement("w:footnotePr")
+    restart = OxmlElement("w:numRestart")
+    restart.set(qn("w:val"), "eachPage")
+    pr.append(restart)
+    s._sectPr.append(pr)
 
 
 def _interleave(body, pics, model):
@@ -212,7 +223,8 @@ def _emit_image(doc, block, column_pt, k=1.0):
     return p
 
 
-def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False):
+def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False,
+          notes=None):
     size = body_pt
     bold = block.bold
     align = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -254,13 +266,61 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     # spans do not get to override that.
     parts = block.spans if (block.spans and block.kind != HEADING) else \
         [(block.text, bold, False)]
-    for n, (text, sbold, sital) in enumerate(parts):
-        run = p.add_run((" " if n else "") + text)
+
+    def add(text, sbold, sital, lead=False):
+        run = p.add_run((" " if lead else "") + text)
         run.font.size = Pt(size)
         run.bold = sbold
         run.italic = sital
         _rtl_run(run, size, font, rtl)
+        return run
+
+    for n, (text, sbold, sital) in enumerate(parts):
+        lead = bool(n)
+        # "ابن مجاهد(2)" - the marker becomes a real reference and the digits
+        # go away, because Word draws the number itself and would otherwise
+        # print it twice.
+        for piece, num in _split_markers(text, notes or {}):
+            if num is None:
+                if piece:
+                    add(piece, sbold, sital, lead)
+                    lead = False
+                continue
+            if num not in notes:          # already used earlier in this page
+                continue
+            _footnote_ref(add("", sbold, sital, lead), _take(notes, num))
+            lead = False
     return p
+
+
+def _split_markers(text, notes):
+    """-> [(text, None) | ("", number)] splitting on markers we have a note for."""
+    out, at = [], 0
+    for m in FN_MARKER.finditer(text):
+        if m.group(1) not in notes:
+            continue
+        out.append((text[at:m.start()], None))
+        out.append(("", m.group(1)))
+        at = m.end()
+    out.append((text[at:], None))
+    return out
+
+
+def _take(notes, num):
+    """A note is referenced once. "(1)" occurring twice on a page is a citation
+    the second time, not a second marker for the same note."""
+    return notes.pop(num)
+
+
+def _footnote_ref(run, wid):
+    """Turn an empty run into a superscript reference to footnote `wid`."""
+    rPr = run._r.get_or_add_rPr()
+    va = OxmlElement("w:vertAlign")
+    va.set(qn("w:val"), "superscript")
+    rPr.append(va)
+    ref = OxmlElement("w:footnoteReference")
+    ref.set(qn("w:id"), str(wid))
+    run._r.append(ref)
 
 
 def write(model: Doc, out_path, scale=None):
@@ -279,10 +339,31 @@ def write(model: Doc, out_path, scale=None):
     pages = OrderedDict((i, by_page.get(i, []))
                         for i in range(max(model.pages, last + 1)))
 
+    real_notes = []          # [(w:id, text)] for footnotes.xml
+    next_id = FIRST_ID
+
     for n, (page, blocks) in enumerate(pages.items()):
         body = [b for b in blocks if b.kind not in (FOOTNOTE, IMAGE, TABLE)]
         pics = [b for b in blocks if b.kind in (IMAGE, TABLE)]
         notes = [b for b in blocks if b.kind == FOOTNOTE]
+
+        # Pair each note with its marker in this page's body. Numbering restarts
+        # on every page, so this has to be done a page at a time. A note whose
+        # marker is nowhere to be found stays an ordinary paragraph at the foot
+        # of the page - the old behaviour - rather than being anchored wrongly.
+        anchors, loose = {}, []
+        page_text = " ".join(b.text for b in body)
+        for b in notes:
+            num, rest = split_number(b.text)
+            if num is None or num in anchors or not rest \
+                    or not FN_MARKER.search(page_text) \
+                    or num not in FN_MARKER.findall(page_text):
+                loose.append(b)
+                continue
+            anchors[num] = next_id
+            real_notes.append((next_id, rest))
+            next_id += 1
+        notes = loose
         body = _interleave(body, pics, model)
         k = scale.get(page, 1.0)
         first = True
@@ -305,7 +386,8 @@ def write(model: Doc, out_path, scale=None):
                 _rtl_paragraph(para)
             else:
                 para = _emit(doc, b, model.body_size * k, model.line_pitch * k, model.font,
-                             first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False))
+                             first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False),
+                             notes=anchors if b.kind != FOOTNOTE else None)
             if first and n:
                 # break BEFORE this paragraph rather than inserting an empty one:
                 # the empty paragraph ate a line on every page and the overflow
@@ -315,4 +397,8 @@ def write(model: Doc, out_path, scale=None):
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))
+    if real_notes:
+        install(str(out_path), build_xml(real_notes,
+                                         font=model.font or ARABIC_FONT,
+                                         size_pt=max(7.0, model.body_size * 0.78)))
     return out_path

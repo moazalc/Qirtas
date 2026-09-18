@@ -35,19 +35,56 @@ def text_of_docx(docx_path):
     """
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
-    parts = re.findall(r"<w:t[^>]*>([^<]*)</w:t>|<w:p[ >]", xml)
-    out, buf = [], []
-    for m in re.finditer(r"<w:p[ >]|<w:t[^>]*>([^<]*)</w:t>", xml):
-        if m.group(0).startswith("<w:p"):
-            if buf:
-                out.append("".join(buf)); buf = []
+        notes = _footnote_texts(z)
+    out, buf, pending = [], [], []
+
+    def end_para():
+        if buf:
+            out.append("".join(buf))
+        buf.clear()
+
+    def end_page():
+        # A real footnote lives in footnotes.xml, but on the PAGE it is printed
+        # at the bottom - and that is where the original PDF's text extraction
+        # finds it too. Flushing each page's notes at its page break puts them
+        # back in the order the original reads in; appending them all at the end
+        # instead cost 15-30 points of order-aware text score for text that had
+        # not moved at all.
+        end_para()
+        out.extend(pending)
+        pending.clear()
+
+    for m in re.finditer(r"<w:p[ >]|<w:t[^>]*>([^<]*)</w:t>"
+                         r"|<w:pageBreakBefore/>"
+                         r'|<w:footnoteReference w:id="(\d+)"/>', xml):
+        tok = m.group(0)
+        if tok.startswith("<w:pageBreakBefore"):
+            end_page()
+        elif tok.startswith("<w:footnoteReference"):
+            if m.group(2) in notes:
+                pending.append(notes[m.group(2)])
+        elif tok.startswith("<w:p"):
+            end_para()
         else:
             buf.append(m.group(1))
-    if buf:
-        out.append("".join(buf))
+    end_page()
     # Word stores text XML-escaped: "A & B" is "A &amp; B" on disk. Without
     # unescaping, every ampersand looked like lost text.
     return html.unescape("\n".join(out))
+
+
+def _footnote_texts(z):
+    """{w:id: text} from word/footnotes.xml, skipping Word's two separators."""
+    if "word/footnotes.xml" not in z.namelist():
+        return {}
+    xml = z.read("word/footnotes.xml").decode("utf-8")
+    out = {}
+    for m in re.finditer(r'<w:footnote (?![^>]*w:type=)[^>]*w:id="(\d+)"[^>]*>'
+                         r'(.*?)</w:footnote>', xml, re.S):
+        body = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", m.group(2)))
+        if body.strip():
+            out[m.group(1)] = body
+    return out
 
 
 ALLWS = re.compile(r"\s+")
