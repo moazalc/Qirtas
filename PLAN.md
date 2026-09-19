@@ -1,6 +1,36 @@
 # Qirtas - Arabic PDF back to Word: the plan
 
-Last updated 2026-09-18.
+Last updated 2026-09-20.
+
+## Picking this up again
+
+State as of 2026-09-20: everything below is committed and pushed to `main`, all
+twelve test suites pass, and the last full dev run gave nothing lost 100.0%,
+words 79.37%, right page 21.75%.
+
+On a machine that has not run this before, `corpus/` and `out/` are both
+gitignored, so **rebuild the corpus and the split before anything else** or
+`harness.eval` has no file list — see README, "corpus". Check `SOFFICE` in
+`harness/roundtrip.py` too; it is an absolute path and will differ.
+
+Next in line, in the order they are worth doing:
+
+1. **Decide the visual-order question** (see "Known unfinished" below). It is
+   the largest known correctness problem, it affects a third of the corpus, and
+   it needs a judgement about what this converter promises rather than a patch.
+   Nothing further is worth measuring while a third of the files can score 99%
+   and be unreadable.
+2. **Periodicals**: detected, then averaged into a mean that is true of neither
+   class. Handle multi-column layout, or put them out of scope in writing.
+3. **Lists**: numbered items flatten into prose. Not detected at all yet.
+4. **`z21312494.pdf`**: nine words genuinely missing, author names and
+   affiliations, across ten of its 432 pages. The only remaining real loss.
+
+Item 5 (is the shrinking fixing real spill, or LibreOffice font-substitution
+spill?) and item 6 (render in Word rather than LibreOffice) both need Word, and
+so need a Windows machine or VM. They are worth doing *after* the above, not
+before: every defect currently known is verifiable straight from the .docx XML,
+which is Word's own ground truth.
 
 ## The problem
 
