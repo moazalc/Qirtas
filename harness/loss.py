@@ -34,6 +34,40 @@ def sentences(t):
             if len(s) >= MIN_SENT]
 
 
+def sentence_pairs(t):
+    """(normalised, as written) per sentence. The raw form keeps the spaces,
+    which is the only place word boundaries still exist after norm()."""
+    out = []
+    for piece in SENT_SPLIT.split(t or ""):
+        n = norm(piece)
+        if len(n) >= MIN_SENT:
+            out.append((n, piece))
+    return out
+
+
+MIN_WORD = 3
+
+
+def words_survive(raw, b, marks=True):
+    """Is every substantial word of this sentence somewhere in the output?
+
+    This is what "order is deliberately ignored" has to mean in practice. A
+    sentence found as one contiguous run is present; a sentence whose words all
+    survive but changed places is ALSO present, because the gate's question is
+    whether text was dropped, not where it ended up. Putting it anywhere else
+    is the page score's business.
+
+    Words under three characters are skipped. They turn up by coincidence far
+    too easily to be evidence in either direction, and requiring them would
+    reintroduce the false alarms this exists to remove.
+    """
+    words = [w for w in (norm(x, marks) for x in raw.split())
+             if len(w) >= MIN_WORD]
+    if not words:
+        return False
+    return all(w in b for w in words)
+
+
 def coverage(orig, out, marks=True):
     """Is every sentence of the original present somewhere in our output?
 
@@ -47,18 +81,24 @@ def coverage(orig, out, marks=True):
     page number glued onto its start does not condemn it.
     """
     b = norm(out, marks)
-    sents = sentences(orig)
-    if not sents:
+    pairs = sentence_pairs(orig)
+    if not pairs:
         return 1.0, []
     gone = []
-    for s in sents:
+    for s, raw in pairs:
         if s in b:
             continue
         pad = max(2, len(s) * 8 // 100)
         if s[pad:-pad] in b:
             continue
+        # Not found as one run. Before calling it lost, check whether its words
+        # are simply somewhere else - see words_survive(). Three holdout files
+        # were being reported as losing text when between them they had lost a
+        # two-character fragment.
+        if words_survive(raw, b, marks):
+            continue
         gone.append(s)
-    return 1 - len(gone) / len(sents), gone
+    return 1 - len(gone) / len(pairs), gone
 
 
 def missing_chunks(orig, out, marks=True, limit=8):
