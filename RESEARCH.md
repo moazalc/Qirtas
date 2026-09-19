@@ -507,8 +507,19 @@ This is where machine-learning *practice* appears, despite there being no model.
 - 6 unpublished Arabic thesis chapters, 1 Arabic Canva poster, 1 Turkish
   LibreOffice document as a left-to-right control. These are the hard cases where
   the text lives only in the hidden layer. They are used as a regression set.
-- ~225 open-access Arabic PDFs downloaded from Zenodo, reproducible with a script
-  in the repository. These represent ordinary well-produced documents.
+- ~225 open-access Arabic PDFs downloaded from Zenodo. These represent ordinary
+  well-produced documents.
+
+  **Reproducible only from the committed manifest, and this is worth stating
+  precisely in any paper.** The fetch script queries Zenodo sorted by
+  `mostrecent`, so re-running it returns the corpus of the day it is run, not
+  this one. Because the train/test split is a hash of the filename, a different
+  file set silently produces a different split, and any score compared across
+  the two is a comparison between different document collections. What makes
+  the corpus reproducible is `corpus/wild/manifest.jsonl`, which pins all 225
+  Zenodo record IDs; `fetch_corpus --from-manifest` re-downloads exactly those.
+  Records withdrawn from Zenodo after the manifest was written are unrecoverable
+  and are reported rather than skipped.
 
 **A stated corpus caveat, which belongs in any paper:** Zenodo is academic
 publishing and its documents may be better-produced than the ordinary office

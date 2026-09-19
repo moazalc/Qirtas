@@ -8,10 +8,21 @@ State as of 2026-09-20: everything below is committed and pushed to `main`, all
 twelve test suites pass, and the last full dev run gave nothing lost 100.0%,
 words 79.37%, right page 21.75%.
 
-On a machine that has not run this before, `corpus/` and `out/` are both
-gitignored, so **rebuild the corpus and the split before anything else** or
-`harness.eval` has no file list — see README, "corpus". Check `SOFFICE` in
-`harness/roundtrip.py` too; it is an absolute path and will differ.
+On a machine that has not run this before, the PDFs are gitignored, so restore
+them before anything else:
+
+    .venv/bin/python -m harness.fetch_corpus --from-manifest --out corpus/wild
+
+**`--from-manifest`, not a fresh `--n 120` search.** The search sorts by
+`mostrecent` and returns whatever Zenodo holds that day; a different file set
+means a different filename-hash split, and every number in this file becomes a
+measurement of some other collection of documents. Nothing warns you.
+`corpus/*.pdf` were never published and no command restores them — copy those
+across by hand. `out/split.json` and `corpus/wild/manifest.jsonl` are committed
+and need no rebuilding.
+
+Check `SOFFICE` in `harness/roundtrip.py` too; it is an absolute path and will
+differ per machine.
 
 Next in line, in the order they are worth doing:
 
@@ -532,3 +543,17 @@ Every one of these made the numbers lie before it was found:
    what left. Three files vanished this way from the first holdout run without
    the summary line mentioning it. If a run reports fewer files than the set
    holds, that gap is the story.
+
+11. **The corpus was documented as reproducible and was not.** `.gitignore` and
+   the README both said `corpus/wild/` rebuilds with `fetch_corpus`. It does
+   not: the Zenodo query sorts by `mostrecent` and returns whatever exists the
+   day it runs. Since the split is a hash of the filename, a rebuilt corpus is a
+   *different* split, and every score in this file would have become a number
+   about some other collection of documents — with no warning, because the run
+   succeeds and prints a mean either way.
+   The thing that actually pinned it, `manifest.jsonl`, was sitting **inside the
+   gitignored corpus directory**, where a fresh checkout could never see it.
+   `out/split.json` was in the same trap. Both are now committed and
+   `--from-manifest` restores by record ID (2026-09-20).
+   **Found by being asked whether the corpus could go in git** — not by any run,
+   and it would have surfaced as inexplicable score drift on a new machine.

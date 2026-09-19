@@ -55,20 +55,35 @@ Also needed:
 
 ## corpus
 
-Not committed, and not reconstructible from this repo alone. `corpus/*.pdf` are
-unpublished thesis chapters (not ours to publish); `corpus/wild/` is ~600MB of
-open-access PDFs from Zenodo, which rebuild with:
+The PDFs are not committed — `corpus/*.pdf` are unpublished thesis chapters (not
+ours to publish) and `corpus/wild/` is ~570MB of open-access PDFs from Zenodo.
+Two small files that describe the corpus **are** committed, and they are what
+makes a fresh checkout usable:
 
-    .venv/bin/python -m harness.fetch_corpus --n 120 --out corpus/wild
-    .venv/bin/python -m harness.split corpus/wild/*.pdf --write out/split.json
+    corpus/wild/manifest.jsonl   225 Zenodo record IDs - the wild corpus itself
+    out/split.json               dev/holdout membership, usable flags, refusals
 
-`out/` is gitignored too, so a fresh checkout has **no `out/split.json` and no
-previous eval results**. Run the two commands above before anything else, or
-`harness.eval` will have no file list to work from.
+To rebuild the wild corpus on a new machine:
 
-The split is by `sha256(filename) % 1000 < 400`, stratified by producer family,
-so it is stable across machines: the same file lands in the same set here and in
-the office. Previous scores remain comparable.
+    .venv/bin/python -m harness.fetch_corpus --from-manifest --out corpus/wild
+
+**Use `--from-manifest`, not a fresh search.** Running `fetch_corpus --n 120`
+does not rebuild this corpus; it builds *a* corpus. The Zenodo query sorts by
+`mostrecent`, so it returns whatever Arabic publications exist on the day it
+runs. The split is `sha256(filename) % 1000 < 400`, so a different file set is a
+different dev/holdout membership — and every score in `PLAN.md` quietly becomes
+a number measured against some other collection of documents. Nothing warns you;
+the run simply succeeds and reports a mean.
+
+Restoring by manifest keeps the split identical across machines, which is the
+only reason previous scores stay comparable.
+
+`--from-manifest` reports any record Zenodo has withdrawn since, and exits
+non-zero. Don't wave that through: a corpus one file short still scores fine.
+
+`corpus/*.pdf` cannot be restored by any command — they were never published.
+Copy them across by hand. Everything else under `out/` is regenerated output
+and is meant to be absent on a fresh checkout.
 
 ## running it
 
