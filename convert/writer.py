@@ -14,7 +14,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Emu, Pt
+from docx.shared import Emu, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
@@ -114,6 +114,42 @@ def _rtl_run(run, size, font=None, rtl=True):
     sz = OxmlElement("w:szCs")          # complex-script size is separate from w:sz
     sz.set(qn("w:val"), str(int(size * 2)))
     rPr.append(sz)
+
+
+MAX_HEADING = 6
+
+
+def _heading_style(p, level):
+    """Make this paragraph a real Word heading, without letting Word restyle it.
+
+    Applying the style is what gives the document structure: a table of
+    contents, the navigation pane, and an outline level that other tools can
+    read. Bold text at a larger size looks like a heading and is not one.
+
+    The catch is that Word's built-in Heading styles carry their own font,
+    size, colour and paragraph spacing, and all four would override what this
+    converter measured from the original. Spacing especially - the page-fitting
+    loop assumes the gaps it set are the gaps in the file, and a style quietly
+    adding 12pt before every heading would push pages out of step.
+
+    So the style goes on first and every property we care about is re-asserted
+    over it afterwards, by the caller. The only thing settled here is the
+    colour, which the style would otherwise make blue.
+    """
+    level = max(1, min(MAX_HEADING, int(level or 2)))
+    try:
+        p.style = f"Heading {level}"
+    except KeyError:
+        # A style absent from the template is not worth losing the heading
+        # over; the outline level below still carries the structure.
+        pass
+    pr = p._element.get_or_add_pPr()
+    for tag in ("w:outlineLvl", "w:numPr"):
+        for old in pr.findall(qn(tag)):
+            pr.remove(old)
+    lvl = OxmlElement("w:outlineLvl")
+    lvl.set(qn("w:val"), str(level - 1))       # 0-based in OOXML
+    pr.append(lvl)
 
 
 def _top_border(p):
@@ -399,6 +435,8 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     if not rtl:
         align = WD_ALIGN_PARAGRAPH.LEFT if block.kind != HEADING else WD_ALIGN_PARAGRAPH.LEFT
     p = doc.add_paragraph()
+    if block.kind == HEADING:
+        _heading_style(p, block.level or 2)
     _rtl_paragraph(p, rtl)
     p.alignment = align
 
@@ -431,6 +469,10 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         run.font.size = Pt(size)
         run.bold = sbold
         run.italic = sital
+        if block.kind == HEADING:
+            # Stated outright, not left to inherit. Word's Heading styles are
+            # blue (#2F5496), and the original document's headings are not.
+            run.font.color.rgb = RGBColor(0, 0, 0)
         _rtl_run(run, size, font, rtl)
         return run
 
