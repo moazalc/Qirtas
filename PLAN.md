@@ -354,6 +354,42 @@ page out, where under v3 the worst was four.
         z22245438.pdf, that had never been run, so the rule detects a class
         rather than the one file that happened to crash.
 
+## Layout work, 2026-09-19
+
+Prompted by rendering pages and looking at them rather than by any number. An
+audit of a converted file found 239 bold runs, 87 justified paragraphs, 91
+first-line indents — and **zero `w:pStyle`**.
+
+12. DONE. **Reversed lam-alef ligatures repaired** (`convert/arabic.py`). Two
+    unambiguous cases: a standalone ال, which cannot exist because the definite
+    article is a prefix (773 occurrences, 37 of 40 files); and ا + أإآا + ل,
+    because two alef forms cannot sit together (282 occurrences). Applied in
+    the reader AND in the checker's `text_of` — it must be both, or our
+    corrected output stops matching the still-mangled original it is scored
+    against and a real fix reads as a regression.
+
+    The two rules then competed. The reader and the checker extract through
+    different pymupdf modes which disagree about where spaces fall, so one saw
+    اآللف and the other ال آلف, and the same word came out الآلف on one side
+    and لا آلف on the other. `z21763864.pdf` lost its hard gate at 98.89% until
+    an ال followed by an alef form was excluded from the standalone rule.
+
+13. DONE. **Headings are real Word headings** — `Heading 1`–`6` with explicit
+    outline levels, so a table of contents and the navigation pane work. The
+    style is applied first and our measured formatting re-asserted over it,
+    because Word's Heading styles carry their own font, size, colour and
+    **spacing**, and spacing is what `fit.py` depends on. Colour is stated
+    outright: Word's Heading 1 is #2F5496, blue, and these documents are not.
+
+14. DONE. **Left-to-right paragraphs are justified too.** The line read
+    `align = LEFT if block.kind != HEADING else LEFT` — both arms identical, so
+    the condition never did anything and every Latin-script paragraph came out
+    ragged-right against a justified original.
+
+Measured over all 102 dev files: nothing lost 100.0% (worst file 100.0%), words
+79.37% against 79.34%, right page 21.75% against 21.47%. No file scored worse
+than before; one improved 88.2% -> 93.0%.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
@@ -379,6 +415,30 @@ page out, where under v3 the worst was four.
   wrong is positional.
 - **Inline bold and italic are carried but almost never seen** - see item 8.
 - **Shrinkage is judged by LibreOffice, not Word** - see item 5.
+- **Text layers stored in VISUAL order, and the scorer cannot see them.** This
+  is the largest known correctness problem in the project. Some Arabic PDFs -
+  typically LaTeX output - position every glyph individually and store the
+  character stream already reversed. The page displays perfectly; the text
+  underneath runs backwards. We reproduce it faithfully, Word applies
+  right-to-left a second time, and the double reversal is unreadable.
+
+  **The score is structurally blind to it**: our reversed output is compared
+  against the same reversed source, so the two agree. `z21889411.pdf` scores
+  99.9% on text and 130 pages to 130 - it was called the best pagination result
+  in this project - and no one can read a word of its output.
+
+      56 of 172 usable corpus files (32.6%) are stored this way
+      20 of the 70 holdout files
+      7 of those 20 score >=95% text, two of them exactly 100%
+
+  Detection is cheap and already prototyped: count common function words
+  against their reversals, and the two cases separate by an order of magnitude.
+  What to DO about it is a real decision and not only a technical one - reorder
+  the text and risk mangling documents that are partly correct, or refuse such
+  files the way `z22244578.pdf` is refused. Either changes what this converter
+  promises, so it needs deciding rather than defaulting.
+
+  Found by rendering a page and looking at it. Not by any metric.
 - **Periodicals are detected and then ignored.** `harness/doctype.py` tells a
   newspaper page from an ordinary one by body font size, and the holdout showed
   why that mattered: ordinary documents place 29.4% of words on the right page,
@@ -392,8 +452,15 @@ page out, where under v3 the worst was four.
 
 Every one of these made the numbers lie before it was found:
 
-1. **LibreOffice reverses Arabic letter pairs** (لا -> ال) when exporting our
-   .docx to PDF. Text is now read from the .docx directly and never rendered.
+1. **~~LibreOffice reverses Arabic letter pairs~~ (لا -> ال) — WRONG, and the
+   wrong explanation sat here long enough to be repeated as fact.** The
+   reversal is in the SOURCE pdf. لا is a ligature, one glyph, and the font's
+   ToUnicode table lists its two letters backwards, so it extracts as ال. The
+   .docx carries the reversed pair before LibreOffice is invoked at all, and
+   correctly-ordered words sit on the same line; the codepoints are ALEF then
+   LAM straight out of pymupdf. Repaired in `convert/arabic.py` (2026-09-19).
+   Reading text from the .docx rather than a render is still right, but for the
+   ordinary reason that a render adds the renderer's own layout and shaping.
 2. **Word stores text XML-escaped**, so every "&" looked like lost text.
 3. **Word-level scoring punished correctness**: PDF extraction glues
    line-broken words ("أنهلا"); joining them properly changed every token.

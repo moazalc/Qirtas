@@ -815,6 +815,17 @@ heavy paper these are often the most useful parts for other researchers.
   cautionary detail.
 - **Multi-column periodicals are out of the system's competence**, at 8.8%
   right-page placement against a ~13% chance floor. Detected but not handled.
+- **About a third of the corpus stores its text layer in visual order, and the
+  evaluation cannot detect it.** Such PDFs position every glyph individually
+  and store the character stream reversed; the page displays correctly and the
+  extracted text runs backwards. The converter reproduces it, Word applies
+  right-to-left again, and the output is unreadable — while scoring near 100%,
+  because our reversed output is compared against the same reversed source.
+  56 of 172 usable files (32.6%), 20 of the 70 holdout files, and 7 of those 20
+  score 95% or better. Any aggregate in this document includes them. This is
+  the clearest instance of the paper's own thesis: a reference-free metric that
+  compares a system against its own input cannot see a failure the input
+  already contains.
 - **`page_score` is not exactly reproducible.** The same 68 files run twice on
   identical code agreed on 66 and differed on two, by 0.07 and 0.54 points.
   LibreOffice rendering varies slightly between runs and the layout feedback
