@@ -43,11 +43,19 @@ def main():
     print("a standalone alef-lam is a mangled lam-alef")
     check("mid sentence", repair_lam_alef("وهذا ال يمكن قبوله"),
           "وهذا لا يمكن قبوله")
-    check("at the start", repair_lam_alef("ال يجوز ذلك"), "لا يجوز ذلك")
-    check("at the very end", repair_lam_alef("قال ال"), "قال لا")
+    # Deliberately NOT repaired at the very start or end of the string. The
+    # reader repairs block by block and the checker repairs the whole document,
+    # so an ال at a block edge looks standalone to one and not the other; they
+    # then fire different rules and our output stops matching what it is scored
+    # against. z21763864.pdf regressed to 98.89% exactly this way.
+    check("at the start of the string, left alone",
+          repair_lam_alef("ال يجوز ذلك"), "ال يجوز ذلك")
+    check("at the very end, left alone", repair_lam_alef("قال ال"), "قال ال")
+    check("but repaired with text on both sides",
+          repair_lam_alef("وقال ال يجوز"), "وقال لا يجوز")
     check("before punctuation", repair_lam_alef("قال: ال."), "قال: لا.")
-    check("more than one", repair_lam_alef("ال هذا و ال ذاك"),
-          "لا هذا و لا ذاك")
+    check("more than one", repair_lam_alef("قال ال هذا و ال ذاك بل"),
+          "قال لا هذا و لا ذاك بل")
 
     print("\nbut the definite article, which is attached, must not be touched")
     check("attached to a noun", repair_lam_alef("الكتاب مفيد"), "الكتاب مفيد")
@@ -80,6 +88,25 @@ def main():
           "والاستثمار العقاري")
     check("a word that really does contain alef-lam-alef-lam",
           repair_lam_alef("الالتزام كامل"), "الالتزام كامل")
+
+    print("\nthe two rules must not compete over the same word")
+    # z21763864.pdf: the reader and the checker extract the same page by
+    # different pymupdf modes, and those disagree about where spaces fall. One
+    # yields اآل contiguously (trigram rule -> الآ), the other ال آل (standalone
+    # rule -> لا آل). The same words then differed between our output and the
+    # text it is scored against, and the hard gate dropped to 98.89%.
+    #
+    # An ال followed by an alef form is a split ligature, not a standalone word.
+    # Left alone, it reads as الآ once whitespace is normalised - matching what
+    # the contiguous side produces.
+    # Same word both ways: الآلف, mangled. Contiguous it is اآللف; spaced, the
+    # other extraction mode splits it as ال آلف.
+    check("contiguous form", repair_lam_alef("عىل اآللف من"), "عىل الآلف من")
+    check("spaced form is left for normalisation, not turned into لا",
+          repair_lam_alef("عىل ال آلف من"), "عىل ال آلف من")
+    check("both agree once spaces are stripped",
+          repair_lam_alef("عىل اآللف من").replace(" ", ""),
+          repair_lam_alef("عىل ال آلف من").replace(" ", ""))
 
     print("\nbut a word that legitimately starts alef-hamza-lam is untouched")
     # ألف, ألم, ألوان all begin أل and are perfectly ordinary words. Only the

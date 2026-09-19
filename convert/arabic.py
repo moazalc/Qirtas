@@ -19,7 +19,34 @@ import re
 # sides, an ال can only be a broken لا. Measured over 25 corpus files: 773
 # occurrences, no legitimate ones.
 LAM, ALEF = "ل", "ا"
-_STANDALONE_AL = re.compile(rf"(?<!\w){ALEF}{LAM}(?!\w)")
+
+# A real character is required on BOTH sides, rather than the simpler
+# (?<!\w)...(?!\w), because that form treats the START or END of the string as
+# a boundary - and the reader repairs text one block at a time while the
+# checker repairs the whole document at once. An ال sitting at a block edge
+# therefore looked standalone to one and mid-word to the other, and the two
+# fired different rules on the same words: z21763864.pdf came out with لاآلف
+# where the checker expected الآلف, and the hard gate dropped to 98.89%.
+#
+# The cost is that an ال truly beginning or ending a block is left alone. That
+# is the right side to err on: a missed repair leaves text as the PDF gave it,
+# while a divergent repair makes our output disagree with what it is scored
+# against, which is worse than the defect.
+_BOUND = r"\s،؛:.!؟\"'()\[\]«»\-"
+HAMZA_ALEFS = "أإآا"
+
+# The trailing lookahead is what stops the two repairs below from competing.
+# The reader and the checker extract the same page by different pymupdf modes,
+# and those disagree about where spaces go: one yields اآل contiguously, the
+# other ال آل. The trigram rule fires on the first, the standalone rule on the
+# second, and the same words come out الآ in one and لا آ in the other - which
+# is how z21763864.pdf lost its hard gate at 98.89%.
+#
+# An ال followed by an alef form is a split ligature, not a standalone word, so
+# it is left for the trigram rule (or left alone, which after whitespace
+# normalisation reads the same as the trigram result).
+_STANDALONE_AL = re.compile(
+    rf"(?<=[{_BOUND}]){ALEF}{LAM}(?=[{_BOUND}])(?![{_BOUND}]*[{HAMZA_ALEFS}])")
 
 # لا is not the only lam-alef ligature: لأ لإ لآ are ligatures too, and the same
 # reversed ToUnicode turns them into أل إل آل. After the definite article that
@@ -32,7 +59,7 @@ _STANDALONE_AL = re.compile(rf"(?<!\w){ALEF}{LAM}(?!\w)")
 # Plain ALEF belongs in this class too: الاستثمار arrives as االستثمار, the
 # same reversal with the plain-alef ligature. Two alefs in a row are no more
 # possible than an alef beside a hamza-alef, so it is the same safe trigram.
-HAMZA_ALEFS = "أإآا"
+# (HAMZA_ALEFS is defined above, where the standalone rule needs it.)
 _AL_HAMZA = re.compile(rf"{ALEF}([{HAMZA_ALEFS}]){LAM}")
 
 
