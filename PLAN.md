@@ -97,16 +97,31 @@ scores will never reach 100% even when the output is right. Watch the trend.
     v3  measured layout, page alignment      100%      96.7%      65%
     v4  images, footnotes, page decoration   100%      98.3%      49%
 
-    on 14 unseen files pulled from the wild: no text lost 100%,
-    words 97.9%, right page 23%  (v3 figures; not re-run since)
+    on 70 unseen files, the holdout opened once at the end (2026-09-19):
+    ordinary documents  words 92.2%, right page 29.4%, n=61
+    periodicals         words 42.0%, right page  8.8%, n=9
 
 The v0-v3 rows are kept as they were recorded, but **they were measured with a
 scorer that has since been found wrong twice** - see below. Do not compare them
 against v4.
 
-**No text lost is the hard gate** and it holds on all 22 files. "Right page"
-means words landing on the matching page; unrelated documents score ~13%, so it
-is measured against that floor, not against zero.
+**No text lost is the hard gate, and on 2026-09-19 it broke for the first
+time.** It had held on every one of the 22 files that had ever been looked at.
+On the 70 files of the holdout, three lose text:
+
+    z21762343.pdf   kept 95.83%    18 -> 30 pages
+    z20251974.pdf   kept 99.19%    10 -> 12 pages
+    z21312494.pdf   kept 99.80%   432 -> 516 pages
+
+Identical across two independent runs, so this is deterministic and
+reproducible rather than a crash or a fluke. All three also inflate their page
+count well past the 1.50x median, which suggests the loss and the pagination
+blowup are one fault seen twice, not two. This is the most serious thing in
+this document: every other item is a quality problem, and this one is a broken
+guarantee.
+
+"Right page" means words landing on the matching page; unrelated documents
+score ~13%, so it is measured against that floor, not against zero.
 
 **The drop from 65% to 49% on right page is not a regression, and the jump to
 98.3% on words is not an improvement.** Both are the scorer changing under us.
@@ -276,7 +291,43 @@ page out, where under v3 the worst was four.
 
 **Last**
 
-11. Open the holdout set once, to find out whether any of this generalised.
+11. DONE (2026-09-19). Opened the holdout once. **It generalised.** Against the
+    development set, the unseen files are equal or better on every
+    document-class statistic:
+
+        class                  n    words   median   right page   >=95%
+        dev  document         21    91.9%    98.6%       25.5%      71%
+        holdout document      61    92.2%    99.1%       29.4%      77%
+        dev  periodical        9    29.9%       -        13.4%       -
+        holdout periodical     9    42.0%    32.6%        8.8%      11%
+
+    Rules overfit as readily as models do, so this was the question the split
+    existed to answer, and the answer is that the eight files developed against
+    did not become the only eight files this works on.
+
+    Four things must be read alongside that:
+
+      - **The hard gate broke** on three of these files - see Progress above.
+      - **Periodicals score 8.8% on right page, below the ~13% chance floor.**
+        On newspaper layout this converter is worse than pairing two unrelated
+        documents. `harness/doctype.py` detects them; nothing acts on it yet.
+      - **The first run silently dropped three files.** They crashed on control
+        characters XML cannot hold, `eval.py` caught it per file, and the
+        average was quietly taken over the survivors. Fixed in 17d7a25; the
+        re-run scores 70 files with nothing dropped. Both runs are kept
+        (`out/eval_holdout.json`, `out/holdout_postfix.json`) and reported
+        together, because looking at a holdout twice is only dishonest if you
+        SELECT between the results. On the 68 files common to both, the fix
+        moved nothing: words 85.4% -> 85.4%, right page 26.5% -> 26.5%.
+      - **One file was excluded as unusable, and that is a real decision.**
+        z22244578.pdf's fonts carry no usable ToUnicode map, so 117 of its 131
+        pages extract as mojibake. Once the writer stopped crashing, that file
+        would have entered the corpus and scored its nonsense against an
+        equally nonsensical round-trip - a rising average caused by a broken
+        file starting to pass. `harness/split.py` now judges the text layer and
+        refuses such files with a stated reason. It caught a dev file too,
+        z22245438.pdf, that had never been run, so the rule detects a class
+        rather than the one file that happened to crash.
 
 ## Known unfinished
 
@@ -303,6 +354,14 @@ page out, where under v3 the worst was four.
   wrong is positional.
 - **Inline bold and italic are carried but almost never seen** - see item 8.
 - **Shrinkage is judged by LibreOffice, not Word** - see item 5.
+- **Periodicals are detected and then ignored.** `harness/doctype.py` tells a
+  newspaper page from an ordinary one by body font size, and the holdout showed
+  why that mattered: ordinary documents place 29.4% of words on the right page,
+  periodicals 8.8%, which is *below* the ~13% two-unrelated-documents floor.
+  Averaging the two produces a number true of neither. The detection exists so
+  the classes can be reported apart; nothing yet acts on it. Two honest ways
+  out - handle multi-column layout, or put periodicals out of scope in writing.
+  Quietly leaving them in the mean is not one of them.
 
 ## Measurement caveats, learned the hard way
 
@@ -324,3 +383,20 @@ Every one of these made the numbers lie before it was found:
 7. **The fonts these documents ask for are not installed here** (only Noto
    Arabic is), so LibreOffice substitutes a wider face when rendering. Some of
    the remaining page inflation is this, not us.
+
+8. **`page_score` is not exactly reproducible.** Running the same 68 files
+   twice on the same code gave identical results on 66 of them and differed on
+   two, by 0.07 and 0.54 points - `page_score` only; `text_score`, `kept` and
+   the page counts matched exactly. LibreOffice does not render identically
+   every time, and `fit.py` decides which pages spilled by looking at what it
+   rendered, so a hairline difference there can change a shrink decision.
+   **Treat any `page_score` movement under about half a point as noise.**
+   Several comparisons in this file are finer-grained than that and should not
+   be trusted at that resolution.
+
+9. **A crash removes a file from the average instead of failing the run.**
+   `eval.py` catches per file so one bad document cannot cost a whole run, but
+   the printed mean is then taken over the survivors and says nothing about
+   what left. Three files vanished this way from the first holdout run without
+   the summary line mentioning it. If a run reports fewer files than the set
+   holds, that gap is the story.

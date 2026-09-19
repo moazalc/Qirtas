@@ -597,6 +597,65 @@ methodological claim *is* the measuring instrument. It is direct evidence for
 the discipline §5 and §7 argue for — negative controls, and a scorer with its
 own test suite — rather than an embarrassment to be smoothed over.
 
+### The holdout, opened once (2026-09-19)
+
+Everything above was measured on files available during development. The
+holdout set answers the only question that matters about a rule-based system:
+**rules overfit as readily as models do**, and hand-tuning eight files until
+they look good is indistinguishable from progress when you only ever look at
+those eight.
+
+Split by a hash of the filename, stratified by producer, sealed from the start
+and opened once at the end. Reported by document class, because a newspaper
+front page in five columns at 6.4pt and a book page are different problems and
+their average is true of neither:
+
+    class                  n    words   median   right page   median   >=95%
+    dev  document         21    91.9%    98.6%       25.5%     16.9%     71%
+    holdout document      61    92.2%    99.1%       29.4%     21.4%     77%
+    dev  periodical        9    29.9%    30.0%       13.4%     12.7%      0%
+    holdout periodical     9    42.0%    32.6%        8.8%      1.2%     11%
+
+**The unseen files score equal or better than the development files on every
+document-class statistic** — mean, median, and the share of files above 95%.
+The rules did not merely fit the files they were written against.
+
+Three qualifications belong in any paper that quotes these numbers.
+
+**The hard gate broke.** Three holdout files lose text: 95.83%, 99.19% and
+99.80% kept. Until this run, "no text is ever lost" had held on every file ever
+examined, and it was stated as a guarantee. It is not one. All three also
+inflate page counts far past the 1.50x median, so the loss and the pagination
+fault are plausibly the same defect.
+
+**Periodicals score below chance.** At 8.8% on right-page placement they are
+worse than the ~13% floor set by comparing two unrelated documents. This is a
+genuine scope boundary, found by measurement rather than assumed.
+
+**The first run silently dropped three files, and that is a methodological
+finding in its own right.** They crashed on control characters XML cannot
+represent; the harness caught the exception per file so one bad document could
+not cost a whole run, and then printed a mean over the survivors without
+mentioning the absence. The reported average was quietly conditioned on not
+crashing. After the fix (`17d7a25`) the set runs 70 files with nothing dropped.
+
+Both runs are kept and reported together rather than the better one being
+quoted. Looking at a holdout twice is only dishonest if you *select* between
+the results. On the 68 files common to both runs the fix changed nothing —
+words 85.4% -> 85.4%, right page 26.5% -> 26.5% — which is the evidence that it
+only ever touched characters that would otherwise have raised.
+
+One file was excluded as unusable rather than repaired, and the reasoning is
+the interesting part. `z22244578.pdf`'s fonts carry no usable ToUnicode map, so
+extraction returns raw glyph indices and 117 of its 131 pages read as mojibake.
+Stripping the illegal characters would have stopped the crash and let the file
+into the corpus, where its nonsense would have been compared against an equally
+nonsensical round-trip — very possibly scoring *well*, and raising the average
+because a broken file had started to pass. The check that refuses it lives in
+`harness/split.py` and judges the source document, not our output. It caught a
+second file in the dev set that had never been run, which is the evidence it
+detects a class rather than the one file that happened to crash.
+
 ### Baseline for comparison
 
 The first version (`convert/v0.py`) dumps extracted text into a right-to-left
@@ -690,6 +749,12 @@ A paper drawn from this work can honestly report:
   discriminating power, and discarded (ink density for page alignment, §5).
 - Three failed text-scoring algorithms before one worked (§5).
 - One documented instance of overfitting caught by a holdout set (§7).
+- A sealed holdout opened once, reporting that the rules did generalise (§8) —
+  and, in the same run, a guarantee that had held for the project's whole life
+  breaking on unseen data.
+- One instance of an evaluation harness quietly conditioning its own average on
+  not crashing, and the reasoning for excluding an unreadable source document
+  rather than letting a fix launder it into the corpus (§8).
 
 Work that reports what did not work is more credible, and in an engineering-
 heavy paper these are often the most useful parts for other researchers.
@@ -718,3 +783,16 @@ heavy paper these are often the most useful parts for other researchers.
 - **One file resists explanation.** `مقدمة البحث` moved only 26% → 31% where
   its siblings reached ~50%, with perfect text and picture scores. Reporting an
   undiagnosed outlier is better than quoting only the aggregate.
+- **The "no text lost" gate is not a guarantee.** It was described as one for
+  most of this project's life, on the strength of holding across every file
+  then available. Three of the 70 holdout files break it, the worst keeping
+  95.83%. A claim that survives only until the sample grows was a claim about
+  the sample.
+- **Multi-column periodicals are out of the system's competence**, at 8.8%
+  right-page placement against a ~13% chance floor. Detected but not handled.
+- **`page_score` is not exactly reproducible.** The same 68 files run twice on
+  identical code agreed on 66 and differed on two, by 0.07 and 0.54 points.
+  LibreOffice rendering varies slightly between runs and the layout feedback
+  loop reads its own rendered output, so a hairline difference can flip a
+  shrink decision. Differences below about half a point are noise, which is
+  finer than several comparisons quoted in this document.
