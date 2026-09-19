@@ -5,9 +5,13 @@ Two separate scores, because they fail for different reasons:
   text_score   did the words survive, in the right order?  (immune to fonts)
   ink_score    does the page still LOOK the same?          (catches layout loss)
 """
-import collections, difflib, html, re, zipfile
+import collections, difflib, html, re, sys, zipfile
+from pathlib import Path
 import numpy as np
 import pymupdf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from convert.arabic import repair_lam_alef
 
 WORD = re.compile(r"\S+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")   # harakat + tatweel
@@ -21,17 +25,28 @@ def words(text, strip_marks=False):
 
 
 def text_of(pdf_path):
+    # Repaired here as well as in the reader, and it must be both. The repair
+    # fixes text the SOURCE pdf hands over backwards, so if only our output
+    # were corrected it would stop matching the still-mangled original it is
+    # scored against, and fixing a real defect would read as a regression.
     with pymupdf.open(pdf_path) as d:
-        return "\n".join(pg.get_text("text") for pg in d)
+        return repair_lam_alef("\n".join(pg.get_text("text") for pg in d))
 
 
 def text_of_docx(docx_path):
     """Read the Word file's own text.
 
-    The text score must never go through LibreOffice: its PDF export reverses
-    some Arabic letter pairs (لا -> ال), so scoring a rendered PDF measures
-    LibreOffice's bug instead of ours. Rendering is only needed for the look
-    score, where we compare pictures.
+    The text score must never go through LibreOffice: a render round-trip adds
+    its own layout and shaping differences, so scoring a rendered PDF measures
+    the renderer as much as us. Rendering is only needed for the look score,
+    where we compare pictures.
+
+    This used to say that LibreOffice reverses Arabic letter pairs (لا -> ال).
+    That was wrong, and the wrong explanation survived here long enough to be
+    repeated as fact. The reversal is in the SOURCE pdf: لا is a ligature whose
+    ToUnicode entry lists its two letters backwards, and the .docx carries the
+    reversed pair before LibreOffice is ever invoked. Repaired now in
+    convert/arabic.py.
     """
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")

@@ -14,6 +14,7 @@ import pikepdf
 import pymupdf
 
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, IMAGE, TABLE
+from convert.arabic import repair_lam_alef
 
 # Structure labels that mean "a block starts here".
 BLOCK_TAGS = {
@@ -29,6 +30,9 @@ WS = re.compile(r"[ \t ]+")
 
 
 def _clean(s):
+    # Every route's text passes through here, which makes it the one place the
+    # lam-alef repair has to go - see convert/arabic.py.
+    s = repair_lam_alef(s)
     return WS.sub(" ", (s or "").replace("\r", " ").replace("\n", " ")).strip()
 
 
