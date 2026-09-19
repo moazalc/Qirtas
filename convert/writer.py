@@ -433,7 +433,12 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
 
     rtl = is_rtl(block.text)
     if not rtl:
-        align = WD_ALIGN_PARAGRAPH.LEFT if block.kind != HEADING else WD_ALIGN_PARAGRAPH.LEFT
+        # Mirror of the right-to-left case above: body justified, heading to
+        # the side the text starts from. This line used to read LEFT if ... else
+        # LEFT, so the condition did nothing and every left-to-right paragraph
+        # came out ragged-right against a justified original.
+        align = WD_ALIGN_PARAGRAPH.LEFT if block.kind == HEADING \
+            else WD_ALIGN_PARAGRAPH.JUSTIFY
     p = doc.add_paragraph()
     if block.kind == HEADING:
         _heading_style(p, block.level or 2)
