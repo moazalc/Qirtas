@@ -23,6 +23,23 @@ from harness.metrics import score
 
 HOLDOUT_SHARE = 0.4
 MIN_ARABIC = 500
+# A text layer carrying more than this share of control characters is not text.
+# z22244578.pdf's fonts have no usable ToUnicode map, so extraction hands back
+# raw glyph indices - 5% of its characters are C0 controls spread over 27
+# codepoints, and 117 of its 131 pages read as mojibake. The writer now strips
+# characters XML cannot hold, which means such a file no longer crashes; that
+# makes this check MORE important, not less, because without it the file would
+# quietly enter the corpus and score its nonsense against an equally nonsensical
+# round-trip. Judging it here is a statement about the source document.
+MAX_CONTROL = 0.02
+
+
+def control_share(text):
+    """How much of this text is C0 controls that are not tab, newline, return."""
+    if not text:
+        return 0.0
+    bad = sum(1 for c in text if ord(c) < 0x20 and c not in "\t\n\r")
+    return bad / len(text)
 
 
 def bucket(path, share=HOLDOUT_SHARE):
@@ -34,12 +51,21 @@ def classify(path):
     p = probe(path)
     text, _ = run_route("pymupdf.text", path)
     ar = score(text)["arabic"]
+    ctrl = control_share(text)
+    if ar < MIN_ARABIC:
+        why = "too little Arabic to judge"
+    elif ctrl > MAX_CONTROL:
+        why = f"no usable text layer ({ctrl:.1%} control characters)"
+    else:
+        why = ""
     return {
         "file": str(path),
         "family": producer_family(p["producer"]),
         "pages": p["pages"],
         "arabic": ar,
-        "usable": ar >= MIN_ARABIC,
+        "control": round(ctrl, 4),
+        "usable": not why,
+        "why": why,
         "set": bucket(path),
     }
 

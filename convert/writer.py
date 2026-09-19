@@ -52,6 +52,45 @@ IMAGE_PAGE_FILL = 0.85
 HEADING_PT = {1: 16, 2: 14}
 
 
+def _xml_safe(text):
+    """Drop characters XML 1.0 has no way to represent.
+
+    lxml enforces the Char production, which allows only tab, newline and
+    carriage return out of the C0 controls. A PDF text layer can carry the
+    others - stray NULs and backspaces both turn up in the wild corpus - and
+    python-docx passes run text through untouched, so a single one of them
+    anywhere in a document raises ValueError and costs the entire conversion.
+
+    Dropping is right rather than substituting: these characters are extraction
+    debris with no glyph, so there is nothing to stand in for. Surrogates go too
+    (lone ones cannot be encoded at all), and so do U+FFFE/U+FFFF.
+    """
+    if not text:
+        return text
+    return "".join(c for c in text if
+                   c in "\t\n\r"
+                   or 0x20 <= ord(c) <= 0xD7FF
+                   or 0xE000 <= ord(c) <= 0xFFFD
+                   or ord(c) >= 0x10000)
+
+
+def _scrub(model: Doc):
+    """Make every string in the model legal XML, in place.
+
+    Done once here rather than at each add_run: text reaches the document by
+    three separate routes (body runs, table cells, and footnotes.py, which
+    builds its XML by hand and whose escape() does not touch controls either).
+    Cleaning the model instead means all three are covered by one pass, and the
+    invariant - nothing unrepresentable gets past this line - is in one place.
+    """
+    for b in model.blocks:
+        b.text = _xml_safe(b.text)
+        if b.spans:
+            b.spans = [(_xml_safe(t), *rest) for t, *rest in b.spans]
+        if b.rows:
+            b.rows = [[_xml_safe(c) for c in row] for row in b.rows]
+
+
 def _flag(parent, tag, val="1"):
     e = OxmlElement(tag)
     e.set(qn("w:val"), val)
@@ -445,6 +484,7 @@ def _footnote_ref(run, wid):
 
 def write(model: Doc, out_path, scale=None):
     doc = Document()
+    _scrub(model)
     _page_setup(doc, model)
     # write() is called repeatedly on the same model by the fit loop, so start
     # from empty rather than accumulating the same drops once per round.
