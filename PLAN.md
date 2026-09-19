@@ -101,24 +101,44 @@ scores will never reach 100% even when the output is right. Watch the trend.
     ordinary documents  words 92.2%, right page 29.4%, n=61
     periodicals         words 42.0%, right page  8.8%, n=9
 
+    the same measurement over the whole 102-file development set:
+    ordinary documents  words 92.0%, right page 24.3%, n=78
+    periodicals         words 38.2%, right page 12.4%, n=24
+
 The v0-v3 rows are kept as they were recorded, but **they were measured with a
 scorer that has since been found wrong twice** - see below. Do not compare them
 against v4.
 
-**No text lost is the hard gate, and on 2026-09-19 it broke for the first
-time.** It had held on every one of the 22 files that had ever been looked at.
-On the 70 files of the holdout, three lose text:
+**No text lost is the hard gate. On 2026-09-19 it appeared to break on three
+holdout files, and on investigation the gate was wrong about two of them.**
 
-    z21762343.pdf   kept 95.83%    18 -> 30 pages
-    z20251974.pdf   kept 99.19%    10 -> 12 pages
-    z21312494.pdf   kept 99.80%   432 -> 516 pages
+`loss.py` had always documented itself as ignoring order, and did not: it
+looked for each sentence as one contiguous run, so moving a phrase within a
+sentence reported the whole sentence as lost. Fixed in 9ff42e8. What the three
+files actually were:
 
-Identical across two independent runs, so this is deterministic and
-reproducible rather than a crash or a fluke. All three also inflate their page
-count well past the 1.50x median, which suggests the loss and the pagination
-blowup are one fault seen twice, not two. This is the most serious thing in
-this document: every other item is a quality problem, and this one is a broken
-guarantee.
+    file            gate said   truth
+    z21762343.pdf     95.83%    100.00%. Nothing lost, ever. A French keyword
+                                list on the title page had two phrases
+                                swapped. With only 24 scoreable sentences one
+                                false flag cost 4.17% - which made it the
+                                worst-scoring file in the whole corpus.
+    z20251974.pdf     99.19%     99.19%. Real, and tiny: a two-character
+                                fragment "ne". Both neighbouring tokens
+                                survive.
+    z21312494.pdf     99.80%     99.86%. Real. Nine words genuinely absent -
+                                author names and affiliations - across about
+                                ten of its 432 pages.
+
+**The file that looked worst had lost nothing, and the file that looked best
+was the only one dropping words.** A gate that inverts the ranking of its own
+failures cannot be used to decide what to fix, which is why it was fixed before
+the remaining loss was chased.
+
+What is genuinely open is `z21312494.pdf`: nine missing words, verified absent
+with and against diacritics, in author-name and affiliation lines. Small and
+localised rather than systemic. Across the whole 102-file dev set the gate now
+holds on every file.
 
 "Right page" means words landing on the matching page; unrelated documents
 score ~13%, so it is measured against that floor, not against zero.
@@ -296,10 +316,13 @@ page out, where under v3 the worst was four.
     document-class statistic:
 
         class                  n    words   median   right page   >=95%
-        dev  document         21    91.9%    98.6%       25.5%      71%
+        dev  document         78    92.0%    99.0%       24.3%      73%
         holdout document      61    92.2%    99.1%       29.4%      77%
-        dev  periodical        9    29.9%       -        13.4%       -
+        dev  periodical       24    38.2%    32.8%       12.4%       8%
         holdout periodical     9    42.0%    32.6%        8.8%      11%
+
+    (Dev figures are over all 102 usable development files, re-scored after the
+    loss gate was fixed. Earlier drafts quoted a 30-file sample of them.)
 
     Rules overfit as readily as models do, so this was the question the split
     existed to answer, and the answer is that the eight files developed against
@@ -307,7 +330,9 @@ page out, where under v3 the worst was four.
 
     Four things must be read alongside that:
 
-      - **The hard gate broke** on three of these files - see Progress above.
+      - **The hard gate appeared to break on three of these files, and was
+        wrong about two of them** - see Progress above. Only `z21312494.pdf`
+        loses text that matters, nine words on ten of 432 pages.
       - **Periodicals score 8.8% on right page, below the ~13% chance floor.**
         On newspaper layout this converter is worse than pairing two unrelated
         documents. `harness/doctype.py` detects them; nothing acts on it yet.
@@ -394,7 +419,17 @@ Every one of these made the numbers lie before it was found:
    Several comparisons in this file are finer-grained than that and should not
    be trusted at that resolution.
 
-9. **A crash removes a file from the average instead of failing the run.**
+9. **The hard gate measured contiguity and called it presence.** `loss.py`
+   promised in its own docstring to ignore order, then looked for each sentence
+   as one unbroken run, so a phrase moving within a sentence read as lost text.
+   It made the corpus's worst-scoring file (95.83%) one that had lost nothing
+   at all, while the genuinely faulty file scored 99.80% and looked fine.
+   Fixed in 9ff42e8 by falling back to asking whether every substantial word
+   survives somewhere. **Note how this one was found**: not by the score moving,
+   but by opening the worst file and reading what it supposedly lost. Three of
+   the caveats in this list were found that way and none by the aggregate.
+
+10. **A crash removes a file from the average instead of failing the run.**
    `eval.py` catches per file so one bad document cannot cost a whole run, but
    the printed mean is then taken over the survivors and says nothing about
    what left. Three files vanished this way from the first holdout run without

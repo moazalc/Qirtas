@@ -611,9 +611,9 @@ front page in five columns at 6.4pt and a book page are different problems and
 their average is true of neither:
 
     class                  n    words   median   right page   median   >=95%
-    dev  document         21    91.9%    98.6%       25.5%     16.9%     71%
+    dev  document         78    92.0%    99.0%       24.3%     17.2%     73%
     holdout document      61    92.2%    99.1%       29.4%     21.4%     77%
-    dev  periodical        9    29.9%    30.0%       13.4%     12.7%      0%
+    dev  periodical       24    38.2%    32.8%       12.4%     10.0%      8%
     holdout periodical     9    42.0%    32.6%        8.8%      1.2%     11%
 
 **The unseen files score equal or better than the development files on every
@@ -622,11 +622,32 @@ The rules did not merely fit the files they were written against.
 
 Three qualifications belong in any paper that quotes these numbers.
 
-**The hard gate broke.** Three holdout files lose text: 95.83%, 99.19% and
-99.80% kept. Until this run, "no text is ever lost" had held on every file ever
-examined, and it was stated as a guarantee. It is not one. All three also
-inflate page counts far past the 1.50x median, so the loss and the pagination
-fault are plausibly the same defect.
+**The hard gate appeared to break, and the gate turned out to be the thing that
+was broken.** Three holdout files scored below 100% on text retention: 95.83%,
+99.19% and 99.80%. Opening the worst of them showed it had lost nothing
+whatsoever — a French keyword list on its title page had two phrases swapped,
+and `harness/loss.py`, which documented itself as ignoring order, was in fact
+testing each sentence as a contiguous substring. With only 24 scoreable
+sentences in that document, one false flag cost 4.17% and made it the
+worst-scoring file in the corpus.
+
+After the fix, one file is genuinely affected in any meaningful sense:
+`z21312494.pdf` drops nine words — author names and affiliations — across about
+ten of its 432 pages. The other real case is a two-character fragment.
+
+**The file that looked worst had lost nothing; the file that looked best was
+the only one dropping words.** This is the more interesting result than either
+number, and it generalises beyond this project: an evaluation metric that
+inverts the ranking of its own failures will send you to fix the wrong thing,
+and no amount of staring at the aggregate reveals it. It was found by opening
+the worst-scoring file and reading what it had supposedly lost.
+
+Diagnosing it took three instruments, and the first two failed the same way —
+both measured contiguity and called it presence. Fixed-size chunks straddle the
+seam where order changed; sliding n-grams lose N-1 grams per seam, a third of
+them on a 49-character sentence, so a pure reordering scored 69% and read as
+partial loss. Only word-level presence, which has no length dependence and no
+threshold, separated the cases.
 
 **Periodicals score below chance.** At 8.8% on right-page placement they are
 worse than the ~13% floor set by comparing two unrelated documents. This is a
@@ -755,6 +776,9 @@ A paper drawn from this work can honestly report:
 - One instance of an evaluation harness quietly conditioning its own average on
   not crashing, and the reasoning for excluding an unreadable source document
   rather than letting a fix launder it into the corpus (§8).
+- A fourth failed scoring algorithm, found late: the text-retention gate
+  measured contiguity rather than presence, ranked its own failures backwards,
+  and was caught only by opening the worst-scoring file and reading it (§8).
 
 Work that reports what did not work is more credible, and in an engineering-
 heavy paper these are often the most useful parts for other researchers.
@@ -783,11 +807,12 @@ heavy paper these are often the most useful parts for other researchers.
 - **One file resists explanation.** `مقدمة البحث` moved only 26% → 31% where
   its siblings reached ~50%, with perfect text and picture scores. Reporting an
   undiagnosed outlier is better than quoting only the aggregate.
-- **The "no text lost" gate is not a guarantee.** It was described as one for
-  most of this project's life, on the strength of holding across every file
-  then available. Three of the 70 holdout files break it, the worst keeping
-  95.83%. A claim that survives only until the sample grows was a claim about
-  the sample.
+- **The "no text lost" gate is close to, but not, a guarantee.** One holdout
+  file of 70 drops nine words from author-name and affiliation lines, and one
+  drops a two-character fragment. It holds on all 102 development files. The
+  claim was overstated for most of this project's life, and the first evidence
+  against it was itself partly a measurement fault — which is the more useful
+  cautionary detail.
 - **Multi-column periodicals are out of the system's competence**, at 8.8%
   right-page placement against a ~13% chance floor. Detected but not handled.
 - **`page_score` is not exactly reproducible.** The same 68 files run twice on
