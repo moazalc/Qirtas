@@ -3,14 +3,34 @@
 __pycache__/
 *.pyc
 
-# Generated output: .docx, rendered PDFs, extracted media, reports
-out/
+# Generated output: .docx, rendered PDFs, extracted media, reports.
+# Written as out/* rather than out/ because git will not descend into an
+# excluded DIRECTORY, so a !negation below it never gets a chance to match.
+out/*
+!out/split.json
 
-# Corpus. Deliberately NOT committed:
+# Corpus. The PDFs themselves are deliberately NOT committed:
 #  - corpus/*.pdf are someone's unpublished thesis chapters, not ours to publish
-#  - corpus/wild/ is ~600MB of PDFs downloaded from Zenodo, reproducible with
-#    `python -m harness.fetch_corpus`
-corpus/
+#  - corpus/wild/ is ~600MB of PDFs from Zenodo
+# Same directory-negation rule as above, one level deeper.
+corpus/*
+!corpus/wild/
+corpus/wild/*
+!corpus/wild/manifest.jsonl
+
+# Those two exceptions are each ~44KB and neither is regenerable output:
+#
+#   out/split.json  - which file is dev and which is holdout, plus the usable
+#       flag and the reason any file was refused. Recomputable in principle,
+#       but only from a corpus that is already complete and identical.
+#
+#   corpus/wild/manifest.jsonl - the Zenodo record ID of every wild file, and
+#       the ONLY thing that makes the wild corpus reproducible. Re-running the
+#       search does NOT rebuild it: the query sorts by `mostrecent`, so it
+#       returns whatever Zenodo holds that day. A different file set means a
+#       different filename-hash split, which means every score on record
+#       silently becomes a number about some other collection of documents.
+#       Restore with:  python -m harness.fetch_corpus --from-manifest
 
 # Corpus archive staged from USB, 556MB. Same reason as corpus/ above.
 corpus.zip

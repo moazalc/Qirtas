@@ -1,0 +1,2252 @@
+[
+  {
+    "file": "corpus/wild/z10442411.pdf",
+    "family": "MS Word 2016",
+    "pages": 72,
+    "arabic": 58842,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z17456623.pdf",
+    "family": "pikepdf 9.0.0",
+    "pages": 8,
+    "arabic": 8851,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19652389.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 12087,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19652467.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 12746,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19652568.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 13574,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19652663.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 4956,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19660086.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 7063,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19660183.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 13760,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19660317.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6200,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19660556.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 5490,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19660724.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 5242,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19660806.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 10360,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19661622.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 900,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19661814.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6124,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19662047.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6614,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19662133.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 5364,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19662588.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6861,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19662663.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 7288,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19662894.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 5711,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19663174.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6788,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19663258.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 7324,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19663375.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6960,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19663507.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 4878,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19663668.pdf",
+    "family": "PDFium",
+    "pages": 1,
+    "arabic": 4748,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19663758.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 3534,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19665272.pdf",
+    "family": "Prince 12.5 (www.princexml.com)",
+    "pages": 13,
+    "arabic": 28185,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19693572.pdf",
+    "family": "MS Word (other)",
+    "pages": 30,
+    "arabic": 32796,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19704361.pdf",
+    "family": "MS Word 2010",
+    "pages": 22,
+    "arabic": 10107,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19733830.pdf",
+    "family": "—",
+    "pages": 150,
+    "arabic": 180232,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19740548.pdf",
+    "family": "Adobe",
+    "pages": 20,
+    "arabic": 12027,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19772101.pdf",
+    "family": "MS Word 2016",
+    "pages": 11,
+    "arabic": 15270,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19773087.pdf",
+    "family": "MS Word 2016",
+    "pages": 23,
+    "arabic": 21877,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19792496.pdf",
+    "family": "PDFlib 3.03 (Win32)",
+    "pages": 11,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19793160.pdf",
+    "family": "Jaws PDF Creator v2.11.1164",
+    "pages": 18,
+    "arabic": 6,
+    "control": 0.3871,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19798743.pdf",
+    "family": "Foxit Phantom - Foxit Corporation",
+    "pages": 18,
+    "arabic": 10575,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19799068.pdf",
+    "family": "MS Word 2013",
+    "pages": 16,
+    "arabic": 12359,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19799524.pdf",
+    "family": "MS Word 2013",
+    "pages": 20,
+    "arabic": 14972,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19812628.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 6602,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19849879.pdf",
+    "family": "Adobe",
+    "pages": 192,
+    "arabic": 33267,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19851706.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 11685,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19864438.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 10491,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z19959192.pdf",
+    "family": "MS Word (other)",
+    "pages": 44,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z19973039.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 9755,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20002175.pdf",
+    "family": "MS Word 2019",
+    "pages": 75,
+    "arabic": 43534,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20008068.pdf",
+    "family": "—",
+    "pages": 39,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20022154.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 16679,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20022292.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6311,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20022424.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 10637,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20022607.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 4944,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20022925.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 7388,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20023311.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 7949,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20023430.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 1,
+    "arabic": 6531,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20026356.pdf",
+    "family": "MS Word 2013",
+    "pages": 70,
+    "arabic": 2780,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20029410.pdf",
+    "family": "MS Word 2021",
+    "pages": 43,
+    "arabic": 3195,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20039351.pdf",
+    "family": "Canva",
+    "pages": 2,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20049956.pdf",
+    "family": "Canva",
+    "pages": 10,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20049958.pdf",
+    "family": "Canva",
+    "pages": 9,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20057197.pdf",
+    "family": "Canva",
+    "pages": 5,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20057284.pdf",
+    "family": "Canva",
+    "pages": 7,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20057363.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20057412.pdf",
+    "family": "Canva",
+    "pages": 2,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20066992.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 35,
+    "arabic": 3118,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20071174.pdf",
+    "family": "Canva",
+    "pages": 4,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20071390.pdf",
+    "family": "Canva",
+    "pages": 5,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20071503.pdf",
+    "family": "Canva",
+    "pages": 4,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20083892.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20084386.pdf",
+    "family": "Canva",
+    "pages": 8,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20084478.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20084535.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20084587.pdf",
+    "family": "Canva",
+    "pages": 5,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20085897.pdf",
+    "family": "Canva",
+    "pages": 7,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20085944.pdf",
+    "family": "Canva",
+    "pages": 4,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20086015.pdf",
+    "family": "Canva",
+    "pages": 8,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20086088.pdf",
+    "family": "Canva",
+    "pages": 7,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20086974.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 29,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20117609.pdf",
+    "family": "MS Word (other)",
+    "pages": 19,
+    "arabic": 7214,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20120369.pdf",
+    "family": "Canva",
+    "pages": 12,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20120536.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20120668.pdf",
+    "family": "Canva",
+    "pages": 2,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20120810.pdf",
+    "family": "Canva",
+    "pages": 2,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20120982.pdf",
+    "family": "Canva",
+    "pages": 3,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20121645.pdf",
+    "family": "Canva",
+    "pages": 2,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20121900.pdf",
+    "family": "Canva",
+    "pages": 5,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20123558.pdf",
+    "family": "Canva",
+    "pages": 5,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20128978.pdf",
+    "family": "MS Word 2016",
+    "pages": 6,
+    "arabic": 11334,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20129076.pdf",
+    "family": "MS Word 2016",
+    "pages": 6,
+    "arabic": 10943,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20139824.pdf",
+    "family": "Canva",
+    "pages": 10,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20139826.pdf",
+    "family": "Canva",
+    "pages": 9,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20160183.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 4,
+    "arabic": 10697,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20160689.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 3,
+    "arabic": 6410,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20161304.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 6,
+    "arabic": 16172,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20177169.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 4,
+    "arabic": 10731,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20177305.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 7,
+    "arabic": 16837,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20177555.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 6,
+    "arabic": 14752,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20177657.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 7,
+    "arabic": 21313,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20177779.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 3,
+    "arabic": 7395,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20190082.pdf",
+    "family": "Ghostscript",
+    "pages": 3,
+    "arabic": 4575,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20237593.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 12936,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20251870.pdf",
+    "family": "MS Word (other)",
+    "pages": 28,
+    "arabic": 31691,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20251974.pdf",
+    "family": "MS Word (other)",
+    "pages": 10,
+    "arabic": 6149,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20252056.pdf",
+    "family": "MS Word (other)",
+    "pages": 17,
+    "arabic": 10927,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20252126.pdf",
+    "family": "MS Word (other)",
+    "pages": 18,
+    "arabic": 20316,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20252151.pdf",
+    "family": "MS Word (other)",
+    "pages": 21,
+    "arabic": 19019,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20252260.pdf",
+    "family": "MS Word (other)",
+    "pages": 11,
+    "arabic": 8520,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20252507.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 7424,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20253131.pdf",
+    "family": "MS Word (other)",
+    "pages": 16,
+    "arabic": 15628,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20256558.pdf",
+    "family": "MS Word (other)",
+    "pages": 17,
+    "arabic": 10953,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20266552.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 11120,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20266953.pdf",
+    "family": "MS Word (other)",
+    "pages": 13,
+    "arabic": 11216,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20270718.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 82,
+    "arabic": 51176,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20276145.pdf",
+    "family": "iLovePDF",
+    "pages": 23,
+    "arabic": 25904,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20276275.pdf",
+    "family": "Adobe",
+    "pages": 18,
+    "arabic": 6951,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20333870.pdf",
+    "family": "MS Word 2010",
+    "pages": 8,
+    "arabic": 14737,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20354440.pdf",
+    "family": "MS Word (other)",
+    "pages": 11,
+    "arabic": 12686,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20356154.pdf",
+    "family": "PDF24",
+    "pages": 253,
+    "arabic": 334398,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20374306.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 10892,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20375390.pdf",
+    "family": "MS Word (other)",
+    "pages": 19,
+    "arabic": 8993,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20375918.pdf",
+    "family": "MS Word (other)",
+    "pages": 11,
+    "arabic": 5947,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20376824.pdf",
+    "family": "MS Word (other)",
+    "pages": 26,
+    "arabic": 28081,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20393612.pdf",
+    "family": "MS Word 2010",
+    "pages": 7,
+    "arabic": 2704,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20397518.pdf",
+    "family": "MS Word 2016",
+    "pages": 8,
+    "arabic": 15466,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20414780.pdf",
+    "family": "Adobe",
+    "pages": 16,
+    "arabic": 19452,
+    "control": 0.0006,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20443790.pdf",
+    "family": "MS Word (other)",
+    "pages": 26,
+    "arabic": 35683,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20496510.pdf",
+    "family": "MS Word 2010",
+    "pages": 465,
+    "arabic": 487504,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20497593.pdf",
+    "family": "MS Word (other)",
+    "pages": 15,
+    "arabic": 7709,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20527016.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 2,
+    "arabic": 2613,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20527328.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 6,
+    "arabic": 9353,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20529466.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 17,
+    "arabic": 29551,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20529731.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 6,
+    "arabic": 11450,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20529816.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 4,
+    "arabic": 6467,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20529903.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 3,
+    "arabic": 5061,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20529984.pdf",
+    "family": "pikepdf 9.5.2",
+    "pages": 11,
+    "arabic": 12732,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20538636.pdf",
+    "family": "PDFium",
+    "pages": 26,
+    "arabic": 30595,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20562447.pdf",
+    "family": "MS Word 2013",
+    "pages": 17,
+    "arabic": 974,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20571510.pdf",
+    "family": "MS Word 2021",
+    "pages": 25,
+    "arabic": 25518,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20578729.pdf",
+    "family": "iLovePDF",
+    "pages": 26,
+    "arabic": 22013,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20589058.pdf",
+    "family": "MS Word (other)",
+    "pages": 20,
+    "arabic": 18977,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20590207.pdf",
+    "family": "iLovePDF",
+    "pages": 16,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20593493.pdf",
+    "family": "PDFium",
+    "pages": 82,
+    "arabic": 11340,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20607729.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 920,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20608140.pdf",
+    "family": "iLovePDF",
+    "pages": 20,
+    "arabic": 62,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20679271.pdf",
+    "family": "Adobe",
+    "pages": 9,
+    "arabic": 12386,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20703695.pdf",
+    "family": "MS Word 2013",
+    "pages": 66,
+    "arabic": 149923,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20745080.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 11,
+    "arabic": 18851,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20752227.pdf",
+    "family": "Adobe",
+    "pages": 73,
+    "arabic": 63755,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20763272.pdf",
+    "family": "SAMBox 3.0.18",
+    "pages": 26,
+    "arabic": 40370,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20776452.pdf",
+    "family": "Nitro PDF PrimoPDF",
+    "pages": 48,
+    "arabic": 3075,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20779387.pdf",
+    "family": "MS Word 2016",
+    "pages": 4,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20782957.pdf",
+    "family": "MS Word (other)",
+    "pages": 239,
+    "arabic": 215845,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20814152.pdf",
+    "family": "MS Word 2021",
+    "pages": 10,
+    "arabic": 14412,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20822741.pdf",
+    "family": "MS Word 2013",
+    "pages": 19,
+    "arabic": 1236,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20835709.pdf",
+    "family": "iLovePDF",
+    "pages": 40,
+    "arabic": 3506,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20842336.pdf",
+    "family": "Eastman Kodak Company",
+    "pages": 239,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20921788.pdf",
+    "family": "MS Word 2016",
+    "pages": 17,
+    "arabic": 28426,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20960807.pdf",
+    "family": "MS Word (other)",
+    "pages": 11,
+    "arabic": 9376,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20961262.pdf",
+    "family": "MS Word (other)",
+    "pages": 11,
+    "arabic": 9372,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z20961668.pdf",
+    "family": "iLovePDF",
+    "pages": 82,
+    "arabic": 7539,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z20963106.pdf",
+    "family": "MS Word (other)",
+    "pages": 31,
+    "arabic": 33288,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21011460.pdf",
+    "family": "MS Word (other)",
+    "pages": 33,
+    "arabic": 37968,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21013015.pdf",
+    "family": "MS Word (other)",
+    "pages": 21,
+    "arabic": 21416,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21013208.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 9698,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21064577.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 13675,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21067084.pdf",
+    "family": "MS Word (other)",
+    "pages": 10,
+    "arabic": 10213,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21073924.pdf",
+    "family": "MS Word (other)",
+    "pages": 53,
+    "arabic": 63132,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21075266.pdf",
+    "family": "MS Word (other)",
+    "pages": 37,
+    "arabic": 41871,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21076644.pdf",
+    "family": "MS Word (other)",
+    "pages": 32,
+    "arabic": 35953,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21077226.pdf",
+    "family": "MS Word (other)",
+    "pages": 36,
+    "arabic": 39185,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21077912.pdf",
+    "family": "MS Word (other)",
+    "pages": 46,
+    "arabic": 49878,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21087226.pdf",
+    "family": "MS Word 2016",
+    "pages": 23,
+    "arabic": 44960,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21094872.pdf",
+    "family": "MS Word (other)",
+    "pages": 26,
+    "arabic": 29431,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21095073.pdf",
+    "family": "MS Word (other)",
+    "pages": 8,
+    "arabic": 7259,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21095413.pdf",
+    "family": "MS Word (other)",
+    "pages": 10,
+    "arabic": 9475,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21290721.pdf",
+    "family": "MS Word 2010",
+    "pages": 10,
+    "arabic": 20423,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21312494.pdf",
+    "family": "MS Word (other)",
+    "pages": 432,
+    "arabic": 463120,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21358439.pdf",
+    "family": "iLovePDF",
+    "pages": 37,
+    "arabic": 41970,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21418248.pdf",
+    "family": "MS Word (other)",
+    "pages": 22,
+    "arabic": 34967,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21459977.pdf",
+    "family": "—",
+    "pages": 239,
+    "arabic": 731,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21490618.pdf",
+    "family": "MS Word 2007",
+    "pages": 15,
+    "arabic": 20467,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21508206.pdf",
+    "family": "Chrome/Skia",
+    "pages": 10,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21508463.pdf",
+    "family": "TeX",
+    "pages": 44,
+    "arabic": 19517,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21508601.pdf",
+    "family": "iLovePDF",
+    "pages": 16,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21509623.pdf",
+    "family": "KONICA MINOLTA bizhub C368",
+    "pages": 10,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21509837.pdf",
+    "family": "KONICA MINOLTA bizhub C368",
+    "pages": 17,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21509959.pdf",
+    "family": "KONICA MINOLTA bizhub C368",
+    "pages": 14,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21538520.pdf",
+    "family": "MS Word 2010",
+    "pages": 256,
+    "arabic": 83932,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21552018.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 21,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21553547.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 16,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21702697.pdf",
+    "family": "iLovePDF",
+    "pages": 77,
+    "arabic": 91891,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21750616.pdf",
+    "family": "MS Word 2007",
+    "pages": 21,
+    "arabic": 17604,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21751977.pdf",
+    "family": "http://www.opoosoft.com",
+    "pages": 18,
+    "arabic": 1296,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21758904.pdf",
+    "family": "MS Word (other)",
+    "pages": 21,
+    "arabic": 23259,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21759488.pdf",
+    "family": "Foxit Reader Printer Version 9.7.0",
+    "pages": 17,
+    "arabic": 25810,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21760107.pdf",
+    "family": "MS Word 2019",
+    "pages": 19,
+    "arabic": 29151,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21760325.pdf",
+    "family": "MS Word 2010",
+    "pages": 36,
+    "arabic": 24161,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21761968.pdf",
+    "family": "Microsoft: Print To PDF",
+    "pages": 20,
+    "arabic": 15893,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21762140.pdf",
+    "family": "MS Word 2016",
+    "pages": 19,
+    "arabic": 27568,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21762343.pdf",
+    "family": "http://www.opoosoft.com",
+    "pages": 18,
+    "arabic": 1296,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21762458.pdf",
+    "family": "Foxit Reader Printer version 9.0.1",
+    "pages": 14,
+    "arabic": 22930,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21762915.pdf",
+    "family": "MS Word 2010",
+    "pages": 23,
+    "arabic": 28763,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21763233.pdf",
+    "family": "doPDF Ver 7.2 Build 373 (Windows 7",
+    "pages": 24,
+    "arabic": 1,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21763354.pdf",
+    "family": "MS Word 2010",
+    "pages": 29,
+    "arabic": 22991,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21763864.pdf",
+    "family": "MS Word 2016",
+    "pages": 26,
+    "arabic": 32394,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21764080.pdf",
+    "family": "MS Word 2019",
+    "pages": 17,
+    "arabic": 30000,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21764254.pdf",
+    "family": "MS Word 2019",
+    "pages": 18,
+    "arabic": 20788,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21764410.pdf",
+    "family": "MS Word 2019",
+    "pages": 21,
+    "arabic": 25181,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21764814.pdf",
+    "family": "MS Word 2010",
+    "pages": 8,
+    "arabic": 13849,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21813345.pdf",
+    "family": "MS Word 2010",
+    "pages": 138,
+    "arabic": 93888,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z21889411.pdf",
+    "family": "TeX",
+    "pages": 130,
+    "arabic": 91647,
+    "control": 0.0001,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z21918483.pdf",
+    "family": "Adobe",
+    "pages": 998,
+    "arabic": 77,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z22005329.pdf",
+    "family": "MS Word (other)",
+    "pages": 153,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z22051439.pdf",
+    "family": "PDFium",
+    "pages": 11,
+    "arabic": 23372,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22062002.pdf",
+    "family": "MS Word (other)",
+    "pages": 25,
+    "arabic": 44540,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z22110258.pdf",
+    "family": "MS Word 2019",
+    "pages": 111,
+    "arabic": 116065,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22126339.pdf",
+    "family": "MS Word 2010",
+    "pages": 5,
+    "arabic": 16085,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z22148603.pdf",
+    "family": "MS Word (other)",
+    "pages": 14,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22179435.pdf",
+    "family": "—",
+    "pages": 28,
+    "arabic": 1264,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22218096.pdf",
+    "family": "MS Word (other)",
+    "pages": 58,
+    "arabic": 22125,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22237778.pdf",
+    "family": "iLovePDF",
+    "pages": 53,
+    "arabic": 0,
+    "control": 0.0,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22244578.pdf",
+    "family": "iLovePDF",
+    "pages": 131,
+    "arabic": 125380,
+    "control": 0.0502,
+    "usable": false,
+    "why": "no usable text layer (5.0% control characters)",
+    "set": "holdout"
+  },
+  {
+    "file": "corpus/wild/z22245438.pdf",
+    "family": "iLovePDF",
+    "pages": 523,
+    "arabic": 334111,
+    "control": 0.0315,
+    "usable": false,
+    "why": "no usable text layer (3.1% control characters)",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22246498.pdf",
+    "family": "iLovePDF",
+    "pages": 586,
+    "arabic": 517922,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22272063.pdf",
+    "family": "Adobe",
+    "pages": 18,
+    "arabic": 0,
+    "control": 0.0011,
+    "usable": false,
+    "why": "too little Arabic to judge",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22639353.pdf",
+    "family": "MS Word (other)",
+    "pages": 4,
+    "arabic": 4183,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22658522.pdf",
+    "family": "MS Word (other)",
+    "pages": 12,
+    "arabic": 13772,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  },
+  {
+    "file": "corpus/wild/z22727906.pdf",
+    "family": "Chrome/Skia",
+    "pages": 277,
+    "arabic": 302918,
+    "control": 0.0,
+    "usable": true,
+    "why": "",
+    "set": "dev"
+  }
+]
