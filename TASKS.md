@@ -1,7 +1,11 @@
 # Qirtas — where to pick up
 
-Start a new session here. This is the short version; `PLAN.md` has the full
-history and `README.md` has setup and commands.
+Start a new session here, then read `FLAGS.md`. `CLAUDE.md` explains the
+project and how to work in it; `PLAN.md` has the full history; `README.md` has
+setup and commands.
+
+Findings go in the right file: design and history in `PLAN.md`, work in this
+file, open risks and decisions in `FLAGS.md`.
 
 ---
 
@@ -54,8 +58,8 @@ be worth chasing — check before spending time on it.
 
 ### B. Blocking the corpus generally (not Moaz's files)
 
-**B1. Text stored in VISUAL order — the largest known correctness problem, and
-it needs a decision, not a patch.** Some Arabic PDFs (typically LaTeX) store the
+**B1. Text stored in VISUAL order — the largest known correctness problem.
+It needs a decision, not a patch: see `FLAGS.md` #1.** Some Arabic PDFs (typically LaTeX) store the
 character stream already reversed. The page looks perfect; the text underneath
 runs backwards. We reproduce it faithfully, Word reverses it again, and the
 result is unreadable.

@@ -5,7 +5,8 @@ correct, which no free tool and not Acrobat currently manage.
 
 ## where this is
 
-**Picking this up fresh? Read `TASKS.md`.**
+**Picking this up fresh?** `CLAUDE.md` for the project and how to work in
+it, `TASKS.md` for what to do next, `FLAGS.md` for what needs deciding.
 
 Working converter. Last measured 2026-09-20 over the 102-file development set:
 
