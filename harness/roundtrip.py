@@ -20,7 +20,35 @@ from convert.v0 import convert as convert_v0
 from convert.v1 import convert as convert_v1
 from convert.fit import convert as convert_fit
 
-SOFFICE = "/snap/bin/libreoffice"
+def _find_soffice():
+    """Locate LibreOffice.
+
+    It lives in a different place on each machine - /snap/bin at home, /opt at
+    the office - and hardcoding one path meant every move needed a commit that
+    then broke the other machine. Look for it, and let QIRTAS_SOFFICE override.
+    """
+    import glob
+    import os
+    import shutil
+
+    env = os.environ.get("QIRTAS_SOFFICE")
+    if env:
+        return env
+    for c in ("soffice", "libreoffice"):
+        found = shutil.which(c)
+        if found:
+            return found
+    patterns = ("/snap/bin/libreoffice", "/usr/bin/soffice",
+                "/opt/libreoffice*/program/soffice",
+                "/Applications/LibreOffice.app/Contents/MacOS/soffice")
+    for pat in patterns:
+        for hit in sorted(glob.glob(pat), reverse=True):
+            if Path(hit).exists():
+                return hit
+    return "/snap/bin/libreoffice"          # reported as missing, with the path
+
+
+SOFFICE = _find_soffice()
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
 

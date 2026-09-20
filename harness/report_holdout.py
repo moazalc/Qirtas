@@ -22,10 +22,20 @@ from harness.doctype import is_periodical
 
 
 def load(path):
+    """Read an eval result file.
+
+    Older runs wrote a bare list of results; newer ones wrap it as
+    {"env": ..., "set": ..., "results": [...]} so a score carries the
+    environment it was measured in. Accept both, so results recorded before
+    that change still compare.
+    """
     p = Path(path)
     if not p.exists():
         return None
-    return json.loads(p.read_text(encoding="utf-8"))
+    data = json.loads(p.read_text(encoding="utf-8"))
+    if isinstance(data, dict):
+        return data.get("results", [])
+    return data
 
 
 def classify(rows):

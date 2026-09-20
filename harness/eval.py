@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness.roundtrip import run_one
 from harness.compare import text_of, text_of_docx
 from harness.loss import coverage
+from harness.env import fingerprint, describe
 
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
@@ -59,6 +60,14 @@ def main():
 
     if a.set == "holdout":
         print(f"{YEL}opening the holdout set - only do this to check generalisation{OFF}")
+
+    env = fingerprint()
+    print(f"{DIM}environment{OFF}")
+    print(describe(env))
+    if not env["substitutions_applied"]:
+        print(f"{YEL}  scores from this machine are not comparable to ones taken with"
+              f" the font rules applied{OFF}")
+    print()
 
     files = files_for(a.set)
     if a.n and a.n < len(files):
@@ -119,7 +128,9 @@ def main():
 
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.json).write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(a.json).write_text(json.dumps(
+            {"env": env, "set": a.set, "results": rows},
+            ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
