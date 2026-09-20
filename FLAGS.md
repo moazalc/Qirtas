@@ -33,7 +33,7 @@ their reversals; the two cases separate by an order of magnitude.
 that are partly correct, or refuse such files the way `z22244578.pdf` is
 refused. Either changes what Qirtas promises.
 
-*Does not affect Moaz's 8 files* — they are the other kind.
+*Does not affect Moaz's own files* — they are the other kind.
 
 **Closes when:** Moaz chooses reorder or refuse, and the scorer can tell the
 two cases apart.
@@ -44,7 +44,7 @@ two cases apart.
 
 **Status: true as stated, but easy to over-read.**
 
-The gate reports 100% across the dev set and Moaz's 8 files. The one file with
+The gate reports 100% across the dev set and the regression set. The one file with
 verified real loss — `z21312494.pdf`, nine words of author names and
 affiliations across ten of its 432 pages, scoring 99.80% — is in the **holdout
 set**, which is paused at Moaz's request.
@@ -343,3 +343,84 @@ identification. Worth checking `_running_text`'s grouping (normalised text) and
 `_drop_text_inside_tables`'s matching against the same question.
 
 **Closes when:** nothing - recorded as a caution.
+
+---
+
+## 16. One wild file writes its text roughly twice
+
+**Status: open, found while measuring something else. Not diagnosed.**
+
+`z10442411.pdf` round-trips to **26,167 words from 15,398** - 1.70x - and 190
+pages from 72. The hard gate says 100%, because the gate asks whether anything
+went MISSING and duplication is the opposite fault. `right page` reads 14.1%
+against a chance floor of ~13%, so for this file the score carries almost no
+information.
+
+Most likely the same exact-match brittleness as flags 12 and 15:
+`_drop_text_inside_tables` matches a paragraph against the table's joined text
+with `in`, and any extraction difference - a space, a repaired lam-alef - makes
+the match fail and the page then carries the table's contents twice. The file
+has a table on 60 of its 72 pages, which fits.
+
+Worth checking how many other files inflate this way before treating it as one
+file's problem. `words_out / words_orig` is already in every `results.json`, so
+the count is a query, not a run.
+
+**Closes when:** the duplication is traced, or shown to be confined to files we
+refuse.
+
+---
+
+## 16. Correct list structure costs page alignment
+
+**Status: needs Moaz's decision. A trade, not a bug.**
+
+Lists are now detected and kept apart, and the rendered page matches the
+original's structure. The score went the other way:
+
+    30 dev files          right page 28.6% -> 26.7%   (gate 100%, words 73.4%)
+    z19851706             79.0% -> 37.2%   12 -> 13 pages
+    z22110258             38.1% -> 21.3%   131 -> 134 pages
+
+Fifty list items are fifty paragraphs and each ends in a partly-filled line.
+The original fits the same fifty items in twelve pages; we need thirteen, and
+one extra page early puts every later page out of step.
+
+`fit.py` cannot recover it. Instrumented on `z19851706`: `ROUNDS = 4` stops the
+loop with a page still spilling, and continuing hits `FLOOR = 0.70` at scale
+0.734 and stops anyway. Recovering the page needs body text near half size -
+flag 6 exactly.
+
+Possibly, and unverified: the file asks for `SimplifiedArabic`, which is not
+installed here. If the substitute is wider, part of the extra wrapping is the
+measuring environment. An attempt to measure that was discarded as invalid.
+
+**Closes when:** Moaz says whether a visibly correct list is worth 1.9 points
+of a score that cannot see lists - or the question is settled in real Word.
+
+---
+
+## 17. The left-to-right control file has been deleted
+
+**Status: the regression baseline has moved and nothing said so.**
+
+`corpus/ödev.pdf` is gone. The regression set is 7 files, not 8.
+
+    with it        68.8%
+    without it     64.3%
+
+Every remaining file scores **identically** to before, so the entire 4.5-point
+move is the missing file. No code regressed.
+
+Two reasons this matters beyond the number:
+
+- It was the only **non-Arabic** file in the set, and the only standing check
+  that left-to-right documents are not damaged by right-to-left work. Moaz has
+  already caught that failure once.
+- It scored 100% and was the only file that did.
+
+This is the corpus-drift failure the project has been bitten by twice, in a
+new place. `corpus/*.pdf` are not restorable by any command (flag 5).
+
+**Closes when:** the file is restored, or the baseline is restated as a 7-file
+number and the left-to-right check is replaced.

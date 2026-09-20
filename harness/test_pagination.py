@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the two things that pushed pages out of step.
+"""Tests for the things that pushed pages out of step.
 
     python -m harness.test_pagination
 
@@ -8,13 +8,17 @@ needs two pages shifts every page after it - permanently, and the shifts add
 up. On one chapter the document ended four pages out of step and only 12% of
 words landed on the matching page.
 
-Neither cause was text overflow.
+None of them is text overflow.
 
   1. Two decorations sat at y=31 with a top margin of 71.6 - above the text
      column, a running header. Emitted as ordinary paragraphs they stole 96pt
      from every page's 735pt of usable height.
   2. A title page of 14 pictures was emitted one under another, stacking to
      1158pt against 735pt, so it took two pages before a word had been read.
+  3. A page whose first block is a TABLE got its page break after the table
+     instead of before it, so the table stayed on the previous page and
+     everything on that page was one out of step. 60 of the 72 pages of
+     z10442411.pdf begin with a table.
 """
 import re
 import sys
@@ -24,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 
-from convert.model import Doc, Block, PARAGRAPH, IMAGE
+from convert.model import Doc, Block, PARAGRAPH, IMAGE, TABLE
 from convert.writer import write
 
 FAILED = []
@@ -64,6 +68,29 @@ def _heights(docx, part="word/document.xml"):
 def _parts(docx, pattern):
     with zipfile.ZipFile(docx) as z:
         return [n for n in z.namelist() if re.match(pattern, n)]
+
+
+def _break_after_table(docx):
+    """Does a page break sit on something that FOLLOWS the table?
+
+    That is the fault itself: the break was written onto the paragraph after
+    the table, so a page beginning with a table kept the table on the page
+    before. Where the break belongs instead is a question for the renderer,
+    not for this test - see the rendered check.
+    """
+    with zipfile.ZipFile(docx) as z:
+        xml = z.read("word/document.xml").decode("utf-8")
+    body = xml.split("<w:body>")[1]
+    return "<w:pageBreakBefore/>" in body[body.index("</w:tbl>"):]
+
+
+def _rendered_page_of(pdf, needle):
+    """Which rendered page does this text land on? -> 0-based, or None."""
+    with pymupdf.open(pdf) as d:
+        for i, page in enumerate(d):
+            if needle in page.get_text("text"):
+                return i
+    return None
 
 
 def main():
@@ -117,6 +144,30 @@ def main():
     docx = tmp / "small.docx"
     write(m, str(docx))
     check("drawn at its own size", [round(h) for h in _heights(docx)], [60])
+
+    print("\na page that begins with a table starts on its own page")
+    m = _model(pages=2)
+    m.line_pitch = 14.0
+    m.blocks.append(Block(kind=PARAGRAPH, text="نص الصفحة الأولى قبل الجدول.",
+                          page=0, y=100, y1=120))
+    m.blocks.append(Block(kind=TABLE, text="", page=1,
+                          rows=[["العمود الأول", "العمود الثاني"],
+                                ["خليةجدولمميزة", "قيمة"]],
+                          col_widths=[120.0, 120.0], x0=70, x1=310, y=80, y1=200))
+    m.blocks.append(Block(kind=PARAGRAPH, text="نص يلي الجدول في الصفحة الثانية.",
+                          page=1, y=220, y1=240))
+    docx = tmp / "table_first.docx"
+    write(m, str(docx))
+    check("no break is left on what follows the table",
+          _break_after_table(docx), False)
+
+    # Rendering, because the XML can only confirm we wrote what we meant to.
+    # A w:tbl cannot carry w:pageBreakBefore itself, so where the break has to
+    # go is a question about what the renderer honours - see test_alignment.
+    from harness.roundtrip import docx_to_pdf
+    pdf = docx_to_pdf(docx, tmp)
+    check("the table lands on the second page",
+          _rendered_page_of(pdf, "خليةجدولمميزة"), 1)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

@@ -700,6 +700,121 @@ file** - `z21358439` prints 2026 correctly on page 1 and 1951-as-1901 on page
 8. Two of the four are the visual-order problem reaching the numbers: 2014
 stored as 4102 is the run reversed, not mis-identified.
 
+## A page that begins with a table kept the table on the previous page, 2026-09-20
+
+Found by reading `write()`, not by a score. A `w:tbl` cannot carry
+`w:pageBreakBefore`, so the table branch emitted the table and then added a
+trailing paragraph - and the break was put on that paragraph. It therefore
+arrived AFTER the table, leaving a page that begins with a table stranded on
+the page before, with everything on it one out of step.
+
+The break now goes on the first paragraph of the table's first cell, which is
+where a renderer looks to start a table on a new page. Confirmed by rendering,
+not by reading the XML: the XML can only say what we wrote.
+
+**It is not rare.** Counting pages whose first block after `_interleave` is a
+table: 60 of the 72 pages of `z10442411.pdf`. Zero across Moaz's eight files,
+which is why nothing ever showed it - and the regression set is unchanged at
+68.8% for the same reason.
+
+    30 dev files (seed 7)        before    after
+    nothing lost                 100.0%    100.0%   (worst file 100.0%)
+    words in order                73.4%     73.4%
+    right page                    28.6%     28.5%
+    page inflation                1.46x     1.42x
+
+    4 files moved; page counts 797->787, 268->267, 10->9, 537->538
+
+**No headline score improved, and that is the expected result.** `right page`
+moved -0.04 points, inside the half-point of render noise. Page inflation is
+the number that moved: the median file now needs 1.42x the original's pages
+rather than 1.46x. The same shape as the heading-alignment fix - a defect that
+is plainly wrong on the page and invisible to every metric we have.
+
+`z10442411.pdf` was the wrong file to quote as evidence, and the run is kept
+here as a caution: 202 -> 190 pages, `right page` 14.5% -> 14.1%. Its
+pagination is dominated by something else - see `FLAGS.md` 16.
+
+`harness/test_pagination.py` gained the case. It renders, because the first
+version of the check asserted that the break must textually precede `<w:tbl>`,
+which is an assertion about how the fix was written rather than about where
+the table lands.
+
+## Lists, 2026-09-20 - correct structure, and the score went DOWN
+
+Bullets and numbered items came out as one run-on paragraph with the markers
+stranded mid-line. Two causes.
+
+**The line-joining rule asked whether a line ENDS like a finished sentence.**
+In right-to-left text the terminating punctuation is frequently STORED at the
+front: `تتمثل أساسا في:` extracts as `':وتتفرع عن هذه الإشكالية ... في'`, colon
+at index 0. `endswith` never saw it, the line read as unfinished, and the
+bullet list below was merged into it.
+
+Checking BOTH ends of every line was the obvious fix and **was tried and
+rejected**: it cost pages across the corpus (z20397518 12 -> 14) without being
+needed for lists. The narrow rule does the job - a line that OPENS with a list
+marker starts a new item however the line above ended.
+
+**Nothing marked list items on the geometry route at all** - 0, against 8 to 53
+paragraphs per file that plainly were. `detect_lists` runs AFTER
+`detect_headings`, and the order is the whole trick: these documents number
+their sections, so `1 . مقدمة` matches a list marker exactly as well as a
+heading, and `detect_headings` only looks at paragraphs. Marking lists first
+turned every numbered heading in `z21011460` into an unrecoverable list item.
+
+The marker pattern was tightened twice. `* Corresponding author` (a footnote
+marker on half the journal papers), `*******` (a divider), `[3] .` (a citation
+fragment) and `1.5 متر` all matched earlier versions.
+
+Indentation uses `left_indent`, which means START - the same logical/physical
+trap as `w:jc`. Measured: in an RTL paragraph `left_indent` moves text 72pt off
+the RIGHT margin, `right_indent` moves it nowhere visible. The old line set
+`right_indent` "because this is RTL", which indented the far edge and left the
+marker where it was.
+
+### The uncomfortable part
+
+    30 dev files              before    after
+    nothing lost              100.0%    100.0%
+    words in order             73.4%     73.4%
+    right page                 28.6%     26.7%     <- WORSE
+    page inflation             1.46x     1.46x
+
+    2 improved, 3 worse, 25 unchanged. Regression set unchanged at 64.3%.
+
+Nearly all of it is two files: `z19851706` 79.0% -> 37.2% and `z22110258`
+38.1% -> 21.3%. Both gain exactly ONE page, and one extra page early puts
+every later page out of step - the mechanism this file has documented three
+times now.
+
+**The page is the price of the structure being right.** Fifty list items are
+fifty paragraphs, and each ends with a partly-filled line. The original has
+the same fifty items and fits them in twelve pages; we need thirteen.
+
+`fit.py` cannot recover it, and that is settled rather than assumed. The loop
+was instrumented on `z19851706`:
+
+    round 0: 12 -> 19 pages, 7 pages spilling
+    round 3: 12 -> 13 pages, page 1 still spilling   <- ROUNDS=4 stops here
+    round 5: 12 -> 13 pages, page 1 blocked by FLOOR=0.70 at scale 0.734
+
+So BOTH limits bind on this file, where on `الفصل الثالث` neither did. Getting
+that page back needs body text shrunk toward half size, which is exactly what
+`FLAGS.md` 6 warns against: making the document worse for the reader to make a
+number better. **Not done.**
+
+One caveat that is plausible and NOT established: `z19851706` asks for
+`SimplifiedArabic`, which is not installed here (fontconfig substitutes Amiri).
+If the substitute is wider, some of the extra wrapping is the measuring
+environment rather than the converter. An attempt to measure this by counting
+text lines per page was thrown out as invalid - the original's blocks are
+per-line fragments while ours are paragraphs, so the two counts are not
+comparable. It needs real Word, like the rest of `FLAGS.md` 6.
+
+**This is a judgement call and it is Moaz's**: a visibly correct list structure
+against 1.9 points of a score that cannot see list structure at all.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

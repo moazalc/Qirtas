@@ -274,6 +274,37 @@ def _page_rich(page, i):
 
 ENDS_PARA = (".", "؟", "!", ":", "؛")
 
+# Bullet glyphs, a dash followed by a space, and "1." / "2-" / "(3)" openers.
+# A bare "*" is deliberately excluded: "* Corresponding author" is a footnote
+# marker on half the journal papers, and "*******" is a section divider. Both
+# would have been read as list items.
+BULLET_GLYPH = "•▪●○◦·⁃‣∙"
+# What follows the marker must be the start of real text, not more
+# punctuation: "[3] ." is a citation fragment, not a list item, and matched
+# until this was tightened.
+_ITEM_START = r"[^\s.,;:!?)\]}\u060C\u061B\u061F*\u2022-]"
+LIST_MARK = re.compile(
+    r"^\s*(?:[" + BULLET_GLYPH + r"]\s*"
+    r"|[-\u2013\u2014]\s+"
+    r"|[(\[]?\s*(?:\d{1,2}|[\u0660-\u0669]{1,2})\s*[-.)\]\u2013]\s+)"
+    + _ITEM_START)
+
+
+def _closes_paragraph(t):
+    """Does this line finish a sentence?
+
+    Checking only the END of the string was wrong for half the corpus. In
+    right-to-left text the terminating punctuation is frequently STORED at the
+    front: `تتمثل أساسا في:` extracts as `':وتتفرع عن هذه الإشكالية ... في'`,
+    with the colon at index 0. `endswith` therefore never saw it, the line read
+    as unfinished, and the bullet list that followed was merged into it -
+    which is what turned five clean bullet points into one run-on paragraph.
+
+    The punctuation is at whichever end the source put it, so look at both.
+    """
+    t = (t or "").strip()
+    return bool(t) and (t.endswith(ENDS_PARA) or t.startswith(ENDS_PARA))
+
 
 def _join_lines(blocks):
     """Merge consecutive lines back into paragraphs.
@@ -299,7 +330,11 @@ def _join_lines(blocks):
         same_size = abs(b.size - a.size) < 0.6 and b.bold == a.bold
         open_end = not a.text.rstrip().endswith(ENDS_PARA)
         wide = (a.x1 - a.x0) > 0 and (b.x1 - b.x0) > (a.x1 - a.x0) * 0.4
-        if stacked and same_size and open_end and wide:
+        # A line that opens with a bullet or a number starts a new item, however
+        # the line above it ended. Without this the second and later items of a
+        # list still ran into the first.
+        starts_item = bool(LIST_MARK.match(b.text or ""))
+        if stacked and same_size and open_end and wide and not starts_item:
             a.text = (a.text + " " + b.text).strip()
             a.spans = a.spans + b.spans
             a.y1 = b.y1
@@ -380,6 +415,25 @@ def detect_headings(doc):
         if t.startswith(HEAD_WORDS) or _is_label_heading(t):
             b.kind = HEADING
             b.level = 1 if t.startswith(HEAD_WORDS[:6]) else 2
+    return doc
+
+
+def detect_lists(doc):
+    """Mark the paragraphs that are really list items.
+
+    Runs AFTER `detect_headings`, and that order is the whole trick. These
+    documents number their sections - `1 . مقدمة`, `7 . متغيرات البحث` - so a
+    numbered opener matches a list marker exactly as well as it matches a
+    heading. Marking lists first turned every numbered heading in `z21011460`
+    into a list item, and `detect_headings` only ever looks at paragraphs, so
+    they could never be recovered.
+
+    A heading has already claimed what it needs by the time this runs; what is
+    left wearing a marker is a list.
+    """
+    for b in doc.blocks:
+        if b.kind == PARAGRAPH and b.text and LIST_MARK.match(b.text):
+            b.kind = LIST_ITEM
     return doc
 
 
@@ -947,6 +1001,7 @@ def read(path, image_dir=None):
         best.add(b)
     best = _backfill(best, results, path)
     best = detect_headings(best)
+    best = detect_lists(best)
     measure_layout(path, best)
     with pymupdf.open(path) as d:
         r = d[0].rect

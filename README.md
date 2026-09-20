@@ -170,12 +170,13 @@ PDF's own text layer.
 
 ### tests
 
-Thirteen suites, all passing as of 2026-09-20. Each is a plain script:
+Fourteen suites, all passing as of 2026-09-20. Each is a plain script:
 
     for t in harness/test_*.py; do .venv/bin/python "$t" || echo "FAILED $t"; done
 
     alignment  arabic  footnotes  heading_style  headings  image_drop
-    images  inline  loss_gate  pagination  tables  text_score  xml_safe
+    images  inline  lists  loss_gate  pagination  tables  text_score
+    xml_safe
 
 Their docstrings are where the failure modes are recorded — `test_arabic.py` and
 `test_loss_gate.py` especially are worth reading before touching either area.

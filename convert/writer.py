@@ -261,6 +261,11 @@ def _running_furniture(model):
 # How much text may be furniture. A running header is a line, not a paragraph;
 # without a cap a whole body paragraph that happened to repeat could be lifted
 # out of the document and drawn on every page.
+# A list item is indented from the side the text starts on, with the marker
+# hanging outside it.
+LIST_INDENT = 30.0
+LIST_HANG = 14.0
+
 RUNNING_MAX_CHARS = 200
 WS_RUN = re.compile(r"\s+")
 DIGITS = re.compile(r"[0-9\u0660-\u0669\u06F0-\u06F9]+")
@@ -656,7 +661,17 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         if first_on_page:
             _top_border(p)
     elif block.kind == LIST_ITEM:
-        pf.right_indent = Pt(18)          # indent from the right, this is RTL
+        # "left" means START here, exactly as it does for w:jc - see
+        # ALIGN_START. Measured on a rendered page: in a right-to-left
+        # paragraph left_indent moves the text 72pt off the RIGHT margin,
+        # while right_indent moves it nowhere visible. The old line set
+        # right_indent "because this is RTL", which indented the far edge and
+        # left the marker where it was.
+        pf.left_indent = Pt(LIST_INDENT)
+        # Negative first line = hanging indent, so the bullet or number sits
+        # outside the text column and the wrapped lines line up under the text
+        # rather than under the marker.
+        pf.first_line_indent = Pt(-LIST_HANG)
     else:
         pf.first_line_indent = Pt(24)
 
@@ -802,9 +817,21 @@ def write(model: Doc, out_path, scale=None):
                 if para is None:
                     continue
             elif b.kind == TABLE:
-                if _emit_table(doc, b, model.body_size * k, model.font,
-                               model.dropped_images) is None:
+                tbl = _emit_table(doc, b, model.body_size * k, model.font,
+                                  model.dropped_images)
+                if tbl is None:
                     continue
+                # A w:tbl cannot carry w:pageBreakBefore itself, and the
+                # paragraph added below sits AFTER the table - so breaking
+                # there left a page that BEGINS with a table on the previous
+                # page, and everything on it one out of step. 60 of the 72
+                # pages of z10442411.pdf begin with a table. The break goes on
+                # the first paragraph of the first cell, which is where a
+                # renderer looks to start a table on a new page.
+                if first and n:
+                    tbl.cell(0, 0).paragraphs[0].paragraph_format \
+                        .page_break_before = True
+                    first = False
                 para = doc.add_paragraph()
                 _rtl_paragraph(para)
             else:
