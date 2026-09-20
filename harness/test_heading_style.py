@@ -49,7 +49,7 @@ def build(tmp, blocks, stem):
 
 
 def main():
-    tmp = Path("out/_test_heading_style")
+    tmp = Path("out/tests/heading_style")
     tmp.mkdir(parents=True, exist_ok=True)
 
     blocks = [

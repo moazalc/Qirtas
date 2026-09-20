@@ -39,6 +39,33 @@ def _clean(s):
 SENT_SPLIT = re.compile(r"[.؟!؛:\n]+|،")
 MIN_SENT = 40
 
+# Is a sentence already present? Not an exact test, deliberately.
+#
+# The two readers extract through different pymupdf modes which disagree about
+# where spaces fall, and the lam-alef repair is space-sensitive, so one route
+# yields "...ومنها الشاذ" and the other "...ومنهالا شاذ" - the same words,
+# repaired on one side only. An exact substring test read that as missing and
+# backfilled the whole paragraph a second time. Five such duplicates on one
+# chapter added a page, and every page after it was one out of step.
+#
+# Folding both letter orders onto one symbol does not work: the two strings
+# consume different pairs and the misalignment cascades. So sample instead.
+# Text that is genuinely absent - which is what backfill exists to catch -
+# matches no window at all, while text differing by a character or two still
+# matches most of them.
+WINDOW = 12
+SAMPLES = 5
+PRESENT_AT = 0.6
+
+
+def _present(sent, have):
+    if len(sent) <= WINDOW:
+        return sent in have
+    last = len(sent) - WINDOW
+    spots = {round(i * last / (SAMPLES - 1)) for i in range(SAMPLES)}
+    hits = sum(1 for i in spots if sent[i:i + WINDOW] in have)
+    return hits >= len(spots) * PRESENT_AT
+
 
 def _sentences(t):
     return [x for x in (WS.sub("", s or "") for s in SENT_SPLIT.split(t or ""))
@@ -66,7 +93,7 @@ def _backfill(chosen, results, path):
             sents = _sentences(b.text)
             if not sents:
                 continue
-            missing = [x for x in sents if x not in have]
+            missing = [x for x in sents if not _present(x, have)]
             # Only take a block that is genuinely absent. Adding one whose text
             # is mostly present already duplicated whole paragraphs and pushed
             # word counts above the original.
@@ -523,6 +550,70 @@ def _repaint(doc, xref):
         return None
 
 
+def _is_flat(doc, xref, sample=4096):
+    """Is the stored image one flat colour, with its real shape in a mask?
+
+    `الفصل الثالث` carries its running header as two 676x132 RGB images that
+    are **solid black**, with an 8-bit SMask holding the actual Arabic. We took
+    the pixels and dropped the mask, so a black bar was stamped across the top
+    of every page - of that file and of `z21358439` too. Every score rated it
+    100% on images: a placed picture is counted, not looked at.
+
+    Reconstructing the mask is not worth attempting. It is a `/Matte`
+    pre-multiplied alpha whose values run 0..64 rather than 0..255, so the
+    obvious composite comes out at a quarter opacity or fully transparent
+    depending on how it is read, and `Pixmap(doc, xref)` does not apply it at
+    all - it returns the same solid black with an alpha channel of 255.
+
+    Flatness alone is NOT a sufficient signal, which cost one attempt. The
+    second header image is a black box with a white border - 26 distinct
+    colours, so not flat - whose text `الفصل الثالث` is entirely in the mask.
+    It still rendered as a black box. Kept here because a flat image is a
+    useful second trigger for pictures that have no mask at all.
+    """
+    try:
+        pix = pymupdf.Pixmap(doc, xref)
+        if pix.alpha:
+            pix = pymupdf.Pixmap(pix, 0)
+    except Exception:
+        return False
+    s, n = pix.samples, pix.n
+    total = len(s) // max(1, n)
+    if total < 4:
+        return False
+    first, step = s[:n], max(1, total // sample)
+    for k in range(0, total, step):
+        i = k * n
+        if s[i:i + n] != first:
+            return False
+    return True
+
+
+def _dpi_for(rect, px, lo=96, hi=300):
+    """Enough dots to keep the picture's own detail, and no more.
+
+    Rendering everything at a fixed high dpi turns a small logo into a large
+    PNG and a large photo into a larger one, for no visible gain. Match the
+    image's own pixel count across the width it is drawn at.
+    """
+    if rect.width <= 0 or not px:
+        return lo
+    return int(max(lo, min(hi, 72.0 * px / rect.width)))
+
+
+def _render_region(page, rect, dpi=200):
+    """Photograph the page where the picture sits, rather than decoding it.
+
+    The same trick `render_vector_cells` uses for line art. It flattens
+    transparency onto the page, which is exactly right for a decoration sitting
+    on a white page and is what the reader sees anyway.
+    """
+    try:
+        return page.get_pixmap(clip=rect, dpi=dpi).tobytes("png")
+    except Exception:
+        return None
+
+
 def read_images(path, outdir):
     """Pull the real pictures out of the PDF, ignoring Word's pixel litter.
 
@@ -559,6 +650,13 @@ def read_images(path, outdir):
                 except Exception:
                     continue
                 blob, ext = raw["image"], raw.get("ext", "png")
+                # A picture whose appearance is partly in a transparency mask
+                # cannot be rebuilt from the stored pixels - see _is_flat. Take
+                # it off the page instead, where it is already correct.
+                if raw.get("smask") or _is_flat(d, xref):
+                    shot = _render_region(page, rects[0], _dpi_for(rects[0], w))
+                    if shot:
+                        blob, ext = shot, "png"
                 if not _word_can_read(blob):
                     blob, ext = _repaint(d, xref), "png"
                     if blob is None:
@@ -567,7 +665,8 @@ def read_images(path, outdir):
                 dest.write_bytes(blob)
                 r = rects[0]
                 blocks.append(Block(kind=IMAGE, text="", page=i, image=str(dest),
-                                    x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1))
+                                    x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1,
+                                    origin=f"x{xref}"))
     return blocks
 
 
@@ -595,6 +694,51 @@ def _unreverse(cell, page_flat):
     return cell
 
 
+def _cell_text(page, box, fallback, page_flat):
+    """Read one cell off the PAGE rather than out of the table finder.
+
+    The table finder returns Arabic in visual order, and `_unreverse` repaired
+    that by flipping the string. Flipping is not the inverse of visual order:
+    it also flips the two characters inside a lam-alef ligature, so `للأوراق`
+    came back as `أللوارق` and then matched nothing, and the cell was written
+    backwards into the document. Two of eight cells on one table, silently.
+
+    Clipping to the cell's own rectangle goes through the SAME extractor that
+    produces correctly ordered body text, so the order is right for the same
+    reason it is right everywhere else - and it is consistent with the text the
+    scorer reads, which a flipped string never was.
+
+    Two guards, because a clip can go wrong in exactly two ways. It can catch a
+    NEIGHBOURING cell, so the reading must be about as long as the table
+    finder's. And it must actually be in logical order, so a probe from it has
+    to be found forward in the page's own text. Either guard failing falls back
+    to the old path rather than guessing.
+
+    Character multisets are NOT used to decide this, though it was the obvious
+    test: the lam-alef ligature expands to a different number of characters in
+    the two extraction modes (`االتجاه` against `لا...`), so the multisets of
+    identical content differ and one correct cell in four was rejected.
+    """
+    if box is None:
+        return _unreverse(_clean(fallback or ""), page_flat)
+    try:
+        clip = page.get_text("text", clip=pymupdf.Rect(box))
+    except Exception:
+        return _unreverse(_clean(fallback or ""), page_flat)
+    a, b = WS.sub("", (clip or "").replace("\n", "")), \
+        WS.sub("", (fallback or "").replace("\n", ""))
+    if not a:
+        return _unreverse(_clean(fallback or ""), page_flat)
+    if b and len(a) - len(b) > max(3, 0.25 * len(b)):
+        return _unreverse(_clean(fallback or ""), page_flat)   # caught a neighbour
+    if len(a) >= 6 and ARABIC.search(a):
+        n = min(14, max(6, len(a) // 2))
+        probe = a[(len(a) - n) // 2:][:n]
+        if probe not in page_flat:
+            return _unreverse(_clean(fallback or ""), page_flat)
+    return _clean(clip)
+
+
 def read_tables(path):
     """Find tables and return them as blocks of rows."""
     blocks = []
@@ -607,8 +751,21 @@ def read_tables(path):
             page_flat = WS.sub("", page.get_text("text"))
             for t in found:
                 try:
-                    rows = [[_unreverse(_clean(c or ""), page_flat) for c in row]
-                            for row in t.extract()]
+                    raw = t.extract()
+                    cells = []
+                    try:
+                        cells = [[c for c in row.cells] for row in t.rows]
+                    except Exception:
+                        cells = []
+                    rows = []
+                    for ri, row in enumerate(raw):
+                        out = []
+                        for ci, c in enumerate(row):
+                            box = None
+                            if ri < len(cells) and ci < len(cells[ri]):
+                                box = cells[ri][ci]
+                            out.append(_cell_text(page, box, c, page_flat))
+                        rows.append(out)
                 except Exception:
                     continue
                 if not rows or not any(any(c for c in r) for r in rows):

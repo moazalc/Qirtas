@@ -25,8 +25,8 @@ which nothing does. That's the project.
 On Moaz's 8 thesis files, measured on the office machine:
 
     nothing lost     100.0%   <- the hard gate, never broken
-    words in order    98.6%
-    right page        61.4%   <- goal: >90%
+    words in order    98.8%
+    right page        68.8%   <- goal: >90%
     page inflation     1.00x  <- page counts now exact
 
 All 12 test suites pass. Everything is committed and pushed to `main`.
@@ -42,19 +42,68 @@ environment so this can't silently happen again.
 
 ### A. Toward Moaz's goal: his 8 files above 90% on right page
 
-**A1. Images cost page alignment at full size.** Diagnosed, half-fixed,
-in progress when the office session ended. Purely a space problem — at half
-size, alignment jumped 19% → 63% and pages went 25→26. The shrink loop in
-`convert/fit.py` stops at `FLOOR = 0.70` and needs to reach about 0.5 when
-pictures are present. Small change, directly measurable.
+**A1. DONE (2026-09-20), and the recorded diagnosis was wrong.** It was not
+images and not the shrink loop — `FLOOR = 0.70` is unreachable anyway, because
+`ROUNDS = 4` at `STEP = 0.94` caps the loop at 0.78. The real fault was
+`reader._backfill` duplicating paragraphs that were already present, because
+the lam-alef repair is space-sensitive and the two reader routes disagree about
+spaces. One spurious page early in a file put every later page one out of step.
+**Right page 61.4% → 68.8%**, two files fixed (29.0% → 72.6% and 51.6% →
+68.4%), page counts now exact on both. Gate held at 100%, nothing moved beyond
+noise on 30 unseen files. Full write-up in `PLAN.md`.
 
-**A2. `مقدمة البحث` is an outlier** — 26% → 31% where its siblings reached
-~50%. Text and picture scores are both perfect, so whatever is wrong is
-positional. Undiagnosed.
+**A2. `مقدمة البحث` is an outlier** — 33.7% where its siblings now reach
+56–73%, and the only regression file still one page long (17 against 16).
+Untouched by the A1 fix. Text and picture scores are both perfect, so whatever
+is wrong is positional. Undiagnosed, and now the single biggest remaining
+drag on Moaz's set.
 
 **A3. Line-break drift inside correctly-numbered pages.** What remains after
 pagination was fixed. It's a wrapping difference between renderers and may not
 be worth chasing — check before spending time on it.
+
+**A4. Black bars on every page of `الفصل الثالث`.** Found by looking, 
+2026-09-20. The running-header decorations are 2x2 transparency-masked
+stencils; we drop the mask, so they come out solid black and get stretched
+across the header. Confirmed inside the .docx, so it is ours, not the renderer.
+Every score rates the file 100% on images. **See `FLAGS.md` 11** — check the
+other seven files for the same bar before fixing.
+
+### A5–A8. Found by looking at four files, 2026-09-20
+
+Moaz's call: these outrank the per-file chasing above. All four were found by
+putting our page next to the original and looking, and **none of them moves any
+score we have.**
+
+**A5. DONE (2026-09-20).** Running header text and page numbers now go to
+Word's header and footer; the page number is a real `PAGE` field starting at
+the original's first number. On 30 dev files: **right page 21.3% → 27.7%**,
+inflation 1.56x → 1.46x, 15 files improved and none worse, gate held at 100%.
+Best single file 28.1% → 96.7%. Full write-up in `PLAN.md`.
+
+**A6. DONE (2026-09-20).** Cells are read by clipping to their own rectangle
+rather than flipping the string - flipping also flips the lam-alef ligature,
+which is why it failed. New `harness/test_tables.py`. `FLAGS.md` 12.
+
+**A7. MEASURED (2026-09-20) — needs Moaz's decision.** `harness/digits.py`
+finds candidates; all seven in 102 dev files were rendered and read, and
+**4 are verifiably wrong (3.9%)**. A floor: one sample cannot clear a file.
+Warn or refuse is the open question. `FLAGS.md` 13.
+
+**A8. DONE (2026-09-20), and it was worse than "alignment".** `w:jc` is
+logical: "right" means END, which a right-to-left paragraph puts on the LEFT.
+**Every Arabic heading in the corpus was against the wrong margin** - 420pt out
+of place on the file it was found on. Headings and table cells both fixed. No
+score moved, which is the point: `right page` cannot see it. The old test
+asserted the bug and passed; it now renders and measures. `PLAN.md`.
+
+**A9. DONE (2026-09-20).** Header text uses the block's own measured size (8pt)
+instead of a guessed fraction of the body size (9.6pt), which is what made it
+wrap.
+
+**A10. Lists still flatten into prose.** Bullets and numbered items are not
+detected. Visible on every wild file looked at, and the last obvious structural
+gap after headers, footers, tables and headings. Was B3.
 
 ### B. Blocking the corpus generally (not Moaz's files)
 

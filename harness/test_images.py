@@ -72,7 +72,7 @@ def _pdf_with(tmp, blob, w, h):
 
 
 def main():
-    tmp = Path("out/_test_images")
+    tmp = Path("out/tests/images")
     tmp.mkdir(parents=True, exist_ok=True)
 
     # Build a real JPEG, then take its JFIF header off.

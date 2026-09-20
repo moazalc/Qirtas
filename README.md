@@ -88,6 +88,28 @@ non-zero. Don't wave that through: a corpus one file short still scores fine.
 Copy them across by hand. Everything else under `out/` is regenerated output
 and is meant to be absent on a fresh checkout.
 
+### where output goes
+
+`out/` was a flat drawer of 78 items with names like `final2`, `mine` and
+`fittest`, and no way to tell which number came from which code. Since a score
+here means nothing without knowing how it was produced, it now has a shape:
+
+    out/split.json   dev/holdout membership. TRACKED IN GIT, never regenerated
+    out/runs/        one folder per measurement, dated and labelled. Keep these
+    out/work/        scratch conversions and renders. Safe to delete any time
+    out/tests/       what the test suites write. Safe to delete any time
+    out/archive/     everything that was loose in out/ before 2026-09-20
+
+**Every eval run records itself** into `out/runs/<date>-<set>-<label>/` with
+`results.json` (scores, per-file rows, and the environment) and `summary.txt`.
+That is not optional and not something to remember — the run that matters is
+always the one nobody saved.
+
+    .venv/bin/python -m harness.eval --set regression --label after-some-fix
+
+`out/archive/` holds the pre-2026-09-20 files, several of which are cited as
+evidence in `PLAN.md`. Read before deleting.
+
 ## running it
 
 Convert one file:
@@ -115,14 +137,45 @@ Compare two runs, split by document class:
 
     .venv/bin/python -m harness.report_holdout out/eval_a.json out/eval_b.json
 
+### finding out WHERE a file is wrong
+
+A score says a file is bad. These two say where, and between them they have
+found more real bugs than any metric has.
+
+    .venv/bin/python -m harness.drift original.pdf rebuilt.pdf
+
+For each original page, which of our pages did its words land on. Read the
+drift column: a **constant** offset is ONE spurious page and is worth chasing
+(that is how the duplicate-backfill bug was found — right page 29.0% → 72.6%);
+a **growing** offset is content genuinely overflowing page by page.
+
+    .venv/bin/python -m harness.look original.pdf rebuilt.pdf --pages 4 --align
+
+The two pages side by side, ours left, original right. Use `--align` on any
+file whose page count moved, or you will compare two pages holding different
+content and invent faults that are not there.
+
+    .venv/bin/python -m harness.digits --set dev
+
+Finds PDFs that DISPLAY one number and STORE another - `1951` on the page,
+`1901` in the text. It reports CANDIDATES, not verdicts: on the dev set 4 of 7
+were real once rendered and read. Not our bug, but our output carries the wrong
+number and every score says 100%, because both sides share the fault.
+
+**Look before believing a number, and look before reporting a defect.** Both
+directions have paid off: looking found black bars on every page of a
+regression file that every score rated 100%, and looking *also* produced a
+misplaced-full-stop "bug" that turned out to sit identically in the source
+PDF's own text layer.
+
 ### tests
 
-Twelve suites, all passing as of 2026-09-20. Each is a plain script:
+Thirteen suites, all passing as of 2026-09-20. Each is a plain script:
 
     for t in harness/test_*.py; do .venv/bin/python "$t" || echo "FAILED $t"; done
 
     alignment  arabic  footnotes  heading_style  headings  image_drop
-    images  inline  loss_gate  pagination  text_score  xml_safe
+    images  inline  loss_gate  pagination  tables  text_score  xml_safe
 
 Their docstrings are where the failure modes are recorded — `test_arabic.py` and
 `test_loss_gate.py` especially are worth reading before touching either area.

@@ -67,7 +67,7 @@ def _parts(docx, pattern):
 
 
 def main():
-    tmp = Path("out/_test_pagination")
+    tmp = Path("out/tests/pagination")
     tmp.mkdir(parents=True, exist_ok=True)
 
     print("a decoration above the text column is a running header, not content")

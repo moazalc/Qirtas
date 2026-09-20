@@ -50,7 +50,7 @@ def _build(tmp):
 
 
 def main():
-    tmp = Path("out/_test_footnotes")
+    tmp = Path("out/tests/footnotes")
     tmp.mkdir(parents=True, exist_ok=True)
     docx = _build(tmp)
 

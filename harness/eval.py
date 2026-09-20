@@ -9,7 +9,7 @@ opening it during development destroys the only safeguard there is.
     python -m harness.eval --set regression  # the hard ActualText case
     python -m harness.eval --set holdout     # once, at the end
 """
-import argparse, json, random, statistics, sys
+import argparse, datetime, json, random, statistics, sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -52,10 +52,12 @@ def main():
     ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--work", default="out/eval")
+    ap.add_argument("--work", default="out/work/eval")
     ap.add_argument("--jobs", type=int, default=6,
                     help="files in parallel; 1 to run serially")
-    ap.add_argument("--json")
+    ap.add_argument("--json", help="extra copy of the results at this exact path")
+    ap.add_argument("--label", default="",
+                    help="what this run was testing, e.g. 'after-backfill-fix'")
     a = ap.parse_args()
 
     if a.set == "holdout":
@@ -119,18 +121,59 @@ def main():
     pg = statistics.mean(r["page_score"] for r in rows)
     infl = statistics.median(r["pages_out"] / max(1, r["pages_orig"]) for r in rows)
 
-    print(f"\n{BOLD}{a.set} set — {len(rows)} files{OFF}")
+    head = f"{a.set} set — {len(rows)} files" + (f"  [{a.label}]" if a.label else "")
+    summary = "\n".join([
+        head,
+        f"  nothing lost   {kept:>7.1%}  (worst file {worst:.1%})",
+        f"  words in order {txt:>7.1%}",
+        f"  right page     {pg:>7.1%}   (unrelated docs ~13%)",
+        f"  page inflation {infl:>7.2f}x",
+    ])
+    print(f"\n{BOLD}{head}{OFF}")
     print(f"  nothing lost   {GRN if worst >= 0.999 else RED}{kept:>7.1%}{OFF}  "
           f"(worst file {GRN if worst >= 0.999 else RED}{worst:.1%}{OFF})")
     print(f"  words in order {txt:>7.1%}")
     print(f"  right page     {pg:>7.1%}   {DIM}(unrelated docs ~13%){OFF}")
     print(f"  page inflation {infl:>7.2f}x")
 
+    # Every run records itself, whether or not anyone remembered to ask.
+    #
+    # out/ used to be a flat drawer of 78 items with names like final2, mine
+    # and fittest, and no way to tell which number came from which code. This
+    # project's central rule is that a score means nothing without knowing how
+    # it was produced, so the recording cannot be optional - or the run that
+    # matters is the one nobody saved.
+    payload = {"env": env, "set": a.set, "label": a.label,
+               "n": len(rows), "files_requested": len(files),
+               "sample": {"n": a.n, "seed": a.seed} if a.n else None,
+               "scores": {"kept": round(kept, 4), "worst_kept": round(worst, 4),
+                          "text": round(txt, 4), "page": round(pg, 4),
+                          "inflation": round(infl, 4)},
+               "results": rows}
+    stamp = datetime.date.today().isoformat()
+    name = "-".join(x for x in (stamp, a.set, a.label) if x)
+    run = Path("out/runs") / name
+    n = 2
+    while run.exists():
+        run = Path("out/runs") / f"{name}-{n}"
+        n += 1
+    run.mkdir(parents=True)
+    (run / "results.json").write_text(json.dumps(payload, ensure_ascii=False,
+                                                 indent=2), encoding="utf-8")
+    (run / "summary.txt").write_text(summary + "\n" + describe(env) + "\n",
+                                     encoding="utf-8")
+    print(f"\n{DIM}recorded in {run}{OFF}")
+
+    # A run that reports fewer files than it asked for is a story in itself -
+    # a crash removes a file from the average instead of failing the run.
+    if len(rows) < len(files):
+        print(f"{RED}  {len(files) - len(rows)} file(s) crashed and are NOT in "
+              f"these numbers{OFF}")
+
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.json).write_text(json.dumps(
-            {"env": env, "set": a.set, "results": rows},
-            ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(a.json).write_text(json.dumps(payload, ensure_ascii=False,
+                                           indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

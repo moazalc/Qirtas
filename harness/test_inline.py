@@ -65,7 +65,7 @@ def _runs(docx):
 
 
 def main():
-    tmp = Path("out/_test_inline")
+    tmp = Path("out/tests/inline")
     tmp.mkdir(parents=True, exist_ok=True)
     pdf, docx = tmp / "inline.pdf", tmp / "inline.docx"
     _fixture(str(pdf))

@@ -440,6 +440,266 @@ Measured over all 102 dev files: nothing lost 100.0% (worst file 100.0%), words
 79.37% against 79.34%, right page 21.75% against 21.47%. No file scored worse
 than before; one improved 88.2% -> 93.0%.
 
+## The duplicate-backfill bug, 2026-09-20
+
+A1 was recorded as "images cost page alignment at full size; the shrink loop
+stops at FLOOR = 0.70 and needs to reach about 0.5". **That diagnosis was
+wrong, and the shrink loop was never the constraint.** Two things worth keeping:
+
+`ROUNDS = 4` at `STEP = 0.94` caps the loop at 0.94^4 = 0.78, so `FLOOR = 0.70`
+has never once been reached. It is unreachable code. Anyone planning to "raise
+the floor" would have changed nothing.
+
+What actually happened, found by instrumenting the loop rather than by reading
+the note: on `الفصل الثالث` the loop shrank one page, then reported nothing
+spilled - while the output was still 26 pages against 25. Mapping where each
+page's words landed showed pages 0-4 correct and **every page from 5 on drifted
+by exactly +1**. One spurious page early in the document was costing the whole
+file: 29.0% on right page.
+
+Output page 5 held four mangled tokens that duplicated text already on page 4.
+The cause is `_backfill`, and it is the same space-sensitivity recorded in
+caveat 1, now biting between the two READER routes rather than reader against
+checker:
+
+    tags route      ...ومنهاالشاذ      (ا ل ش)
+    geometry route  ...ومنهالاشاذ      (ل ا ش)
+
+The lam-alef repair is space-sensitive; the two routes disagree about where
+spaces fall; so the repair fires on one route and not the other. `_backfill`
+asked whether a sentence was already present with an exact substring test, got
+"no" for text that was fully present, and added the whole paragraph again.
+Five such duplicates on this file, two on another.
+
+**Folding both letter orders onto one symbol does not work** - tried and
+discarded. The two strings consume different pairs (`منها|الشاذ` against
+`منه|الاشاذ`) and the misalignment cascades through the rest of the string.
+
+The fix is `reader._present`: sample five fixed windows of 12 characters and
+call the sentence present if 60% of them are found. Text that is genuinely
+absent - the Quranic verse this function exists to recover - matches no window
+at all, while text differing by a character or two still matches most.
+
+    regression set          before   after
+    nothing lost            100.0%   100.0%
+    words in order           98.6%    98.8%
+    right page               61.4%    68.8%
+    page inflation           1.00x    1.00x
+
+    الفصل الثالث             29.0%    72.6%    26 -> 25 pages
+    الفصل الخامس الثالث      51.6%    68.4%    19 -> 18 pages
+
+Four files moved -0.1 to -0.5, all inside the noise floor in caveat 8. On 30
+dev files not tuned on: **no file moved beyond noise, and the gate held at
+100.0% on every one**. All 12 suites pass; the case is pinned in
+`harness/test_arabic.py`, next to the repair whose space-sensitivity causes it.
+
+**`مقدمة البحث` is untouched by this** - still 17 pages against 16, still
+33.7%. Whatever is wrong there is a different fault; see `FLAGS.md` 10.
+
+## w:jc is logical, and every Arabic heading was on the wrong side, 2026-09-20
+
+Raised by Moaz from a rendered page: "we need text on RTL not the opposite."
+
+In OOXML `w:jc` values are **logical**. "left" means START and "right" means
+END, and a right-to-left paragraph swaps which physical margin those are. So
+`WD_ALIGN_PARAGRAPH.RIGHT` on an Arabic heading put it against the **left**
+margin - the opposite of both the name and the intent.
+
+Measured rather than reasoned about. One RTL paragraph rendered at each
+setting, on a 612pt page:
+
+    w:jc = right   -> x0 = 93     (LEFT margin)
+    w:jc = left    -> x0 = 515    (RIGHT margin)
+    w:jc = center  -> x0 = 306
+
+On `z21011460.pdf` the heading `متغيرات البحث` sat 380pt from the right edge
+where the original has it 89pt from the right edge. After the fix ours is at
+x0 = 421 against the original's x0 = 421.2.
+
+Two sites had it: headings in `_emit`, and table cells in `_emit_table`. Both
+now use `ALIGN_START`, which is spelled `LEFT` and is correct in both
+directions - start is the right margin in Arabic and the left margin in
+English. The `if not rtl` branch for headings collapsed entirely.
+
+**The test suite asserted the bug and passed.** `test_alignment.py` checked
+`alignment == AL.RIGHT` for Arabic headings, which is exactly what the code
+wrote, so the test confirmed we had written what we meant and said nothing
+about where the text went. It now renders the page and measures which margin
+the heading is against - the only form of this test that could have caught it.
+
+**No score moved.** Regression 68.8% before and after; 30 dev files, nothing
+beyond noise; gate 100% throughout. Headings are a small share of the words, so
+`right page` cannot see this - and neither could anything else we measure. That
+is the point: it was found by looking at a page, like the other large faults in
+this file.
+
+Verified through LibreOffice. This is ECMA-376 behaviour rather than a renderer
+quirk, but it is unconfirmed in real Word - `FLAGS.md` 6.
+
+## Running text goes to the header and footer, 2026-09-20
+
+Raised by Moaz from a rendered page: the journal line "should be in the head
+section of the document, same thing with the pagination".
+
+`_running_furniture` already did this for PICTURES - which is why Moaz's own
+files stopped inflating - but repeating TEXT was never detected, so the journal
+line and the page number were emitted as ordinary body paragraphs, costing two
+or three lines of every page's column. `_running_text` now handles text.
+
+Three things had to be got right, and two of them were not obvious:
+
+1. **The page number differs on every page**, so grouping by exact text finds
+   nothing. Digits are replaced by a placeholder before grouping.
+
+2. **Position cannot find the header, and the reason is circular.** The margins
+   are measured FROM the content, and the running header is part of that
+   content, so the column is drawn to include it and it never looks outside.
+   The first attempt found every page number (clearly below the column) and not
+   one journal line. Reading order is the fallback: first block on the page, or
+   last. Repetition is what makes that safe - being first on the page is
+   ordinary; being first with the same words every time is furniture.
+
+3. **The tags route carries no coordinates for text at all** (geometry does),
+   so a position-only rule would have worked on half the corpus.
+
+A page number becomes a real `PAGE` field, not the literal digits, with
+`w:pgNumType/@w:start` set so numbering begins where the original's did - page
+9 of `z21011460` is printed 82, and a bare field would have said 10.
+
+**The scorer had to change too, and this was the trap.** Header text lives in
+`header1.xml`, not `document.xml`, so `text_of_docx` could not see it and the
+hard gate would have reported perfectly good text as lost - the identical trap
+footnotes had. Word DRAWS the header on every page and the original PDF's
+extraction finds it once per page, so `text_of_docx` now emits it at every page
+boundary. A PAGE field's cached number is skipped, or our "82" would be
+compared against the original's 83, 84, 85.
+
+That change is a no-op on any file with no header/footer text, so runs recorded
+before it stay comparable.
+
+    30 dev files                 before    after
+    nothing lost                 100.0%    100.0%   (worst file 100.0%)
+    words in order                73.0%     73.3%
+    right page                    21.3%     27.7%
+    page inflation                1.56x     1.46x
+
+    15 files improved, 0 worse, 15 unchanged
+
+    z22179435    28.1% -> 96.7%    29 -> 28 pages (orig 28)
+    z21761968    11.9% -> 58.2%    25 -> 21 pages (orig 20)
+    z19851706    36.8% -> 79.0%    14 -> 12 pages (orig 12)
+
+The regression set is untouched at 68.8%: Moaz's files carry their running
+header as a PICTURE, which was already handled.
+
+## Tables, masked pictures, header size, and a number for the digits, 2026-09-20
+
+### Table cells were written backwards, and flipping was the wrong repair
+
+`_unreverse` flipped the string when the table finder returned visual order.
+**Flipping is not the inverse of visual order**: it also flips the two
+characters inside a lam-alef ligature, so `للأوراق` came back as `أللوارق`,
+matched nothing on the page, and the cell was written backwards. Two of eight
+cells on one table, silently.
+
+Cells are now read by clipping to the cell's own rectangle, which goes through
+the SAME extractor that gets body text right - so the order is right for the
+same reason it is right everywhere else, and it agrees with the text the scorer
+reads, which a flipped string never did.
+
+Two guards, because a clip can go wrong in exactly two ways: it can swallow a
+neighbouring cell (so it must be about as long as the table finder's reading),
+and it must be in logical order (so a probe from it must be found forward in
+the page text). **Character multisets were tried first and rejected**: the
+lam-alef ligature expands to a different number of characters in the two
+extraction modes, so identical content compares unequal, and one correct cell
+in four was thrown away.
+
+`harness/test_tables.py` is new. It tests the DECISION, not Arabic order - a
+PDF built with `insert_textbox` stores presentation-form glyphs rather than the
+logical characters a real Word export stores, so a synthetic page is not a
+model of this bug. The first version of that test asserted against one and
+failed on correct code.
+
+### Black bars came from transparency masks, and the fix broke something else
+
+`الفصل الثالث` carried its running header as 676x132 RGB images that are solid
+black, with the actual Arabic in an 8-bit SMask. `z21358439` had the same.
+
+Reconstructing the mask is not worth attempting: it is a `/Matte`
+pre-multiplied alpha whose values run 0..64 rather than 0..255, and
+`Pixmap(doc, xref)` does not apply it at all - it hands back the same solid
+black with an alpha channel of 255. The picture is taken off the PAGE instead,
+the same trick `render_vector_cells` already used for line art.
+
+**Flatness alone was not a sufficient trigger**, which cost one attempt: the
+second header image is a black box with a white border - 26 distinct colours -
+whose text lives entirely in the mask. Having a mask is the trigger; flatness
+is kept as a second one.
+
+**That fix then broke the running-header detection**, which is worth recording
+because the failure was invisible in the code and obvious in the numbers.
+`_running_furniture` grouped repeated decorations by hashing the extracted
+FILE. Rendering each copy off its own page makes every copy unique - 48 header
+pictures became 39 distinct hashes, nothing grouped, the header went back into
+the body, and `الفصل الرابع` fell **56.3% -> 28.4%** with two extra pages.
+Identity now comes from the source object (`Block.origin`), which is what
+"the same decoration" actually means.
+
+### Header text used a guessed size
+
+The journal line on `z21011460` is 8pt and drawn 332pt wide in a 378pt column.
+Written at 0.8 x 12pt body it became 9.6pt, about 398pt, and wrapped onto a
+second line the original never had. It now uses the block's own measured size.
+
+    30 dev files              before    after
+    nothing lost              100.0%    100.0%
+    words in order             73.3%     73.4%
+    right page                 27.7%     28.6%
+    page inflation             1.46x     1.46x
+
+    4 files improved, 2 worse. Best +24.6 (z19799524 38.5% -> 63.0%),
+    worst -5.0 (z20375390). Regression set unchanged at 68.8%.
+
+### A number for the wrong digits - and it is smaller than the tool first said
+
+`harness/digits.py` is new. A PDF draws glyphs; its ToUnicode table claims what
+they mean; when that table lies, extraction cannot tell. The embedded font
+carries its own opinion in its cmap, so ask both.
+
+**Three approaches were wrong before one worked**, all recorded in the tool:
+
+1. "Two glyphs claiming the same digit" - came from a sloppy CMap read that
+   paired hex tokens across entry boundaries. Properly parsed, the table is
+   one to one.
+2. "Digit glyphs should ascend with glyph id" - they need not; subsetters
+   assign ids in order of first use. Flagged healthy files.
+3. "Check every font" - in a simple font the code is the CHARACTER code (48 is
+   "0" because that is ASCII), so comparing it to a glyph id disagrees on
+   principle. Flagged most of the corpus. **Identity-H only.**
+
+What works: flag a digit that has NO correct route - one reachable only through
+an entry the font contradicts. A healthy file often carries spare entries that
+disagree while the right one still exists.
+
+**Then every candidate was rendered and read, because a structural test cannot
+settle this:**
+
+    z21358439   shows 1951   stores 1901   WRONG
+    z19799068   shows 2014   stores 4102   WRONG
+    z19799524   shows 2014   stores 4102   WRONG
+    z21490618   shows 2019   stores 2112   WRONG
+    z19773087   shows 1989   stores 1989   right where looked
+    z20276145   shows 3059   stores 3059   right where looked
+    z21813345   shows 2020   stores 2020   right where looked
+
+**4 of 102 files (3.9%) carry verifiably wrong numbers.** A floor, twice over:
+the test cannot see a wholly-permuted table, and **one sample cannot clear a
+file** - `z21358439` prints 2026 correctly on page 1 and 1951-as-1901 on page
+8. Two of the four are the visual-order problem reaching the numbers: 2014
+stored as 4102 is the run reversed, not mis-identified.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

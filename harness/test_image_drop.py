@@ -75,7 +75,7 @@ def _blips_in(docx, pattern):
 
 
 def main():
-    tmp = Path("out/_test_image_drop")
+    tmp = Path("out/tests/image_drop")
     tmp.mkdir(parents=True, exist_ok=True)
     good = _png(tmp / "good.png")
     junk = _junk(tmp / "junk.png")

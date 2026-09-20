@@ -97,6 +97,26 @@ def _flag(parent, tag, val="1"):
     parent.append(e)
 
 
+# w:jc is LOGICAL, not physical, and this cost every heading in the corpus.
+#
+# In OOXML "left" means START and "right" means END, and a right-to-left
+# paragraph flips which side those are. So `w:jc="right"` on an Arabic heading
+# puts it against the LEFT margin - the opposite of what the name says and of
+# what was intended. Measured, not reasoned about: an RTL paragraph rendered at
+# each setting put jc=right at x0=93 and jc=left at x0=515 on a 612pt page.
+#
+# Every Arabic heading in the corpus was therefore aligned to the wrong side,
+# 420pt out of place on the file this was found on. The same line in table
+# cells had the same fault.
+#
+# Correct for BOTH directions: start is the right margin in Arabic and the left
+# margin in English, which is exactly what a heading wants.
+#
+# Verified through LibreOffice. This is ECMA-376 behaviour rather than a
+# renderer quirk, but it has not been confirmed in real Word - see FLAGS.md 6.
+ALIGN_START = WD_ALIGN_PARAGRAPH.LEFT
+
+
 def _rtl_paragraph(p, rtl=True):
     if rtl:
         _flag(p._p.get_or_add_pPr(), "w:bidi")
@@ -213,10 +233,19 @@ def _running_furniture(model):
     pages = max(1, model.pages)
     groups = {}
     for b in outside:
-        try:
-            key = hashlib.md5(Path(b.image).read_bytes()).hexdigest()
-        except OSError:
-            continue
+        # Identity comes from the SOURCE object, not from the bytes we wrote.
+        # Hashing the file used to work because the same decoration extracted
+        # to identical bytes on every page. It stopped working the moment
+        # masked images began being rendered off the page: anti-aliasing makes
+        # each copy unique, 48 header pictures became 39 distinct hashes, and
+        # nothing grouped. The running header went back into the body and one
+        # file fell 56.3% -> 28.4% on right page.
+        key = b.origin
+        if not key:
+            try:
+                key = hashlib.md5(Path(b.image).read_bytes()).hexdigest()
+            except OSError:
+                continue
         groups.setdefault(key, []).append(b)
     lift, draw = {}, {}
     for key, blocks in groups.items():
@@ -227,6 +256,178 @@ def _running_furniture(model):
         for b in blocks:
             lift[id(b)] = where
     return lift, draw
+
+
+# How much text may be furniture. A running header is a line, not a paragraph;
+# without a cap a whole body paragraph that happened to repeat could be lifted
+# out of the document and drawn on every page.
+RUNNING_MAX_CHARS = 200
+WS_RUN = re.compile(r"\s+")
+DIGITS = re.compile(r"[0-9\u0660-\u0669\u06F0-\u06F9]+")
+ONLY_PAGE_NO = re.compile(r"^[\s.\-\u2013\u2014()\[\]]*"
+                          r"[0-9\u0660-\u0669\u06F0-\u06F9]{1,4}"
+                          r"[\s.\-\u2013\u2014()\[\]]*$")
+
+
+def _running_text(model):
+    """Text that repeats at the same edge of most pages is furniture, not content.
+
+    `_running_furniture` above does this for PICTURES, which is why Moaz's
+    files stopped inflating. Repeating TEXT was never detected, so the journal
+    line and the page number were emitted as ordinary paragraphs in the body:
+
+        z20256558   "A. Abboud, Journal of Al-Wataniya..."  TWO body lines
+        z21358439   "مجلة مداولة سلسلة الأعداد..." first line; page no. 53 last
+        z21011460   journal line over two body lines; page no. 82 last
+
+    Two or three lines off every page's column is the same mechanism that drove
+    the original pagination blow-up, and those three files inflate 17->23,
+    37->48 and 33->43.
+
+    Two things make this harder than the picture case:
+
+    - **The page number is different on every page**, so grouping by exact text
+      finds nothing. Digits are replaced by a placeholder before grouping, so
+      "82" and "83" are recognised as the same piece of furniture.
+    - **The tags route carries no coordinates for text** (the geometry route
+      does). Where there is no y, position on the page cannot be used at all,
+      so the first or last block of its page is what counts as an edge.
+
+    Repetition is the real signal and is route-independent: a Word header is
+    drawn on every page, so lifting something that appears once would stamp it
+    across the whole document.
+
+    -> ({id(block): "header"|"footer"}, {"header"|"footer": Block})
+    """
+    pages = max(1, model.pages)
+    if pages < 4:
+        # Too few pages for "repeats on most of them" to mean anything.
+        return {}, {}
+    top, bottom = _text_column(model)
+
+    by_page = {}
+    for b in model.blocks:
+        if b.kind in (IMAGE, TABLE) or not b.text.strip():
+            continue
+        by_page.setdefault(b.page, []).append(b)
+
+    def edge(b):
+        # Coordinates decide it when they put the block clearly outside the
+        # column. They often do not, and the reason is circular: the margins
+        # are MEASURED from the content, and the running header is part of that
+        # content, so the column is drawn to include it and it never looks
+        # outside. That is why the journal line was missed on the first attempt
+        # here while the page numbers were found.
+        if b.y or b.y1:
+            mid = (b.y + b.y1) / 2
+            if mid < top:
+                return "header"
+            if mid > bottom:
+                return "footer"
+        # Fall back to where it sits in the page's reading order. This is the
+        # only test available on the tags route, which carries no coordinates
+        # for text at all. Repetition is what makes it safe: being first on the
+        # page is ordinary, being first on the page with the same words every
+        # time is furniture.
+        sibs = by_page.get(b.page) or []
+        if sibs and b is sibs[0]:
+            return "header"
+        if sibs and b is sibs[-1]:
+            return "footer"
+        return None
+
+    groups = {}
+    for sibs in by_page.values():
+        for b in sibs:
+            flat = WS_RUN.sub(" ", b.text.strip())
+            if len(flat) > RUNNING_MAX_CHARS:
+                continue
+            where = edge(b)
+            if not where:
+                continue
+            groups.setdefault((where, DIGITS.sub("#", flat)), []).append(b)
+
+    need = max(3, pages // 2)
+    lift, draw = {}, {}
+    for (where, _), blocks in sorted(groups.items(),
+                                     key=lambda kv: -len({b.page for b in kv[1]})):
+        if len({b.page for b in blocks}) < need or where in draw:
+            continue
+        draw[where] = blocks[0]
+        for b in blocks:
+            lift[id(b)] = where
+    return lift, draw
+
+
+def _page_number_start(model, block):
+    """What number the original printed on its FIRST page. -> int or None.
+
+    A PAGE field numbers from 1, but these are chapters and offprints: page 9
+    of `z21011460` is printed 82. Without an offset the footer would contradict
+    every cross-reference in the text.
+    """
+    flat = WS_RUN.sub(" ", block.text.strip())
+    if not ONLY_PAGE_NO.match(flat):
+        return None
+    m = DIGITS.search(flat)
+    if not m:
+        return None
+    try:
+        shown = int("".join(str(ord(c) & 0xF) if ord(c) > 0x600 else c
+                            for c in m.group(0)))
+    except ValueError:
+        return None
+    start = shown - block.page
+    return start if start > 0 else None
+
+
+def _draw_text_furniture(doc, draw, model):
+    """Put the running header and footer text into Word's header and footer.
+
+    A page number becomes a real PAGE field rather than the literal digits, or
+    every page of the Word file would read 82.
+    """
+    section = doc.sections[0]
+    # The block's OWN measured size, not a fraction of the body size. The
+    # journal line on z21011460 is 8pt and drawn 332pt wide in a 378pt column;
+    # writing it at 0.8 x 12pt body made it 9.6pt, about 398pt wide, and it
+    # wrapped onto a second line the original never had.
+    fallback = max(7.0, round(model.body_size * 0.8, 1))
+    for where, block in draw.items():
+        size = block.size if block.size and block.size >= 5 else fallback
+        part = section.header if where == "header" else section.footer
+        part.is_linked_to_previous = False
+        p = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
+        if p.text.strip() or p.runs:
+            p = part.add_paragraph()
+        rtl = is_rtl(block.text)
+        _rtl_paragraph(p, rtl)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        start = _page_number_start(model, block)
+        if start is not None:
+            fld = OxmlElement("w:fldSimple")
+            fld.set(qn("w:instr"), " PAGE ")
+            r = OxmlElement("w:r")
+            t = OxmlElement("w:t")
+            t.text = str(start + block.page)
+            r.append(t)
+            fld.append(r)
+            p._p.append(fld)
+            _set_page_number_start(section, start)
+        else:
+            run = p.add_run(WS_RUN.sub(" ", block.text.strip()))
+            run.font.size = Pt(size)
+            _rtl_run(run, size, model.font, rtl)
+
+
+def _set_page_number_start(section, start):
+    """Make Word's own numbering begin where the original's did."""
+    pr = section._sectPr
+    for old in pr.findall(qn("w:pgNumType")):
+        pr.remove(old)
+    el = OxmlElement("w:pgNumType")
+    el.set(qn("w:start"), str(max(1, start)))
+    pr.append(el)
 
 
 def _draw_furniture(doc, draw, model, dropped):
@@ -338,7 +539,7 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
                 para = cell.add_paragraph()
             crtl = is_rtl(text) if text.strip() else rtl
             _rtl_paragraph(para, crtl)
-            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT if crtl else WD_ALIGN_PARAGRAPH.LEFT
+            para.alignment = ALIGN_START   # see ALIGN_START: correct both ways
             run = para.add_run(text)
             run.font.size = Pt(body_pt)
             run.bold = (ri == 0)
@@ -427,18 +628,14 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     if block.kind == HEADING:
         size = round(body_pt * (1.35 if (block.level or 2) == 1 else 1.15), 1)
         bold = True
-        align = WD_ALIGN_PARAGRAPH.RIGHT
+        # START, not RIGHT - and in OOXML that is spelled "left". See ALIGN_START.
+        align = ALIGN_START
     elif block.kind == FOOTNOTE:
         size = max(7.0, round(body_pt * 0.78, 1))
 
     rtl = is_rtl(block.text)
-    if not rtl:
-        # Mirror of the right-to-left case above: body justified, heading to
-        # the side the text starts from. This line used to read LEFT if ... else
-        # LEFT, so the condition did nothing and every left-to-right paragraph
-        # came out ragged-right against a justified original.
-        align = WD_ALIGN_PARAGRAPH.LEFT if block.kind == HEADING \
-            else WD_ALIGN_PARAGRAPH.JUSTIFY
+    if not rtl and block.kind != HEADING:
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
     p = doc.add_paragraph()
     if block.kind == HEADING:
         _heading_style(p, block.level or 2)
@@ -544,6 +741,10 @@ def write(model: Doc, out_path, scale=None):
     lift, draw = _running_furniture(model)
     if draw:
         _draw_furniture(doc, draw, model, model.dropped_images)
+    tlift, tdraw = _running_text(model)
+    if tdraw:
+        _draw_text_furniture(doc, tdraw, model)
+        lift = {**lift, **tlift}
     img_fit = _image_fit(model, lift)
 
     by_page = {}

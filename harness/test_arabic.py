@@ -27,6 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.arabic import repair_lam_alef
+from convert.reader import _present
 
 FAILED = []
 
@@ -118,6 +119,28 @@ def main():
     print("\nprefixed forms are left alone on purpose - see the module docstring")
     check("bal is a real word", repair_lam_alef("ما بال هذا"), "ما بال هذا")
     check("wal untouched", repair_lam_alef("وال يمكن"), "وال يمكن")
+
+    print("\nand the backfill must not be fooled by that same disagreement")
+    # The cost of the space-sensitivity above is paid in reader._backfill.
+    # One reader route yields "ومنها الشاذ", the other "ومنهالا شاذ" - the same
+    # words, repaired on one side only. An exact substring test called the
+    # second one missing and added the whole paragraph a second time. Five such
+    # duplicates on one chapter added a page, and every page after it was one
+    # out of step: right page 29.0% -> 72.6% when this was fixed.
+    have = "فالقراءاتمنهاالمقبولومنهاالشاذوقدتسابقالعلماءفيالتصنيففيها"
+    same = "فالقراءاتمنهاالمقبولومنهالاشاذوقدتسابقالعلماءفيالتصنيففيها"
+    check("a repaired/unrepaired pair reads as already present",
+          _present(same, have), True)
+    check("an exact test would have missed it", same in have, False)
+
+    print("\nbut genuinely absent text must still read as missing")
+    # This is what backfill exists for: one Quranic verse, 110 characters,
+    # present in the geometry reading and absent from the labels. A presence
+    # test that swallows that loses text, which is the one thing not allowed.
+    check("unrelated Arabic is missing",
+          _present("وإذاقيللهملاتفسدوافيالأرضقالواإنمانحنمصلحون", have), False)
+    check("empty haystack", _present("فالقراءاتمنهاالمقبول", ""), False)
+    check("a sentence is present in itself", _present(have, have), True)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

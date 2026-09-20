@@ -17,6 +17,15 @@ Justification is not decoration here. The page-fitting loop compares where
 words land against the original, and a ragged right edge moves every line on
 the page, so the whole document scores worse on placement for a reason that has
 nothing to do with the converter's understanding of the text.
+
+THE SECOND HALF OF THIS FILE RENDERS, because the first half could not have
+caught the bug it now guards. w:jc is logical: "right" means END, which a
+right-to-left paragraph puts on the LEFT. Every Arabic heading in the corpus
+was against the wrong margin, 420pt out of place, while this file asserted
+`alignment == AL.RIGHT` and passed - the test encoded the bug.
+
+Asking the XML what it says can only confirm we wrote what we meant to write.
+Only rendering says where the text actually went.
 """
 import sys
 from pathlib import Path
@@ -26,7 +35,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH as AL
 
 from convert.model import Doc, Block, PARAGRAPH, HEADING
-from convert.writer import write
+from convert.writer import write, ALIGN_START
 
 FAILED = []
 
@@ -50,7 +59,7 @@ def render(tmp, blocks, stem):
 
 
 def main():
-    tmp = Path("out/_test_alignment")
+    tmp = Path("out/tests/alignment")
     tmp.mkdir(parents=True, exist_ok=True)
 
     print("right-to-left: body justified, heading to the right")
@@ -58,17 +67,65 @@ def main():
                       Block(kind=HEADING, text="الفصل الأول", level=1, page=0)],
                 "ar")
     check("arabic body is justified", ar[0].alignment, AL.JUSTIFY)
-    check("arabic heading is right-aligned", ar[1].alignment, AL.RIGHT)
+    check("arabic heading is start-aligned", ar[1].alignment, ALIGN_START)
 
     print("\nleft-to-right: body justified too, heading to the left")
     la = render(tmp, [Block(kind=PARAGRAPH, text=LA, page=0),
                       Block(kind=HEADING, text="Chapter One", level=1, page=0)],
                 "la")
     check("latin body is justified", la[0].alignment, AL.JUSTIFY)
-    check("latin heading is left-aligned", la[1].alignment, AL.LEFT)
+    check("latin heading is start-aligned", la[1].alignment, ALIGN_START)
+
+    print("\nsame value both ways - start is the right margin in Arabic and "
+          "the left margin in English")
+    check("one setting serves both directions", ar[1].alignment, la[1].alignment)
+
+    print("\nand now where the text ACTUALLY lands, which is the only test "
+          "that could have caught this")
+    where_it_lands(tmp)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
+
+
+def where_it_lands(tmp):
+    """Render, and measure which margin each heading sits against."""
+    import pymupdf
+    from harness.roundtrip import docx_to_pdf
+
+    HEAD_AR, HEAD_LA = "عنوان", "Heading"
+    out = Path(tmp) / "sides.docx"
+    write(Doc(blocks=[Block(kind=HEADING, text=HEAD_AR, level=1, page=0),
+                      Block(kind=PARAGRAPH, text=AR, page=0)]), str(out))
+    pdf = docx_to_pdf(out, tmp)
+    with pymupdf.open(pdf) as d:
+        page = d[0]
+        w = page.rect.width
+        hits = page.search_for(HEAD_AR)
+        if not hits:
+            check("arabic heading found on the page", bool(hits), True)
+            return
+        r = hits[0]
+        # It only has to be past the middle. Exact position depends on the
+        # margins, and pinning that would make this test about margins.
+        check("arabic heading sits against the RIGHT margin",
+              r.x0 > w / 2, True)
+        print(f"        page {w:.0f}pt wide, heading starts at x={r.x0:.0f} "
+              f"({w - r.x1:.0f}pt from the right edge)")
+
+    out = Path(tmp) / "sides_la.docx"
+    write(Doc(blocks=[Block(kind=HEADING, text=HEAD_LA, level=1, page=0),
+                      Block(kind=PARAGRAPH, text=LA, page=0)]), str(out))
+    pdf = docx_to_pdf(out, tmp)
+    with pymupdf.open(pdf) as d:
+        page = d[0]
+        w = page.rect.width
+        hits = page.search_for(HEAD_LA)
+        if not hits:
+            check("latin heading found on the page", bool(hits), True)
+            return
+        check("latin heading sits against the LEFT margin",
+              hits[0].x1 < w / 2, True)
 
 
 if __name__ == "__main__":

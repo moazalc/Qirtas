@@ -31,6 +31,12 @@ class Block:
     x0: float = 0.0
     x1: float = 0.0
     image: str = ""      # path to the extracted picture, for image blocks
+    # Stable identity of the picture in the SOURCE pdf, independent of the file
+    # we wrote out. Running-header detection groups by this: a decoration drawn
+    # on forty pages is one PDF object drawn forty times, but the bytes we
+    # extract for it need not be identical page to page - and stopped being so
+    # once masked images started being rendered off the page.
+    origin: str = ""
     rows: List[List[str]] = field(default_factory=list)   # for table blocks
     col_widths: List[float] = field(default_factory=list)  # points, per column
     cell_boxes: List[List[tuple]] = field(default_factory=list)   # cell rects

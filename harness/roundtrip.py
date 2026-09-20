@@ -109,8 +109,8 @@ def run_one(pdf, workdir, converter=convert_fit):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pdfs", nargs="+")
-    ap.add_argument("--work", default="out/roundtrip")
-    ap.add_argument("--json", default="out/roundtrip.json")
+    ap.add_argument("--work", default="out/work/roundtrip")
+    ap.add_argument("--json", default="out/work/roundtrip.json")
     a = ap.parse_args()
 
     if not Path(SOFFICE).exists():

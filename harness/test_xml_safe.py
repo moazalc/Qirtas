@@ -57,7 +57,7 @@ def _written(model, tmp, stem):
 
 
 def main():
-    tmp = Path("out/_test_xml_safe")
+    tmp = Path("out/tests/xml_safe")
     tmp.mkdir(parents=True, exist_ok=True)
 
     print("a NUL in paragraph text must not destroy the document")

@@ -114,7 +114,7 @@ def missing_chunks(orig, out, marks=True, limit=8):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pdfs", nargs="+")
-    ap.add_argument("--work", default="out/loss")
+    ap.add_argument("--work", default="out/work/loss")
     ap.add_argument("--show", type=int, default=3, help="missing chunks to print per file")
     a = ap.parse_args()
 

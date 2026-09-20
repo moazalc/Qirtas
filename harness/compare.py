@@ -51,12 +51,21 @@ def text_of_docx(docx_path):
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
         notes = _footnote_texts(z)
+        furniture = _furniture_texts(z)
     out, buf, pending = [], [], []
 
     def end_para():
         if buf:
             out.append("".join(buf))
         buf.clear()
+
+    def start_page():
+        # A running header lives in header1.xml and is DRAWN ON EVERY PAGE, so
+        # the original PDF's extraction finds it once per page. Emit it the
+        # same way or the text it holds reads as lost - the identical trap
+        # footnotes had, and the gate would have blamed the converter for text
+        # that is present and correct.
+        out.extend(furniture.get("header", []))
 
     def end_page():
         # A real footnote lives in footnotes.xml, but on the PAGE it is printed
@@ -68,13 +77,16 @@ def text_of_docx(docx_path):
         end_para()
         out.extend(pending)
         pending.clear()
+        out.extend(furniture.get("footer", []))
 
+    start_page()
     for m in re.finditer(r"<w:p[ >]|<w:t[^>]*>([^<]*)</w:t>"
                          r"|<w:pageBreakBefore/>"
                          r'|<w:footnoteReference w:id="(\d+)"/>', xml):
         tok = m.group(0)
         if tok.startswith("<w:pageBreakBefore"):
             end_page()
+            start_page()
         elif tok.startswith("<w:footnoteReference"):
             if m.group(2) in notes:
                 pending.append(notes[m.group(2)])
@@ -86,6 +98,28 @@ def text_of_docx(docx_path):
     # Word stores text XML-escaped: "A & B" is "A &amp; B" on disk. Without
     # unescaping, every ampersand looked like lost text.
     return html.unescape("\n".join(out))
+
+
+def _furniture_texts(z):
+    """{"header"|"footer": [text]} from word/headerN.xml and footerN.xml.
+
+    A PAGE field's cached value is skipped: the number differs on every page,
+    so counting it once per page would compare our "82" against the original's
+    83, 84, 85 and report text that is perfectly correct as missing.
+    """
+    out = {}
+    for name in z.namelist():
+        m = re.fullmatch(r"word/(header|footer)\d*\.xml", name)
+        if not m:
+            continue
+        xml = z.read(name).decode("utf-8")
+        xml = re.sub(r"<w:fldSimple[^>]*w:instr=\"[^\"]*PAGE[^\"]*\"[^>]*>.*?"
+                     r"</w:fldSimple>", "", xml, flags=re.S)
+        body = " ".join(t for t in re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml)
+                        if t.strip())
+        if body.strip():
+            out.setdefault(m.group(1), []).append(body)
+    return out
 
 
 def _footnote_texts(z):

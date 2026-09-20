@@ -174,10 +174,172 @@ chosen.
 
 ## 10. `مقدمة البحث` is an undiagnosed outlier
 
-**Status: open, low urgency.**
+**Status: open, and now the biggest single drag on the regression set.**
 
-26% → 31% where its siblings reached ~50%. Its text and picture scores are both
-perfect, so whatever is wrong is positional. No hypothesis yet.
+33.7% where its siblings now reach 56–73%, and the only regression file still
+running one page long (17 against 16). Its text and picture scores are both
+perfect, so whatever is wrong is positional.
+
+The A1 fix (duplicate backfill, see `PLAN.md`) cured exactly this shape of
+fault on two other files and did **not** touch this one, so it is a different
+cause. Worth mapping where its pages land before guessing — that is what found
+A1.
 
 **Closes when:** the cause is found, or it is shown to be the same line-break
 drift affecting everything else.
+
+---
+
+## 11. Every page of the regression files carries a solid black bar
+
+**Status: confirmed bug, ours, found by looking. Not visible to any score.**
+
+The running header on `الفصل الثالث` renders as two solid black rectangles at
+the top of **every page**. It is not a LibreOffice artifact: `word/media/
+image1.png` inside the .docx is itself a solid black rectangle.
+
+The cause is in extraction. The source decorations are 2x2 pixel, 1-bit,
+indexed black/white images that carry their actual appearance in an **SMask**
+(a transparency mask):
+
+    <</Subtype/Image /Width 2 /Height 2
+      /ColorSpace[/Indexed/DeviceRGB 1<000000FFFFFF>]
+      /BitsPerComponent 1 /SMask 1001 0 R>>
+
+We take the pixels and drop the mask, so what should be mostly transparent
+becomes solid black - then gets stretched to the width of the header.
+
+These are the same "2x2 pixel litter" `PLAN.md` item 4 says is filtered on
+stored and drawn size. **The filter is not catching them on the running-header
+path.**
+
+**Not one file.** The same black block appears on `z21358439.pdf`, a wild
+Zenodo thesis, so this is general rather than a quirk of the regression set.
+
+Every score rates this file 100% on images (21/21 placements) and it is one of
+the better files on right page. **A document with a black bar on every page is
+not deliverable**, and nothing measures that.
+
+**CLOSED 2026-09-20.** A picture whose appearance is partly in a transparency
+mask is taken off the PAGE instead of decoded. The mask itself is a `/Matte`
+pre-multiplied alpha running 0..64, not worth reconstructing. Fixing it broke
+running-header grouping (which hashed the extracted file) until identity moved
+to the source object. See `PLAN.md`.
+
+---
+
+## 12. Table cells come out backwards, and the score cannot see it
+
+**Status: confirmed bug, ours, visible in the .docx. General, not one file.**
+
+`z21011460.pdf`, read straight out of our own output:
+
+    header row   المتغير المستقل | المتغير التابع | نوع العالقة | الفرضية   correct
+    data row     ... | (Y) ةيلاملا قراوللأ قشمد قوس | هاجتلا ةيداحأ ةيببس   BACKWARDS
+
+That second row should read `مؤشر سوق دمشق للأوراق المالية` and `سببية أحادية
+الاتجاه`. A second table on the same file has `ةنسلا` for `السنة`.
+
+`PLAN.md` item 3 records that cell text arrives reversed from the table finder
+and is repaired by probing the page's correct text with a slice from the middle
+of the cell. **That repair silently fails on some cells and nothing reports
+it.** Where it fails the cell is written backwards and stays backwards.
+
+The same page ALSO carries the table's contents a second time as ordinary
+prose, so `_drop_text_inside_tables` missed it - almost certainly the same
+exact-match brittleness that caused the duplicate-backfill bug (`PLAN.md`,
+2026-09-20), since `العلاقة` extracts as `العالقة` on one side.
+
+**CLOSED 2026-09-20.** Cells are read by clipping to the cell's own rectangle,
+through the same extractor that gets body text right, with guards against
+swallowing a neighbour and against an unchecked order. Flipping was the wrong
+repair: it also flips the lam-alef ligature. `harness/test_tables.py`. See
+`PLAN.md`.
+
+---
+
+## 13. A PDF can display one number and store another
+
+**Status: not our bug. Our output is still wrong, and every score says 100%.**
+
+`z21358439.pdf` page 8 displays the 1951 Geneva Convention and its 1967
+protocol. Its text layer stores **1901** and **1922**. Also `المادة 3` stored as
+`المادة1`, and `10 دجنبر 1948` as `14 دجنبر 1900`.
+
+We copy the text layer faithfully, so the Word file says 1901. The scorer
+compares our 1901 against the source's 1901 and reports **text 100.0%**.
+
+This is the same structural blindness as flag 1, in a new place: *the scorer
+cannot see a fault that both sides share.* It is arguably worse than the
+visual-order case, because reversed text is obviously broken to a reader while
+a wrong date looks perfectly fine and is legally meaningful.
+
+Unknown how widespread. Detecting it needs the rendered glyphs compared against
+the stored characters, which nothing here does yet.
+
+**MEASURED 2026-09-20, still needs Moaz's decision.** `harness/digits.py`
+cross-examines the ToUnicode table against the embedded font's own cmap and
+flags digits with no correct route. Seven candidates in 102 dev files; all
+seven rendered and read; **4 verifiably wrong (3.9%)**.
+
+A floor twice over: a wholly-permuted table is invisible to the test, and one
+sample cannot clear a file - `z21358439` prints 2026 correctly on page 1 and
+1951-as-1901 on page 8. Two of the four are flag 1 reaching the numbers: 2014
+stored as 4102 is the run reversed.
+
+**Still open:** warn on such a file, or refuse it. Same shape of decision as
+flag 1, and probably the same answer.
+
+---
+
+## 14. Running headers and page numbers land in the body text
+
+**Status: confirmed on every wild file looked at. Moaz raised this.**
+
+The original puts the journal line at the top of the page and the page number
+at the bottom. We emit both as ordinary paragraphs in the body:
+
+    z20256558   "A. Abboud, Journal of Al-Wataniya..."  wraps onto TWO body lines
+    z21358439   "مجلة مداولة سلسلة الأعداد..." first body line; page no. 53 last
+    z21011460   journal line wraps onto two body lines; page no. 82 last
+
+`PLAN.md` records that a repeating DECORATION is recognised as a running header
+and moved into Word's header, which is why page counts stopped inflating on
+Moaz's files. **That detection is for pictures only. Repeating TEXT is not
+detected at all.**
+
+Each one costs two or three lines of the text column on every page, which is
+exactly the mechanism that caused the original pagination blow-up - and the
+wild files still inflate: 17→23, 37→48, 33→43.
+
+**CLOSED 2026-09-20.** `writer._running_text` lifts repeating text into Word's
+header and footer, and the page number is a real `PAGE` field offset to the
+original's first number. 30 dev files: right page 21.3% → 27.7%, 15 improved,
+none worse, gate held. `text_of_docx` had to learn to read header and footer
+text or the gate would have called it lost. See `PLAN.md`.
+
+---
+
+## 15. A fix can break a detector that keys on the wrong thing
+
+**Status: fixed, recorded because the failure mode will recur.**
+
+Running-header detection grouped repeating pictures by hashing the extracted
+image FILE. That worked only because the same decoration happened to extract to
+identical bytes on every page.
+
+The moment masked images began being rendered off the page (flag 11),
+anti-aliasing made every copy unique. 48 header pictures became 39 distinct
+hashes, nothing reached the "repeats on most pages" threshold, the header went
+back into the body, and `الفصل الرابع` fell **56.3% -> 28.4%** on right page
+with two extra pages. Nothing in the image code looked wrong.
+
+Identity now comes from `Block.origin`, the source PDF object - which is what
+"the same decoration drawn forty times" actually means.
+
+**The general lesson:** when something is identified by a hash of derived
+output rather than by what it IS, any change upstream silently unmakes the
+identification. Worth checking `_running_text`'s grouping (normalised text) and
+`_drop_text_inside_tables`'s matching against the same question.
+
+**Closes when:** nothing - recorded as a caution.
