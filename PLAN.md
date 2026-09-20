@@ -21,8 +21,17 @@ measurement of some other collection of documents. Nothing warns you.
 across by hand. `out/split.json` and `corpus/wild/manifest.jsonl` are committed
 and need no rebuilding.
 
-Check `SOFFICE` in `harness/roundtrip.py` too; it is an absolute path and will
-differ per machine.
+LibreOffice is found automatically now (`QIRTAS_SOFFICE` overrides), so the
+old instruction to edit an absolute path no longer applies.
+
+Run `python -m harness.env` before trusting any score. A machine without the
+Arabic font substitutions falls back to Noto Sans Arabic, which is wider, so
+text overflows and the converter takes the blame. The office machine scores
+61.4% on the regression set against the 49% recorded further down this file for
+the same code - almost certainly that, not the converter.
+
+**`TASKS.md` is the short version of what follows** - start there, come back
+here for the history.
 
 Next in line, in the order they are worth doing:
 

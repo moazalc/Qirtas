@@ -5,6 +5,8 @@ correct, which no free tool and not Acrobat currently manage.
 
 ## where this is
 
+**Picking this up fresh? Read `TASKS.md`.**
+
 Working converter. Last measured 2026-09-20 over the 102-file development set:
 
     nothing lost   100.0%   (hard gate; worst single file also 100.0%)
