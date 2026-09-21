@@ -37,17 +37,21 @@ __all__ = ["fix_map", "apply_fixes", "line_items", "enabled"]
 
 
 def enabled():
-    """Is the geometric repair switched on? QIRTAS_ARABIC_FIX=off turns it off.
+    """Is the geometric repair switched on? QIRTAS_ARABIC_FIX=on turns it on.
 
     It exists to measure the repair against its own absence on the same code,
     the same machine and the same renderer. Off is exactly the behaviour
     before the repair: `fix_map` returns nothing, and since the reader and the
     checker both get their repairs only from `fix_map`, they switch together -
     one side repaired and not the other is the failure this file was written
-    around. On by default.
+    around.
+
+    OFF by default since 2026-09-21: on 29 unseen files it broke the hard
+    gate, 100.0% -> 98.3%, worst file 79.9%. Parked, not diagnosed - see
+    FLAGS.md 20. QIRTAS_ARABIC_FIX=on to measure it.
     """
-    flag = os.environ.get("QIRTAS_ARABIC_FIX", "on").strip().lower()
-    return flag not in ("off", "0", "false", "no")
+    flag = os.environ.get("QIRTAS_ARABIC_FIX", "off").strip().lower()
+    return flag in ("on", "1", "true", "yes")
 
 # A fragment shorter than this is too common to replace safely: mapping ال onto
 # لا everywhere would corrupt every definite article in the document. The

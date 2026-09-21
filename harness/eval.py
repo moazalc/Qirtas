@@ -51,6 +51,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
+    ap.add_argument("--max-pages", type=int, default=60,
+                    help="skip files longer than this (0 = no limit)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--work", default="out/work/eval")
     ap.add_argument("--jobs", type=int, default=6,
@@ -77,6 +79,18 @@ def main():
     if a.n and a.n < len(files):
         random.Random(a.seed).shuffle(files)
         files = sorted(files[:a.n])
+
+    # Big files out, AFTER sampling, so the same seed still picks the same
+    # files and a capped run is the uncapped one minus the long documents. One
+    # 586-page file alone held a 30-file run open for over half an hour, and
+    # the work that matters is the theses, none longer than 25 pages. Moaz's
+    # call, 2026-09-21.
+    if a.max_pages:
+        long = [f for f in files if _pages_of(f) > a.max_pages]
+        if long:
+            print(f"{DIM}skipping {len(long)} file(s) over {a.max_pages} pages"
+                  f" (--max-pages 0 to include){OFF}")
+            files = [f for f in files if f not in long]
 
     # Longest first. With workers running in parallel the run cannot finish
     # before its slowest file does, so a 432-page document left until last would
