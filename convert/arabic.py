@@ -79,3 +79,157 @@ def repair_lam_alef(text):
         return text
     text = _STANDALONE_AL.sub(LAM + ALEF, text)
     return _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)
+
+
+# ---------------------------------------------------------------------------
+# The same two faults again, settled by geometry instead of by orthography.
+#
+# The rules above are orthographic: they repair only what Arabic spelling makes
+# impossible, and that leaves a whole class untouched. حاملا arrives as حامال -
+# a lam-alef ligature reversed at the end of a word - and no spelling rule can
+# reach it, because مال, حال, شمال and جمال are all real words ending in the
+# same two letters. Guessing there would corrupt valid text to fix invalid.
+#
+# Measured on z21358439.pdf, every ALEF followed by LAM on a page, grouped by
+# the boxes the two characters carry:
+#
+#     two boxes   26   العامة العدد الحكاية اللحظة التأسيسية   the article
+#     zero width  11   حامال تحوال واالجت اءاالست ال           reversed ligature
+#
+# لا is ONE glyph. When the font's ToUnicode lists its letters backwards,
+# pymupdf hands back two characters from that single glyph - so the first has
+# NO WIDTH and the second carries the whole advance. A real alef followed by a
+# real lam is two glyphs with two boxes. The ambiguity is only in the text; the
+# glyphs were never ambiguous.
+#
+# These take characters and return characters, so this file still knows nothing
+# about PDFs. The caller supplies (char, x0, x1); pymupdf stays in the reader.
+# ---------------------------------------------------------------------------
+
+import unicodedata
+
+# A box this narrow is a ligature's second letter carrying no advance of its
+# own, not a glyph. Measured at exactly 0.0 on every case seen; the tolerance
+# is for fonts that round.
+_ZERO_W = 0.15
+
+
+def repair_ligatures(chars):
+    """[(c, x0, x1)] -> the same list with reversed lam-alef put back.
+
+    A zero-width alef form immediately before a LAM is the two halves of one
+    ligature glyph, handed back in the wrong order. All four of لا لأ لإ لآ
+    reverse the same way and carry the same signature, so all four are covered
+    here - where the orthographic rules above need two separate patterns and
+    still cannot reach the word-final case at all.
+
+    Nothing else is touched: the test is the glyph's own width, so a genuine
+    alef beside a genuine lam, which is two glyphs with two boxes, is left
+    exactly as stored.
+
+    Items are swapped intact, never rebuilt, so anything a caller carries after
+    (char, x0, x1) rides along with its character.
+
+    Each swap consumes both characters. Without that, the alef lands at i+1,
+    the next step sees it beside the FOLLOWING lam and swaps again: زيلالي
+    stored as زياللي came back زيللاي, moving the alef one place too far. The
+    two halves of a ligature are one glyph and can only be swapped once.
+    """
+    out = list(chars)
+    i = 0
+    while i < len(out) - 1:
+        a, ax0, ax1 = out[i][:3]
+        b = out[i + 1][0]
+        if a in HAMZA_ALEFS and b == LAM and (ax1 - ax0) < _ZERO_W:
+            out[i], out[i + 1] = out[i + 1], out[i]
+            i += 2
+        else:
+            i += 1
+    return out
+
+
+# Unicode's own bidi classes, rather than a hand-written punctuation list.
+# Letters and digits keep the order the PDF stored them in; only neutrals are
+# moved, and only to where their own position says they belong.
+#
+# NSM - the combining marks - is in this set and must stay in it. A haraka has
+# NO WIDTH and sits on top of the letter it belongs to, so its x is its base
+# letter's x and the slot arithmetic cannot place it: treated as a neutral, the
+# marks of a fully-vowelled text drift onto their neighbours. It was caught on
+# a Quranic verse in `الفصل الخامس المبحث الثالث.pdf`, whose every letter is
+# vowelled - {َوَالَّذِين came back {ََواَّلِذين - and it cost the hard gate
+# 1.000 -> 0.944. A mark is not a neutral; it is part of the character before
+# it, and it moves only when that character moves.
+_STRONG = {"L", "R", "AL", "EN", "AN", "NSM"}
+
+
+def _is_strong(c):
+    return unicodedata.bidirectional(c) in _STRONG
+
+
+def reorder_neutrals(chars, min_arabic=0.8):
+    """[(c, x0, x1)] for ONE line -> the same characters in logical order.
+
+    Some PDFs store a line's spaces and punctuation out of sequence. The
+    heading `مقدمة:` is stored `:مقدمة`, colon first; and the first line of a
+    paragraph stores its TRAILING space second, so `تبدأ الحكاية` arrives as
+    `ت بدأ الحكاية` - a word split by a space that belongs at the far end of
+    the line. Both are visible on the page as soon as you look, and no pymupdf
+    mode orders them correctly (text, sort=True, blocks and words were all
+    tried).
+
+    Where a character truly belongs is not a guess: it is written on the page.
+    In a right-to-left line the reading order is descending x, so a neutral
+    goes after however many strong characters sit to its right.
+
+    Only neutrals move. Letters and digits stay exactly as stored, so an
+    embedded English phrase or a year cannot be reversed by this. Lines that
+    are not overwhelmingly Arabic are left alone entirely - an English abstract
+    has its own direction and nothing here would improve it.
+
+    On text that is already stored correctly this is a no-op, because the
+    neutrals are already in x order.
+    """
+    chars = list(chars)
+    strong = [t for t in chars if _is_strong(t[0])]
+    if len(strong) < 2:
+        return chars
+
+    arabic = sum(1 for t in strong
+                 if unicodedata.bidirectional(t[0]) in ("AL", "AN"))
+    if arabic / len(strong) < min_arabic:
+        return chars
+
+    # Where does each strong character sit? In stored order, for an RTL line,
+    # x should be descending. Bail out if it is not - this line is laid out in
+    # some way we have not seen, and leaving it is safer than rearranging it.
+    xs = [t[1] for t in strong]
+    if sum(1 for a, b in zip(xs, xs[1:]) if a >= b) < 0.8 * max(1, len(xs) - 1):
+        return chars
+
+    slots = [[] for _ in range(len(strong) + 1)]
+    for item in chars:
+        if _is_strong(item[0]):
+            continue
+        # How many strong characters lie to the right of this one?
+        k = sum(1 for t in strong if t[1] > item[1])
+        slots[min(k, len(strong))].append(item)
+
+    out = []
+    for i, s in enumerate(strong):
+        out.extend(slots[i])
+        out.append(s)
+    out.extend(slots[len(strong)])
+    return out
+
+
+def repair_line(chars):
+    """[(c, x0, x1, ...)] for ONE line -> the same items, repaired and ordered."""
+    if not chars:
+        return []
+    return reorder_neutrals(repair_ligatures(chars))
+
+
+def logical_text(chars):
+    """[(c, x0, x1, ...)] for one line -> its text, repaired, as a string."""
+    return "".join(t[0] for t in repair_line(chars))

@@ -119,8 +119,72 @@ on Windows has those fonts.
 So we may be reducing font sizes to fix spill that only exists in the measuring
 tool — making the document worse for the user to make a number better.
 
-**Closes when:** one regression run is rendered in real Word on Windows and the
-overflow is confirmed or dismissed. Moaz has Windows and macOS with Word.
+**PART DONE 2026-09-20. Word can now render** - `harness/word.py` drives real
+Word over COM, and `QIRTAS_RENDERER=word` routes the whole harness, `fit.py`
+included, through it. The Windows VM exists for this.
+
+**The fonts are there too.** The three faces the corpus actually asks for are
+installed on that machine, from the Windows `Language.Fonts.Arab` capability:
+
+    Simplified Arabic    -> Simplified Arabic (TrueType)
+    Traditional Arabic   -> Traditional Arabic (TrueType)
+    Sakkal Majalla       -> Sakkal Majalla (TrueType)
+    AGA Arabesque        -> NOT INSTALLED     third-party, not shipped
+    Arabic Transparent   -> NOT INSTALLED     legacy, not shipped
+
+**An earlier note here said none of them were installed. That was wrong**, and
+it was `harness.env` that was wrong rather than the machine: `_fc_match` shells
+out to fc-match, which does not exist on Windows, returns "?", and the old
+check `not value.startswith("noto")` passed every face. A machine with no
+Arabic fonts scored `substitutions_applied: true`, and the first attempt to fix
+that read the registry in a context that could not see it. It now reads the
+Windows font registry directly and reports `null` rather than `true` when it
+cannot tell - **a check that cannot run must say so, not pass.** Eighth
+instrument bug; third that was flattering us.
+
+So this is the first machine in the project's life that can render these
+documents in the application people actually open them in, with the fonts they
+actually ask for.
+
+**Closes when:** a regression run is recorded on it and the overflow is
+confirmed or dismissed. Not yet done - see `TASKS.md` C1.
+
+---
+
+## 18. The page-number box is rasterised into the body, so the number is printed twice
+
+**Status: confirmed bug, ours, found by looking. Every page of every file that
+boxes its page number.**
+
+Found by putting our page next to the original with Word doing the rendering.
+`z21358439.pdf` prints its page number inside a thin rectangle at the foot of
+the page. The number is text; the box around it is vector drawing. We rasterise
+the pair into a picture and place it **inline in the body**, and then ALSO
+write the correct `PAGE` field into Word's footer:
+
+    our rebuilt page 2, bottom third
+      Rect(282.8, 702.7, 309.0, 723.3)   picture: "47" in a box   <- body
+      y = 793.0                          text:    "47"            <- footer
+
+    word/media/ holds 37 of them, one per page
+
+So the reader sees 47 twice, and the picture costs a line of the text column on
+every page - the exact mechanism flag 14 records for running TEXT, in a form
+flag 14's fix cannot see. That file runs 37 pages to 43.
+
+`_running_furniture` groups repeated decorations by `Block.origin`, which is
+right for a decoration drawn from one shared source object (flag 15). A page
+number is drawn afresh per page, so every copy has its own origin, nothing ever
+groups, and it stays in the body.
+
+**No score moved on it.** Words survive (the footer field is not the picture),
+the gate holds, and `right page` reads the inflation as ordinary drift. Same
+shape as flags 11 and 12: plainly wrong on the page, invisible to every number.
+
+**Closes when:** furniture that repeats by POSITION and SIZE rather than by
+source object is recognised too - or the page number specifically is, since a
+box at the foot of every page holding nothing but a changing integer is not
+content.
 
 ---
 
@@ -422,5 +486,14 @@ Two reasons this matters beyond the number:
 This is the corpus-drift failure the project has been bitten by twice, in a
 new place. `corpus/*.pdf` are not restorable by any command (flag 5).
 
-**Closes when:** the file is restored, or the baseline is restated as a 7-file
-number and the left-to-right check is replaced.
+**RESTORED 2026-09-20.** `corpus/ödev.pdf` came back with the rest of the
+corpus when it was transferred onto the Windows machine - 1 page, 1,321
+characters, matching what `RESEARCH.md` records. The regression set is 8 files
+again.
+
+**The baseline has NOT been re-measured**, because that machine has no
+LibreOffice yet, so 68.8% remains a number from before the file went missing
+rather than one taken since it came back. Quote 64.3% for the 7 files actually
+measured until an 8-file run exists.
+
+**Closes when:** an 8-file regression run is recorded with its environment.

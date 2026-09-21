@@ -3,6 +3,10 @@
 __pycache__/
 *.pyc
 
+# Standalone toolchain (uv + its CPython) for machines where the MSI installer
+# cannot run. Not part of the project.
+.tools/
+
 # Generated output: .docx, rendered PDFs, extracted media, reports.
 # Written as out/* rather than out/ because git will not descend into an
 # excluded DIRECTORY, so a !negation below it never gets a chance to match.

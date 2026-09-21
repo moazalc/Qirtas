@@ -15,6 +15,7 @@ import pymupdf
 
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, IMAGE, TABLE
 from convert.arabic import repair_lam_alef
+from convert.pdftext import apply_fixes, fix_map
 
 # Structure labels that mean "a block starts here".
 BLOCK_TAGS = {
@@ -249,9 +250,10 @@ def _page_rich(page, i):
         text, size, bold, spans = [], 0.0, False, []
         for line in b["lines"]:
             for sp in line["spans"]:
-                if not sp["text"].strip():
+                run = sp["text"]
+                if not run.strip():
                     continue
-                text.append(sp["text"])
+                text.append(run)
                 size = max(size, sp["size"])
                 it = bool(sp["flags"] & ITALIC_FLAG)
                 bo = bool(sp["flags"] & BOLD_FLAG)
@@ -260,9 +262,9 @@ def _page_rich(page, i):
                 # often arrives as a dozen spans of identical formatting, and
                 # one Word run each would bloat the file for no effect.
                 if spans and spans[-1][1] == bo and spans[-1][2] == it:
-                    spans[-1] = (spans[-1][0] + " " + sp["text"], bo, it)
+                    spans[-1] = (spans[-1][0] + " " + run, bo, it)
                 else:
-                    spans.append((sp["text"], bo, it))
+                    spans.append((run, bo, it))
         if spans:
             out.append(Block(kind=PARAGRAPH, text=_clean(" ".join(text)),
                              page=i, size=round(size, 1), bold=bold,
@@ -999,6 +1001,25 @@ def read(path, image_dir=None):
             best.add(t)
     for b in pictures:
         best.add(b)
+    # One pass over the finished model, like writer._clean does for characters
+    # XML cannot hold. Every route's text goes through here, whether it came
+    # from glyphs or from /ActualText, so the tag route gets the same repairs
+    # the geometry route does - and so does the checker, from the same map.
+    # Applying it to one route only is what broke the gate the first time; see
+    # convert/pdftext.py.
+    fixes = {}
+    try:
+        fixes = fix_map(path)
+    except Exception:
+        fixes = {}
+    if fixes:
+        for b in best.blocks:
+            b.text = apply_fixes(b.text, fixes)
+            if b.spans:
+                b.spans = [(apply_fixes(t, fixes), *rest) for t, *rest in b.spans]
+            if b.rows:
+                b.rows = [[apply_fixes(c, fixes) for c in row] for row in b.rows]
+
     best = _backfill(best, results, path)
     best = detect_headings(best)
     best = detect_lists(best)

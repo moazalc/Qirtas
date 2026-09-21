@@ -12,6 +12,7 @@ import pymupdf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.arabic import repair_lam_alef
+from convert.pdftext import apply_fixes, fix_map
 
 WORD = re.compile(r"\S+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")   # harakat + tatweel
@@ -29,8 +30,19 @@ def text_of(pdf_path):
     # fixes text the SOURCE pdf hands over backwards, so if only our output
     # were corrected it would stop matching the still-mangled original it is
     # scored against, and fixing a real defect would read as a regression.
+    #
+    # The geometric repairs come in as a text-to-text map derived from this
+    # same PDF, so this side and the reader apply exactly the same
+    # substitutions to whatever each of them extracted. Deriving them here
+    # independently - rather than being handed them - is what makes that true
+    # regardless of which route the reader took.
+    try:
+        fixes = fix_map(pdf_path)
+    except Exception:
+        fixes = {}
     with pymupdf.open(pdf_path) as d:
-        return repair_lam_alef("\n".join(pg.get_text("text") for pg in d))
+        raw = "\n".join(pg.get_text("text") for pg in d)
+    return repair_lam_alef(apply_fixes(raw, fixes))
 
 
 def text_of_docx(docx_path):

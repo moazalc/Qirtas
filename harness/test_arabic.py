@@ -23,10 +23,12 @@ in ما بال, and فأل is an omen. Repairing them would corrupt valid text t
 a tenth as many cases, so they are left alone and recorded here instead.
 """
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from convert.arabic import repair_lam_alef
+from convert.arabic import (logical_text, reorder_neutrals, repair_lam_alef,
+                            repair_ligatures)
 from convert.reader import _present
 
 FAILED = []
@@ -141,6 +143,89 @@ def main():
           _present("وإذاقيللهملاتفسدوافيالأرضقالواإنمانحنمصلحون", have), False)
     check("empty haystack", _present("فالقراءاتمنهاالمقبول", ""), False)
     check("a sentence is present in itself", _present(have, have), True)
+
+    print("\nthe geometric repair reaches what orthography cannot")
+    # The rules above can only repair what Arabic spelling makes impossible,
+    # and that leaves the commonest case untouched: a lam-alef reversed at the
+    # END of a word. حاملا arrives as حامال and no spelling rule can help,
+    # because مال, حال, شمال and جمال are all real words ending the same way.
+    #
+    # The glyphs were never ambiguous. لا is ONE glyph, so when its ToUnicode
+    # lists the letters backwards the first character comes back with NO WIDTH
+    # and the second carries the whole advance. A real alef beside a real lam
+    # is two glyphs with two boxes. Measured on z21358439.pdf, page 3: 11
+    # zero-width pairs, all reversed ligatures; 26 two-box pairs, all the
+    # definite article.
+    def line(text, widths):
+        """(char, x0, x1) running right to left, as an RTL line does."""
+        items, x = [], 500.0
+        for c, w in zip(text, widths):
+            items.append((c, x - w, x))
+            x -= w
+        return items
+
+    # حامال : the final alef has no box of its own, so the pair is a ligature.
+    got = "".join(t[0] for t in repair_ligatures(
+        line("حامال", [3, 3, 3, 0, 3])))
+    check("word-final ligature is repaired", got, "حاملا")
+
+    # جمال : four real glyphs, four real boxes. Untouched.
+    got = "".join(t[0] for t in repair_ligatures(
+        line("جمال", [3, 3, 3, 3])))
+    check("a real word ending alef-lam is left alone", got, "جمال")
+
+    print("\nand neutrals go where the page says they go")
+    # `مقدمة:` is stored `:مقدمة`, colon first, and the first line of a
+    # paragraph stores its TRAILING space second - so `تبدأ` arrives as `ت بدأ`,
+    # a word split by a space that belongs at the far end of the line. No
+    # pymupdf mode orders either correctly: text, sort=True, blocks and words
+    # were all tried.
+    heading = [(":", 10.0, 13.0)] + [
+        (c, 100.0 - 3 * i, 103.0 - 3 * i) for i, c in enumerate("مقدمة")]
+    check("a leading colon moves to the end",
+          "".join(t[0] for t in reorder_neutrals(heading)), "مقدمة:")
+
+    # ت at the right edge, then the line's trailing space at the far left,
+    # then the rest of the word.
+    split = [("ت", 97.0, 100.0), (" ", 10.0, 13.0)] + [
+        (c, 94.0 - 3 * i, 97.0 - 3 * i) for i, c in enumerate("بدأ")]
+    check("a displaced space rejoins the word",
+          "".join(t[0] for t in reorder_neutrals(split)), "تبدأ ")
+
+    print("\nnone of which may touch a line that is not Arabic")
+    # Only neutrals ever move, so an embedded English phrase or a year cannot
+    # be reversed - and a line that is not overwhelmingly Arabic is skipped
+    # outright. An English abstract has its own direction and nothing here
+    # would improve it.
+    latin = [(c, 10.0 + 3 * i, 13.0 + 3 * i) for i, c in enumerate("Hello, world")]
+    check("a latin line is returned exactly as stored",
+          "".join(t[0] for t in reorder_neutrals(latin)), "Hello, world")
+    year = [(c, 100.0 - 3 * i, 103.0 - 3 * i) for i, c in enumerate("سنة")] + \
+           [(c, 88.0 + 3 * i, 91.0 + 3 * i) for i, c in enumerate("2026")]
+    check("digits keep their own order inside an arabic line",
+          "".join(t[0] for t in reorder_neutrals(year)), "سنة2026")
+
+    print("\nand a combining mark is part of its letter, not a neutral")
+    # A haraka has no width and sits on top of the letter it belongs to, so its
+    # x is that letter's x. Treated as a neutral it cannot be placed, and the
+    # marks of a fully-vowelled text drift onto their neighbours. Caught on a
+    # Quranic verse, every letter of which is vowelled; it cost the hard gate
+    # 1.000 -> 0.944 before NSM was added to the set that never moves.
+    vowelled = []
+    x = 100.0
+    for c in "وَالَّذِين":
+        w = 0.0 if unicodedata.combining(c) else 3.0
+        vowelled.append((c, x - w, x))
+        x -= w
+    check("a vowelled word is returned exactly as stored",
+          "".join(t[0] for t in reorder_neutrals(vowelled)),
+          "وَالَّذِين")
+
+    print("\nand correctly stored text must come through untouched")
+    good = [(c, 100.0 - 3 * i, 103.0 - 3 * i) for i, c in enumerate("قال لا شيء")]
+    check("a well-formed rtl line is a no-op",
+          "".join(t[0] for t in reorder_neutrals(good)), "قال لا شيء")
+    check("empty line", logical_text([]), "")
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

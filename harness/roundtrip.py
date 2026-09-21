@@ -74,8 +74,29 @@ def _profile():
     return _PROFILE
 
 
+def _renderer():
+    """Which renderer to use: 'soffice' (default) or 'word'.
+
+    Word is what a reader actually opens the file in, so it is the ground truth
+    this project has been approximating - but it exists on two of the machines
+    this runs on and not the third, so LibreOffice stays the default and Word
+    is asked for explicitly with QIRTAS_RENDERER=word.
+
+    **Scores from the two are not comparable.** LibreOffice lacks the fonts
+    these documents ask for and substitutes wider ones, which is the whole of
+    FLAGS.md 6; a run that silently changed renderer would be PLAN.md caveat 7
+    all over again. `harness.env` prints which one is in force, and eval stores
+    it with the results.
+    """
+    return os.environ.get("QIRTAS_RENDERER", "soffice").strip().lower()
+
+
 def docx_to_pdf(docx, outdir):
-    """LibreOffice, headless, on this process's own profile."""
+    """Render the .docx back to PDF, through whichever renderer is in force."""
+    if _renderer() == "word":
+        from harness.word import docx_to_pdf as word_render
+        return word_render(docx, outdir)
+
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(
@@ -113,7 +134,13 @@ def main():
     ap.add_argument("--json", default="out/work/roundtrip.json")
     a = ap.parse_args()
 
-    if not Path(SOFFICE).exists():
+    if _renderer() == "word":
+        from harness.word import available
+        ok, detail = available()
+        if not ok:
+            sys.exit(f"QIRTAS_RENDERER=word but Word is unusable: {detail}")
+        print(f"{DIM}renderer: {detail} (NOT comparable to LibreOffice runs){OFF}")
+    elif not Path(SOFFICE).exists():
         sys.exit(f"LibreOffice not found at {SOFFICE}")
 
     rows = []

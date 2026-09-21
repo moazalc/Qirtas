@@ -24,6 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 FACES = ["Simplified Arabic", "Traditional Arabic", "Sakkal Majalla",
          "AGA Arabesque", "Arabic Transparent"]
 
+# The three that carry BODY text in this corpus. The other two are decorative
+# and third-party: no file has yet needed one, and neither ships with Windows
+# or Office, so their absence is a note rather than a warning.
+BODY_FACES = {"Simplified Arabic", "Traditional Arabic", "Sakkal Majalla"}
+
 
 def _fc_match(face):
     try:
@@ -34,32 +39,105 @@ def _fc_match(face):
         return "?"
 
 
-def fingerprint():
-    from harness.roundtrip import SOFFICE
+def _installed_windows(face):
+    """Is this face installed for Word? -> the registered name, or None.
+
+    fc-match does not exist on Windows, and the old code read its failure ("?")
+    as "not Noto, so the substitutions are fine" - which reported a machine
+    with NO Arabic fonts at all as correctly set up. A check that cannot run
+    must say so, not pass.
+    """
     try:
-        ver = subprocess.run([SOFFICE, "--version"], capture_output=True,
-                             text=True, timeout=60).stdout.strip().split("\n")[0]
-    except Exception:
-        ver = "missing"
+        import winreg
+    except ImportError:
+        return None
+    for root, path in (
+        (winreg.HKEY_LOCAL_MACHINE,
+         r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
+        (winreg.HKEY_CURRENT_USER,
+         r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
+    ):
+        try:
+            with winreg.OpenKey(root, path) as k:
+                for i in range(winreg.QueryInfoKey(k)[1]):
+                    name = winreg.EnumValue(k, i)[0]
+                    if name.lower().startswith(face.lower()):
+                        return name
+        except OSError:
+            continue
+    return None
+
+
+def fingerprint():
+    from harness.roundtrip import SOFFICE, _renderer
+
+    renderer = _renderer()
+    windows = sys.platform == "win32"
+
+    if renderer == "word":
+        from harness.word import available
+        ok, detail = available()
+        ver, path = (detail if ok else f"UNAVAILABLE ({detail})"), "COM"
+    else:
+        try:
+            ver = subprocess.run([SOFFICE, "--version"], capture_output=True,
+                                 text=True, timeout=60).stdout.strip().split("\n")[0]
+        except Exception:
+            ver = "missing"
+        path = SOFFICE
+
+    if windows:
+        fonts = {f: (_installed_windows(f) or "NOT INSTALLED") for f in FACES}
+        # Windows has no fontconfig, so there is no way to map a missing face
+        # onto a substitute without admin rights. Either the document's own
+        # font is there or the renderer picks something of its own width.
+        applied = None
+    else:
+        fonts = {f: _fc_match(f) for f in FACES}
+        applied = all(not v.lower().startswith("noto") for v in fonts.values())
+
     return {
-        "soffice_path": SOFFICE,
-        "soffice_version": ver,
-        "fonts": {f: _fc_match(f) for f in FACES},
-        "substitutions_applied": all(
-            not _fc_match(f).lower().startswith("noto") for f in FACES),
+        "renderer": renderer,
+        "renderer_version": ver,
+        "renderer_path": path,
+        "platform": sys.platform,
+        "fonts": fonts,
+        "substitutions_applied": applied,
     }
 
 
 def describe(fp=None):
     fp = fp or fingerprint()
-    lines = [f"  LibreOffice  {fp['soffice_version']}",
-             f"               {fp['soffice_path']}"]
+    label = "Word" if fp["renderer"] == "word" else "LibreOffice"
+    lines = [f"  renderer     {label}  {fp['renderer_version']}",
+             f"               {fp['renderer_path']}"]
     for face, got in fp["fonts"].items():
         lines.append(f"  {face:<20} -> {got}")
-    if not fp["substitutions_applied"]:
-        lines.append("  WARNING: Arabic faces fall back to Noto, which is wider than the")
-        lines.append("           fonts these documents ask for. Text will overflow and the")
-        lines.append("           scores will not be comparable. See docs/fonts.md.")
+
+    missing = [f for f, v in fp["fonts"].items()
+               if v in ("NOT INSTALLED", "?") or v.lower().startswith("noto")]
+    # Only the three the corpus actually asks for are worth warning about.
+    # AGA Arabesque and Arabic Transparent ship with neither Windows nor
+    # Office, so reporting them on every run is crying wolf - and a warning
+    # that is always on is a warning nobody reads.
+    matters = [f for f in missing if f in BODY_FACES]
+    if fp["substitutions_applied"] is None and matters:
+        lines += [
+            f"  WARNING: {', '.join(matters)} not installed. Windows has no",
+            "           fontconfig, so there is no way to map the name onto a",
+            "           substitute without admin rights - the renderer picks its",
+            "           own face, which is usually wider, so text overflows and",
+            "           the converter takes the blame. FLAGS.md 6.",
+        ]
+    elif fp["substitutions_applied"] is None and missing:
+        lines.append(f"  note: {', '.join(missing)} absent; neither ships with "
+                     "Windows or Office, and no corpus file has needed one.")
+    elif fp["substitutions_applied"] is False:
+        lines += [
+            "  WARNING: Arabic faces fall back to Noto, which is wider than the",
+            "           fonts these documents ask for. Text will overflow and the",
+            "           scores will not be comparable. See docs/fonts.md.",
+        ]
     return "\n".join(lines)
 
 

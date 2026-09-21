@@ -221,19 +221,31 @@ apart. Note what it cost: `FLAGS.md` 16.
 **B4. `z21312494.pdf`** — nine words genuinely missing (author names and
 affiliations) across ten of its 432 pages. The only remaining real loss.
 
-### C. Needs a Windows machine with Word
+### C. The Windows machine with Word
 
-Moaz has Windows and macOS with valid Word licences.
+Set up 2026-09-20 as a VM: Python 3.13, the full corpus restored and verified
+against `out/split.json`, and Office 16.
 
-**C1. Is the shrinking fixing real overflow, or LibreOffice font-substitution
-overflow?** We detect spill through LibreOffice, which lacks the fonts these
-documents ask for. We may be shrinking text to fix spill that doesn't exist in
-real Word — making output worse to make a number better.
+**C2. DONE (2026-09-20).** `harness/word.py` renders through real Word over
+COM. `QIRTAS_RENDERER=word` routes the harness, `fit.py` included. LibreOffice
+stays the default and the two are **not comparable** — keep runs apart.
 
-**C2. Render in Word rather than LibreOffice** for a trustworthy check.
+**C1. Ready to answer, not yet answered.** The VM has Simplified Arabic,
+Traditional Arabic and Sakkal Majalla installed, so a Word run there renders
+with the documents' own faces and nothing substituted — the first machine in
+the project that can. What is left is to record one regression run on it and
+compare page counts against a LibreOffice run of the same code. `FLAGS.md` 6.
 
-Both are worth doing *after* A and B: every currently-known defect is
-verifiable straight from the .docx XML, which is Word's own ground truth.
+**C3. NEW — the page-number box is printed twice.** Found immediately on the
+first Word comparison. A boxed page number is rasterised into the body AND
+written as a `PAGE` field in the footer, so the reader sees it twice and the
+picture costs a line of every page. 37 pages → 43 on `z21358439.pdf`. No score
+shows it. `FLAGS.md` 18.
+
+**C4. Re-measure the 8-file regression baseline.** `ödev.pdf` is back
+(`FLAGS.md` 17), so the set is whole again — but 68.8% is still a number from
+before it went missing. Needs C1 settled first, or the run records a font
+environment nobody will be able to reproduce.
 
 ---
 

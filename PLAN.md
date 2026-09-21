@@ -815,6 +815,149 @@ comparable. It needs real Word, like the rest of `FLAGS.md` 6.
 **This is a judgement call and it is Moaz's**: a visibly correct list structure
 against 1.9 points of a score that cannot see list structure at all.
 
+## Word renders now, and it did not settle what it was meant to, 2026-09-20
+
+A Windows VM with Office was set up so the checker could render through real
+Word rather than LibreOffice - items 5 and 6 above, `FLAGS.md` 6, `TASKS.md` C.
+
+`harness/word.py` drives Word over COM: one instance per process (starting Word
+costs seconds and `fit.py` renders the same document up to five times),
+`ExportAsFixedFormat` rather than SaveAs, and `Repaginate()` before export
+because Word lays out lazily and a page count read before that is the
+pre-layout one. `QIRTAS_RENDERER=word` routes `roundtrip.docx_to_pdf`, and so
+`eval` and `fit` as well. LibreOffice stays the default: the two renderers are
+not comparable and a run that silently changed one would be caveat 7 again.
+
+Simplified Arabic, Traditional Arabic and Sakkal Majalla are all installed on
+that machine, from the Windows `Language.Fonts.Arab` capability. So for the
+first time in this project the checker can render these documents in the
+application people open them in, using the faces they ask for, with nothing
+substituted. AGA Arabesque and Arabic Transparent are still absent; neither
+ships with Windows or Office.
+
+**A note written here earlier said the machine had none of them. That was
+wrong, and the instrument was what was wrong.** `harness.env` shells out to
+fc-match, which does not exist on Windows; it returned "?", and the check
+`not value.startswith("noto")` passed every face - so a machine with no Arabic
+fonts at all would have scored `substitutions_applied: true`. The first attempt
+to fix it read the font registry in a context that could not see it and
+reported the opposite error, NOT INSTALLED for faces that were present. It now
+reads the registry directly and returns `null` rather than `true` when it
+cannot tell. **A check that cannot run must say so, not pass.** Eighth
+instrument bug in this project; third that was flattering us; and the only one
+so far that managed to be wrong in both directions before it was right.
+
+First comparison, `z21358439.pdf` rendered by Word, 37 pages -> 43, words
+100.0%, right page 21.1%. Two things came out of looking at it rather than at
+the numbers:
+
+  - the page-number box is rasterised into the body and printed a second time,
+    on every page - `FLAGS.md` 18, new;
+  - the Arabic on the page reads wrong in places (`اللاجئين` as `الالجئين`,
+    `المؤقت` as `المقق`) and **it is not ours**. Every count matches the source
+    exactly: 100/100, 34/34, 11/11. The source PDF draws the right glyphs and
+    stores the wrong characters, so the page looks correct and the text layer
+    is not, and the scorer reports 100% because both sides carry the fault.
+    `FLAGS.md` 13 was written about digits on this same file; it is not
+    confined to digits.
+
+## Arabic that reads wrong on the page, settled by geometry, 2026-09-20
+
+Raised by Moaz from a rendered page, and every one of them turned out to be in
+the SOURCE text layer rather than something we did:
+
+    اللاجئين  stored  الالجئين     a lam-alef ligature, reversed
+    حاملا      stored  حامال        the same, at the END of a word
+    زيلالي     stored  زياللي       the same, inside a name
+    مقدمة:     stored  :مقدمة       the colon stored at the front of the line
+    تبدأ       stored  ت بدأ        the line's TRAILING space stored second
+
+The orthographic rules in `convert/arabic.py` could not reach any of them. They
+repair only what Arabic spelling makes impossible - a standalone ال, or two
+alef forms together - and `حامال` is not impossible: مال, حال, شمال and جمال
+are all real words ending the same way. Guessing there corrupts valid text to
+fix invalid text.
+
+**The glyphs were never ambiguous, only the characters were.** لا is ONE glyph.
+When the font's ToUnicode lists its two letters backwards, pymupdf hands back
+two characters from a single glyph, so the first has NO WIDTH and the second
+carries the whole advance. Measured on `z21358439.pdf` page 3, every ALEF
+followed by LAM:
+
+    two boxes   26   العامة العدد الحكاية اللحظة   the definite article
+    zero width  11   حامال تحوال واالجت ال         reversed ligatures
+
+The same for order. A character belongs where the page draws it, so in a
+right-to-left line the reading order is descending x - and the colon and the
+displaced space fall into place with no orthography at all. No pymupdf mode
+does this already; `text`, `sort=True`, `blocks` and `words` were all tried.
+
+### Three attempts, and the first two broke the hard gate
+
+**Attempt 1 - repair at the point of extraction.** Reader and checker both read
+through `rawdict` and repaired as they went. **Gate 100.0% -> 96.2%, one file's
+text score 0.998 -> 0.000** - while `page_score` did not move on a single file.
+The converter's output had not changed at all. Six of the eight regression
+files come through the TAG route, whose `/ActualText` carries no glyph boxes,
+so the checker repaired the original and the reader did not. That is caveat 1
+and the invariant at the top of `convert/arabic.py`, in a new place: **a repair
+applied to one side and not the other is worse than no repair.**
+
+**Attempt 2 - derive the repairs once, apply them as text.** `fix_map(pdf)`
+returns {broken -> repaired} over whole words; both sides derive it from the
+same file and apply it to whatever they extracted, so neither can be repaired
+without the other. Gate 98.4%. Better, still broken, and for three reasons
+worth keeping:
+
+  - *A fragment that deletes.* A full stop moving from the front of a line to
+    the end gave `.طنجة، المملكة` -> `طنجة، المملكة` and
+    `المملكة المغربية` -> `المملكة المغربية.`, a matched pair that balances
+    only if BOTH fire. Singly, each changes the text: 72 characters went
+    missing from one file. Fixed by requiring a fragment to be a permutation of
+    itself, ignoring spaces - a repair reorders, it never adds or removes.
+  - *A ligature swapped twice.* The swap left the alef at i+1, where the next
+    step saw it beside the FOLLOWING lam and swapped again: زيلالي stored as
+    زياللي came back زيللاي. A ligature is one glyph and can be swapped once.
+  - *Combining marks are not neutrals.* A haraka has no width and sits on top
+    of its letter, so its x IS that letter's x and the slot arithmetic cannot
+    place it. On a fully vowelled Quranic verse in `الفصل الخامس المبحث الثالث`
+    the marks drifted onto their neighbours - `{َوَالَّذِين` came back
+    `{ََواَّلِذين`. NSM now never moves.
+
+**Attempt 3 - and ask whether the glyphs are worth reading at all.** The
+premise is that a zero-width character is half a ligature. On the six hard
+thesis files the glyph layer barely decodes (RESEARCH.md: 0-8% recovered), so
+its widths mean nothing, and the repair "fixed" every definite article: الله
+came back لاله. The two groups are two orders of magnitude apart on both
+counts:
+
+    z21358439        10,961 chars    2.14% zero width
+    z21011460        14,060 chars    1.56%
+    ödev              1,120 chars    0.00%
+    الفصل الخامس الثالث   11 chars   27.27%
+    الفصل الخامس الأول    37 chars   67.57%
+    مقدمة البحث          202 chars   96.04%
+
+`pdftext.trustworthy()` refuses a file with under 200 decodable characters or
+over 10% of them zero-width, so all six thesis files get an EMPTY map and are
+left exactly as they were. The thresholds sit in open space rather than on a
+boundary.
+
+    regression set, 8 files, rendered by Word      before    after
+    nothing lost                                   100.0%    100.0%
+    words in order                                  98.8%     98.8%
+    right page                                      64.4%     64.4%
+    page inflation                                  1.00x     1.00x
+
+Identical, file by file, which is the expected result: Moaz's own files are the
+ones the trust check excludes. The repair is for the wild corpus, where a
+single file yields ~900 fragments and the character multiset is unchanged.
+
+**What this cost to get right is the point.** Three attempts, two of them
+caught only by the hard gate, and one of those was mangling a Quranic verse -
+the same verse `reader._backfill` exists to protect. Nothing but the gate said
+so; `page_score` was flat throughout.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
@@ -941,3 +1084,17 @@ Every one of these made the numbers lie before it was found:
    `--from-manifest` restores by record ID (2026-09-20).
    **Found by being asked whether the corpus could go in git** — not by any run,
    and it would have surfaced as inexplicable score drift on a new machine.
+
+12. **A test can be defeated by the name of the file it writes.** On Windows
+   `harness/test_xml_safe.py` reported the writer as producing a corrupt .docx
+   for a NUL in paragraph text. The writer was correct; the test named that
+   case `nul`, and Windows resolves the DOS device names - `nul`, `con`, `aux`,
+   `prn`, `com1..9`, `lpt1..9` - ahead of any real file of that name, in any
+   directory and whatever the extension follows. `nul.docx` IS the null device:
+   `doc.save()` succeeded, every byte went nowhere, the path reported 0 bytes,
+   and `text_of_docx` then raised `BadZipFile`. Nothing anywhere raised at the
+   point of loss. Cases are now written as `case_<stem>.docx` (2026-09-20).
+   Worth remembering when items 5 and 6 above are finally done in real Word,
+   since that work happens on Windows by definition - a harness written on
+   Linux can fail there for reasons that have nothing to do with the converter,
+   and this one accused the converter by name.

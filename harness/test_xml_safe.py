@@ -50,8 +50,16 @@ ARABIC = "المعرض بوصفه"
 
 
 def _written(model, tmp, stem):
-    """write() the model and read the text back out of the .docx."""
-    out = Path(tmp) / f"{stem}.docx"
+    """write() the model and read the text back out of the .docx.
+
+    The stem is prefixed because Windows still resolves the DOS device names -
+    nul, con, aux, prn, com1..9, lpt1..9 - ahead of any file of that name, in
+    any directory and whatever the extension. `nul.docx` IS the null device
+    there: every byte written is discarded, the path reports 0 bytes, and
+    nothing raises. This test named a case after the character it tests, so on
+    Windows it read back an empty file and reported the writer as the fault.
+    """
+    out = Path(tmp) / f"case_{stem}.docx"
     write(model, str(out))
     return text_of_docx(str(out))
 
