@@ -37,6 +37,20 @@ class Block:
     # extract for it need not be identical page to page - and stopped being so
     # once masked images started being rendered off the page.
     origin: str = ""
+    # The picture was photographed off the page and page TEXT sits inside it,
+    # so the photo carries that one page's words - a boxed page number is the
+    # case that found it. Such a picture must never be drawn once and repeated
+    # as a running header or footer: it would stamp page 1's number on all.
+    over_text: bool = False
+    # The whole first page was photographed as one picture (a title-page
+    # collage). The writer keeps Word's header and footer off that page, since
+    # the photo already shows everything the original printed there.
+    collage: bool = False
+    # Every word of this block came from a picture's /Alt description in the
+    # structure tree, none from /ActualText or the page. It describes a picture
+    # rather than being text the document printed - often Word's automatic
+    # "Logo Description automatically generated with medium confidence".
+    from_alt: bool = False
     rows: List[List[str]] = field(default_factory=list)   # for table blocks
     col_widths: List[float] = field(default_factory=list)  # points, per column
     cell_boxes: List[List[tuple]] = field(default_factory=list)   # cell rects

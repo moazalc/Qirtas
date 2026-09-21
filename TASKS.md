@@ -20,33 +20,36 @@ Getting Arabic *text* out of a PDF is already a solved problem — that was
 measured across 105 files. **The gap is writing a correct right-to-left .docx**,
 which nothing does. That's the project.
 
-## Where it stands (2026-09-20, end of day)
+## Where it stands (2026-09-21)
 
-Moaz's thesis files — **7 of them, not 8: `ödev.pdf` was deleted, see A11**:
+**The theses are the priority** (Moaz, 2026-09-21). Measured in Word, all 8
+regression files:
 
     nothing lost     100.0%   <- the hard gate, never broken
-    words in order    98.6%
-    right page        64.3%   <- goal: >90%
-    page inflation     1.00x  <- page counts exact
+    words in order    98.8%
+    right page        69.4%   <- goal: >90%   (64.4% yesterday, Word)
+    page inflation     1.00x  <- page counts exact, all 8
 
-On 30 files nobody tuned on:
+On 24 unseen files (the 30-file sample, six over 60 pages skipped), Word:
 
     nothing lost     100.0%
-    words in order    73.4%
-    right page        26.7%
-    page inflation     1.46x
+    words in order    67.6%
+    right page        31.5%
 
-All 14 test suites pass, rendering through Word.
+Every one of the 24 came out IDENTICAL before and after today's two fixes -
+none has a boxed page number or a picture-collage title page. Safe, but not
+evidence they generalise; `z21358439` (43 -> 37 pages) is the only unseen
+file they have been shown to help. The old 26.7% / 1.46x were LibreOffice.
 
-**2026-09-21: Word is the only renderer.** LibreOffice has been removed from
-the code at Moaz's call - Word is what readers open the file in, and this
-machine has the documents' own fonts. Every number above that predates
-2026-09-20 was taken under LibreOffice and is not comparable to a Word one.
-Work up to 2026-09-21 is committed locally; not yet pushed.
+All 14 test suites pass, rendering through Word. `PYTHONUTF8=1` is needed on
+Windows. Committed locally; not yet pushed.
 
-**64.3% is not a fall from 68.8%.** The 8-file set scored 68.8%; the same 7
-files score 64.3% both before and after every change made today. The whole
-difference is the deleted control file, which scored 100%. See A11.
+**Word is the only renderer** since 2026-09-21. **Runs skip files over 60
+pages** (`--max-pages`, Moaz's call: no more long waits); a regression run
+takes under two minutes.
+
+**The Arabic lam-alef fix is PARKED, off by default.** It broke the gate on
+unseen files - `FLAGS.md` 20.
 
 **Run `python -m harness.env` before trusting any number.** It reports the Word
 version, which Arabic faces are installed, and whether the Arabic fix was on.
@@ -90,8 +93,8 @@ down and wrong.** Re-check the note before trusting it.
 
 ## Tasks, in the order worth doing
 
-**Next session: A2 is diagnosed and ready to work on.** After that, the two
-decisions above are blocking more than anything else in this list.
+**Next session: A13 - the theses print no page numbers in our output.** Then
+C1. The two decisions above block the wild corpus, not the theses.
 
 ### A. Toward Moaz's goal: his files above 90% on right page
 
@@ -105,7 +108,16 @@ spaces. One spurious page early in a file put every later page one out of step.
 68.4%), page counts now exact on both. Gate held at 100%, nothing moved beyond
 noise on 30 unseen files. Full write-up in `PLAN.md`.
 
-**A2. `مقدمة البحث` — DIAGNOSED, not fixed. Start here.** 33.7% where its
+**A2. DONE (2026-09-21) - 30.1% -> 69.6%, 16 pages -> 16, every page on its
+own number.** The spurious page was the title page: 26 overlapping pictures
+(frame, crest, title lines) stacked one under another took two pages. The first
+page is now photographed whole when it holds nothing but pictures - see
+`reader._collage` and `FLAGS.md` 21 for what that trades. The same rule caught
+every chapter's title page too, and they are better for it: the old output
+showed each heading TWICE and lost the rounded frame. Found by looking.
+Regression right page 64.4% -> 69.4%; no other file's page score moved.
+
+Original diagnosis, kept for the record: 33.7% where its
 siblings reach 56–73%, and the only regression file still running long (17
 pages against 16). `harness.drift` answered it in one run:
 
@@ -228,6 +240,14 @@ apart. Note what it cost: `FLAGS.md` 16.
 **B4. `z21312494.pdf`** — nine words genuinely missing (author names and
 affiliations) across ten of its 432 pages. The only remaining real loss.
 
+**A13. NEW (2026-09-21) - the theses print no page numbers.** Found while
+looking at A2. Every page of `الفصل الخامس المبحث الثالث` in our output ends
+without its number, and did yesterday too - not caused by A2 or C3. Likely:
+the number is an untagged artifact, the tag route never sees it, so
+`_running_text` has nothing to turn into a PAGE field. Check across all six
+chapters before fixing. The page-number box picture (one shared object, xref 8)
+may be drawn in the footer with nothing in it.
+
 ### C. The Windows machine with Word
 
 Set up 2026-09-20 as a VM: Python 3.13, the full corpus restored and verified
@@ -246,7 +266,14 @@ no LibreOffice any more. The question is now simply: rendering in Word, does
 `fit.py` shrink anything, and on which files? If it barely does, the old
 shrinking was LibreOffice's fonts. `FLAGS.md` 6.
 
-**C3. NEW — the page-number box is printed twice.** Found immediately on the
+**C3. DONE (2026-09-21).** `z21358439` 43 pages -> 37, matching the original;
+the number now appears once, in the footer. The box was a picture, not vector
+art as recorded, with a separate copy on every page - so grouping by source
+object never matched. Furniture is now also grouped by position and size, and
+a photographed picture with page text inside it is lifted without being drawn.
+The box outline itself is lost. `FLAGS.md` 18.
+
+Original note: **the page-number box is printed twice.** Found immediately on the
 first Word comparison. A boxed page number is rasterised into the body AND
 written as a `PAGE` field in the footer, so the reader sees it twice and the
 picture costs a line of every page. 37 pages → 43 on `z21358439.pdf`. No score

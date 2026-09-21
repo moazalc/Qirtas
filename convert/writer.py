@@ -231,7 +231,7 @@ def _running_furniture(model):
     if not outside:
         return {}, {}
     pages = max(1, model.pages)
-    groups = {}
+    by_origin, by_place = {}, {}
     for b in outside:
         # Identity comes from the SOURCE object, not from the bytes we wrote.
         # Hashing the file used to work because the same decoration extracted
@@ -246,15 +246,39 @@ def _running_furniture(model):
                 key = hashlib.md5(Path(b.image).read_bytes()).hexdigest()
             except OSError:
                 continue
-        groups.setdefault(key, []).append(b)
+        by_origin.setdefault(key, []).append(b)
+        # ...and, second, by where it sits and how big it is. Some files store
+        # a separate copy of the same decoration on every page - `z21358439`
+        # boxes its page number with a fresh picture object each time - so no
+        # two copies share an origin and the check above never groups them.
+        # Same place, same size, on most pages, is the same furniture. Rounded
+        # to 2pt so a fraction of a point of drift does not split a group.
+        place = tuple(round(v / 2) for v in (b.x0, b.y, b.x1, b.y1))
+        by_place.setdefault(place, []).append(b)
+
     lift, draw = {}, {}
-    for key, blocks in groups.items():
+    groups = [(g, False) for g in by_origin.values()] +              [(g, True) for g in by_place.values()]
+    for blocks, by_position in groups:
+        blocks = [b for b in blocks if id(b) not in lift]
         if len({b.page for b in blocks}) < max(2, pages // 2):
             continue                       # a one-off, leave it in the flow
         where = "header" if (blocks[0].y + blocks[0].y1) / 2 < top else "footer"
-        draw.setdefault(where, []).append(blocks[0])
         for b in blocks:
             lift[id(b)] = where
+        # A photographed picture with page text inside it carries THAT page's
+        # words - the box around a page number, photographed with the number
+        # in it. Drawn once in the footer it would print page 1's number on
+        # every page, next to the real PAGE field. Lift it out of the body and
+        # draw nothing: the number itself is already in the footer as a field.
+        #
+        # Only for groups found by POSITION. A group sharing one source object
+        # is the same decoration drawn again, and was always drawn: applying
+        # this to it too stopped one of the two running-header pictures of
+        # `الفصل الخامس المبحث الثالث` being drawn at all, because one of its
+        # photos happens to overlap a word of the page (2026-09-21).
+        if by_position and any(b.over_text for b in blocks):
+            continue
+        draw.setdefault(where, []).append(blocks[0])
     return lift, draw
 
 
@@ -753,6 +777,10 @@ def write(model: Doc, out_path, scale=None):
     # Page decoration goes to the header or footer, and a page whose pictures
     # would not fit gets them shrunk. Both exist to stop a page spilling: one
     # page taking two pushes every page after it out of step, permanently.
+    # A first page photographed whole already shows its own header and footer;
+    # Word's must not be drawn over it. See reader._collage.
+    if any(b.collage and b.page == 0 for b in model.blocks):
+        doc.sections[0].different_first_page_header_footer = True
     lift, draw = _running_furniture(model)
     if draw:
         _draw_furniture(doc, draw, model, model.dropped_images)

@@ -159,6 +159,17 @@ LibreOffice's fonts all along.
 
 ## 18. The page-number box is rasterised into the body, so the number is printed twice
 
+**CLOSED 2026-09-21.** 43 pages -> 37 on `z21358439`, matching the original.
+The recorded diagnosis was half wrong: the box is not vector art but a small
+PICTURE, stored as a separate object on every page (xref 76, 108, 122...), and
+photographed off the page because it has a mask - which is why the number is
+inside it. Grouping by position and size catches it now; a photographed
+picture with page text inside is lifted but NOT drawn, so page 1's number is
+not stamped on every page. The box outline is lost; the number survives as the
+footer's PAGE field. Only groups found by position get that rule - applied to
+source-object groups it stopped a running-header picture of `الفصل الخامس
+المبحث الثالث` being drawn at all.
+
 **Status: confirmed bug, ours, found by looking. Every page of every file that
 boxes its page number.**
 
@@ -244,7 +255,11 @@ chosen.
 
 ## 10. `مقدمة البحث` is an undiagnosed outlier
 
-**Status: diagnosed, not fixed. `TASKS.md` A2.**
+**CLOSED 2026-09-21.** The spurious page was the title page, 26 overlapping
+pictures stacked into two pages; now photographed whole. 30.1% -> 69.6%, 16
+pages -> 16. `TASKS.md` A2, `FLAGS.md` 21.
+
+Was: diagnosed, not fixed.
 
 33.7% where its siblings now reach 56–73%, and the only regression file still
 running one page long (17 against 16). `harness.drift` shows one spurious page
@@ -497,3 +512,55 @@ again.
 **CLOSED 2026-09-20.** An 8-file regression run was recorded in Word:
 `out/runs/2026-09-20-regression-word-*`, right page **64.4%**, gate 100%. That
 is the baseline now. 68.8% was LibreOffice and is not comparable to it.
+
+---
+
+## 20. The Arabic lam-alef fix breaks the gate on unseen files
+
+**Status: PARKED at Moaz's call, 2026-09-21. Off by default.**
+
+`convert/pdftext.py` (geometric lam-alef and punctuation repair) changed
+nothing on the theses - its trust check excludes them by design - so the
+unseen files were its first real test. 29 of the 30-file sample, Word, same
+code, `QIRTAS_ARABIC_FIX` off then on:
+
+    nothing lost     100.0% -> 98.3%   worst file z22110258 79.9%
+    words in order    73.4% -> 70.4%
+    right page        31.6% -> 31.5%
+    15 files worse, none better
+
+Not diagnosed. Real loss or a scorer disagreement is still open: the ORIGINAL
+side's word counts changed between the runs, so the checker's repairs differ
+from the converter's somewhere - the same shape as the fix's first failed
+attempt (`PLAN.md`). Start with `z22110258`. Runs:
+`out/runs/2026-09-20-dev-word-arabic-fix-off`, `2026-09-21-dev-word-arabic-fix-on`.
+
+The repair was also ~100x slower than it needed to be (a regex per fragment,
+recompiled per paragraph); fixed, verified byte-identical.
+
+**Closes when:** the loss is traced and the fix passes the gate on unseen
+files, or it is dropped.
+
+---
+
+## 21. A photographed title page trades editability and a picture count
+
+**Status: a trade made 2026-09-21, recorded for Moaz to overrule.**
+
+When the first page is nothing but overlapping pictures (at most 15 real
+words), it is photographed as one picture - A2. Three costs:
+
+- **Two lines of `مقدمة البحث` stop being editable**: "بـحث مقدم لنيل درجة
+  العالمية (الدكتوراه في القراءات)" and "بعنوان". They are real text among
+  26 pictures. They are in the photo, not lost from the page - but not
+  editable, and **the gate cannot see this**: they are not in the PDF's text
+  layer, which is what the gate reads. Everything else on that page, and all
+  of each chapter's title page, was pictures already.
+- **"Pictures kept" falls** - 26 pictures become 1, and the score counts
+  placements, not appearance. Chapters show 48 -> 37 and similar. Nothing
+  visible was lost; the score cannot tell.
+- **The title page loses its printed page number** where one existed, because
+  Word's header and footer are off for that page to avoid printing it twice.
+
+**Closes when:** Moaz accepts the trade, or asks for the title lines to stay
+editable.

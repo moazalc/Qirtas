@@ -177,25 +177,38 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         inner = []
         _walk(node.get("/K"), doc, pages, inner, depth + 1,
               kind if kind in (FOOTNOTE,) else ctx, state)
-        doc.add(Block(kind=kind, text=_clean(text + "".join(inner)), page=pg))
+        doc.add(Block(kind=kind, text=_clean(text + "".join(inner)), page=pg,
+                      from_alt=not text and _all_alt(inner)))
         return
 
     ref = node.get("/Pg")
     if ref is not None:
         state["page"] = pages.get(ref.objgen, state["page"])
-    at = node.get("/ActualText") or node.get("/Alt")
-    if at is not None:
-        pending.append(str(at))
+    actual = node.get("/ActualText")
+    if actual is not None:
+        pending.append(str(actual))
+    elif node.get("/Alt") is not None:
+        pending.append(_Alt(str(node.get("/Alt"))))
     kids = node.get("/K")
     if kids is not None:
         _walk(kids, doc, pages, pending, depth + 1, ctx, state)
+
+
+class _Alt(str):
+    """Text that came from a picture's /Alt description, not from the page."""
+
+
+def _all_alt(parts):
+    parts = [p for p in parts if p.strip()]
+    return bool(parts) and all(isinstance(p, _Alt) for p in parts)
 
 
 def _flush(doc, pending, page=0):
     """Loose text kept defaulting to page 0, piling a whole document onto the
     first page and leaving later pages empty. Carry the current page."""
     if pending:
-        doc.add(Block(kind=PARAGRAPH, text=_clean("".join(pending)), page=page))
+        doc.add(Block(kind=PARAGRAPH, text=_clean("".join(pending)), page=page,
+                      from_alt=_all_alt(pending)))
         pending.clear()
 
 
@@ -670,6 +683,108 @@ def _render_region(page, rect, dpi=200):
         return None
 
 
+# A title page built as a collage: a frame, a crest, and the title, the
+# university and the author's name each as a separate picture laid over it.
+# `مقدمة البحث` page 1 is 26 of them, overlapping. Pulled apart and stacked one
+# under another they took two pages however they were shrunk, and that one
+# extra page put all 15 pages after it one out of step - right page 33.7%
+# where its siblings reach 56-73%.
+COLLAGE_MIN = 3
+COLLAGE_MAX_WORDS = 15
+COLLAGE_DPI = 150
+NUMBERS_AND_SPACE = re.compile(r"[\s0-9\u0660-\u0669\u06F0-\u06F9]+")
+
+
+def _collage(path, blocks, outdir):
+    """The first page as ONE photograph, when it is nothing but overlapping
+    pictures. -> Block or None.
+
+    Only the first page, and only when:
+      - it has no words at all (a printed page number does not count), so
+        nothing the reader or the loss gate cares about is inside the photo.
+        BOTH the page's text layer and the words the reader chose for it are
+        asked (the caller checks the second): Moaz's chapters keep their
+        words in /ActualText with an almost empty text layer, so the layer
+        alone called every chapter's first page empty and turned its real,
+        editable headings into a photograph - which the loss gate could not
+        see either, since it reads the same layer (2026-09-21);
+      - it has at least COLLAGE_MIN pictures, and at least two of them overlap.
+        Overlap is what stacking cannot reproduce; separate pictures side by
+        side are left to the ordinary path.
+
+    Photographed as the page shows it, page number included. The writer turns
+    Word's header and footer off for this one page, so nothing is doubled.
+    """
+    blocks = [b for b in blocks if b.page == 0]
+    if len(blocks) < COLLAGE_MIN:
+        return None
+    with pymupdf.open(path) as d:
+        page = d[0]
+        if NUMBERS_AND_SPACE.sub("", page.get_text("text")):
+            return None
+        return _collage_shot(page, blocks, outdir)
+
+
+def _collage_shot(page, blocks, outdir):
+    rects = [pymupdf.Rect(b.x0, b.y, b.x1, b.y1) for b in blocks]
+    if not any(not (a & b).is_empty
+               for k, a in enumerate(rects) for b in rects[k + 1:]):
+        return None
+    union = pymupdf.Rect(rects[0])
+    for r in rects[1:]:
+        union |= r
+    # Grow to take in line art the pictures overlap. The rounded frame on each
+    # of Moaz's chapter title pages is drawn, not placed: its pictures stop at
+    # y=699 while the frame's curve runs below, so the photo cut the frame
+    # open. A drawing near the size of the page is a border, not part of this.
+    try:
+        drawings = page.get_drawings()
+    except Exception:
+        drawings = []
+    big = 0.9 * page.rect.width * page.rect.height
+    for g in drawings:
+        r = pymupdf.Rect(g["rect"])
+        if r.width * r.height < big and not (r & union).is_empty:
+            union |= r
+    union &= page.rect
+    shot = _render_region(page, union, COLLAGE_DPI)
+    if not shot:
+        return None
+    dest = Path(outdir) / "p0_collage.png"
+    dest.write_bytes(shot)
+    return Block(kind=IMAGE, text="", page=0, image=str(dest),
+                 x0=union.x0, x1=union.x1, y=union.y0, y1=union.y1,
+                 origin="collage0", collage=True)
+
+
+def _drop_collage_captions(doc, path):
+    """Remove text on a photographed first page that the page never printed.
+
+    The tag route reads each picture's description out of the structure tree.
+    On `مقدمة البحث` that is Word's automatic alt text - "Logo Description
+    automatically generated with medium confidence", ten times - and the
+    title's own words, which exist only as pictures on the page. Written as
+    paragraphs they filled two pages on top of the photo that already shows
+    them.
+
+    A block is kept if its words are in the page's own text layer, which is
+    what the loss gate measures - so this cannot drop a word the gate counts.
+    """
+    try:
+        with pymupdf.open(path) as d:
+            printed = WS.sub("", d[0].get_text("text")).replace("\n", "")
+    except Exception:
+        return
+    keep = []
+    for b in doc.blocks:
+        if b.page == 0 and b.kind != IMAGE and b.text.strip():
+            flat = WS.sub("", b.text).replace("\n", "")
+            if flat not in printed:
+                continue
+        keep.append(b)
+    doc.blocks = keep
+
+
 def read_images(path, outdir):
     """Pull the real pictures out of the PDF, ignoring Word's pixel litter.
 
@@ -692,6 +807,7 @@ def read_images(path, outdir):
     with pymupdf.open(path) as d:
         for i, page in enumerate(d):
             seen = set()
+            mine = []
             for info in page.get_images(full=True):
                 xref, w, h = info[0], info[2], info[3]
                 if xref in seen or w < MIN_IMAGE_PX or h < MIN_IMAGE_PX:
@@ -706,6 +822,7 @@ def read_images(path, outdir):
                 except Exception:
                     continue
                 blob, ext = raw["image"], raw.get("ext", "png")
+                over = False
                 # A picture whose appearance is partly in a transparency mask
                 # cannot be rebuilt from the stored pixels - see _is_flat. Take
                 # it off the page instead, where it is already correct.
@@ -713,6 +830,10 @@ def read_images(path, outdir):
                     shot = _render_region(page, rects[0], _dpi_for(rects[0], w))
                     if shot:
                         blob, ext = shot, "png"
+                        try:
+                            over = bool(page.get_text("text", clip=rects[0]).strip())
+                        except Exception:
+                            over = False
                 if not _word_can_read(blob):
                     blob, ext = _repaint(d, xref), "png"
                     if blob is None:
@@ -720,9 +841,10 @@ def read_images(path, outdir):
                 dest = outdir / f"p{i}_x{xref}.{ext}"
                 dest.write_bytes(blob)
                 r = rects[0]
-                blocks.append(Block(kind=IMAGE, text="", page=i, image=str(dest),
-                                    x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1,
-                                    origin=f"x{xref}"))
+                mine.append(Block(kind=IMAGE, text="", page=i, image=str(dest),
+                                  x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1,
+                                  origin=f"x{xref}", over_text=over))
+            blocks.extend(mine)
     return blocks
 
 
@@ -999,8 +1121,23 @@ def read(path, image_dir=None):
                 pass
         for t in tables:
             best.add(t)
+    # The first page photographed whole only if the reader found almost no
+    # real text on it: picture descriptions and a page number do not count,
+    # and a few title lines are allowed. `مقدمة البحث` has two - "بـحث مقدم
+    # لنيل درجة العالمية" and "بعنوان" - as real text among 26 pictures, and
+    # those two lines become part of the photo, no longer editable. Traded for
+    # the other 15 pages landing on the right page; FLAGS.md 21.
+    real = sum(len(b.text.split()) for b in best.blocks
+               if b.page == 0 and b.kind != IMAGE and not b.from_alt
+               and NUMBERS_AND_SPACE.sub("", b.text))
+    if image_dir and real <= COLLAGE_MAX_WORDS:
+        whole = _collage(path, pictures, image_dir)
+        if whole:
+            pictures = [b for b in pictures if b.page != 0] + [whole]
     for b in pictures:
         best.add(b)
+    if any(b.collage for b in pictures):
+        _drop_collage_captions(best, path)
     # One pass over the finished model, like writer._clean does for characters
     # XML cannot hold. Every route's text goes through here, whether it came
     # from glyphs or from /ActualText, so the tag route gets the same repairs
