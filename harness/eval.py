@@ -66,9 +66,11 @@ def main():
     env = fingerprint()
     print(f"{DIM}environment{OFF}")
     print(describe(env))
-    if not env["substitutions_applied"]:
+    if not env["renderer_version"].startswith("Word"):
+        sys.exit(f"Word is unusable: {env['renderer_version']}")
+    if not env["body_fonts_installed"]:
         print(f"{YEL}  scores from this machine are not comparable to ones taken with"
-              f" the font rules applied{OFF}")
+              f" the documents' own fonts installed{OFF}")
     print()
 
     files = files_for(a.set)

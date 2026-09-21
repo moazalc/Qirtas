@@ -112,8 +112,8 @@ def _flag(parent, tag, val="1"):
 # Correct for BOTH directions: start is the right margin in Arabic and the left
 # margin in English, which is exactly what a heading wants.
 #
-# Verified through LibreOffice. This is ECMA-376 behaviour rather than a
-# renderer quirk, but it has not been confirmed in real Word - see FLAGS.md 6.
+# ECMA-376 behaviour rather than a renderer quirk. Confirmed in real Word on
+# 2026-09-21: harness/test_alignment.py renders through Word and measures it.
 ALIGN_START = WD_ALIGN_PARAGRAPH.LEFT
 
 

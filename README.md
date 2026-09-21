@@ -39,22 +39,24 @@ unfinished".
 
 ## setup
 
-    python3 -m venv .venv
-    .venv/bin/pip install -r requirements.txt
+    python -m venv .venv
+    .venv/Scripts/pip install -r requirements.txt
 
-**Use `.venv/bin/python` for everything.** The system Python does not have
+**Use `.venv/Scripts/python` for everything.** The system Python does not have
 pymupdf and will fail in ways that look like corpus problems.
 
 Also needed:
 
-- **LibreOffice** — used only to render our .docx back to PDF for checking, and
-  never in the conversion itself. Path is `SOFFICE` in `harness/roundtrip.py`,
-  currently `/snap/bin/libreoffice`. **Adjust this first on a new machine**; it
-  is the single most likely thing to break a fresh checkout.
+- **Windows with Microsoft Word** — used to render our .docx back to PDF for
+  checking (`harness/word.py`, over COM), and by `convert/fit.py` to see which
+  pages spilled. Word is the only renderer: it is what readers actually open
+  the file in. LibreOffice was used until 2026-09-21 and removed; scores taken
+  with it are not comparable to Word ones.
 - **Arabic fonts** — these PDFs ask for Simplified Arabic, Traditional Arabic
-  and Sakkal Majalla, which are Windows fonts. Without substitutes LibreOffice
-  falls back to a wider face, text overflows, and the converter gets blamed for
-  it. See `docs/fonts.md` and `docs/60-arabic-substitutes.conf`.
+  and Sakkal Majalla. Install them from Windows' optional Arabic fonts
+  (`Language.Fonts.Arab`). Without them Word picks a wider face, text
+  overflows, and the converter gets blamed for it. `python -m harness.env`
+  reports which are installed.
 
 ## corpus
 
@@ -68,7 +70,7 @@ makes a fresh checkout usable:
 
 To rebuild the wild corpus on a new machine:
 
-    .venv/bin/python -m harness.fetch_corpus --from-manifest --out corpus/wild
+    .venv/Scripts/python -m harness.fetch_corpus --from-manifest --out corpus/wild
 
 **Use `--from-manifest`, not a fresh search.** Running `fetch_corpus --n 120`
 does not rebuild this corpus; it builds *a* corpus. The Zenodo query sorts by
@@ -105,7 +107,7 @@ here means nothing without knowing how it was produced, it now has a shape:
 That is not optional and not something to remember — the run that matters is
 always the one nobody saved.
 
-    .venv/bin/python -m harness.eval --set regression --label after-some-fix
+    .venv/Scripts/python -m harness.eval --set regression --label after-some-fix
 
 `out/archive/` holds the pre-2026-09-20 files, several of which are cited as
 evidence in `PLAN.md`. Read before deleting.
@@ -114,20 +116,20 @@ evidence in `PLAN.md`. Read before deleting.
 
 Convert one file:
 
-    .venv/bin/python -m convert.v1 input.pdf out/output.docx
+    .venv/Scripts/python -m convert.v1 input.pdf out/output.docx
 
-Score the converter (PDF → DOCX → LibreOffice → PDF → compare; no ground-truth
+Score the converter (PDF → DOCX → Word → PDF → compare; no ground-truth
 .docx needed):
 
-    .venv/bin/python -m harness.eval --n 30          # sample of the tuning set
-    .venv/bin/python -m harness.eval                 # the whole tuning set
-    .venv/bin/python -m harness.eval --set regression  # the hard ActualText case
+    .venv/Scripts/python -m harness.eval --n 30          # sample of the tuning set
+    .venv/Scripts/python -m harness.eval                 # the whole tuning set
+    .venv/Scripts/python -m harness.eval --set regression  # the hard ActualText case
 
 A full 102-file run takes roughly 25–35 minutes. It schedules longest-file-first,
 so **the long files finish last** — progress through the file count is not
 progress through the work, and estimating from early completions will be wrong.
 
-    .venv/bin/python -m harness.eval --set holdout
+    .venv/Scripts/python -m harness.eval --set holdout
 
 The holdout exists to answer one question at the end — does this generalise, or
 have I fitted the files I could see? It has been opened once. Opening it again
@@ -135,27 +137,27 @@ during development destroys the only safeguard there is.
 
 Compare two runs, split by document class:
 
-    .venv/bin/python -m harness.report_holdout out/eval_a.json out/eval_b.json
+    .venv/Scripts/python -m harness.report_holdout out/eval_a.json out/eval_b.json
 
 ### finding out WHERE a file is wrong
 
 A score says a file is bad. These two say where, and between them they have
 found more real bugs than any metric has.
 
-    .venv/bin/python -m harness.drift original.pdf rebuilt.pdf
+    .venv/Scripts/python -m harness.drift original.pdf rebuilt.pdf
 
 For each original page, which of our pages did its words land on. Read the
 drift column: a **constant** offset is ONE spurious page and is worth chasing
 (that is how the duplicate-backfill bug was found — right page 29.0% → 72.6%);
 a **growing** offset is content genuinely overflowing page by page.
 
-    .venv/bin/python -m harness.look original.pdf rebuilt.pdf --pages 4 --align
+    .venv/Scripts/python -m harness.look original.pdf rebuilt.pdf --pages 4 --align
 
 The two pages side by side, ours left, original right. Use `--align` on any
 file whose page count moved, or you will compare two pages holding different
 content and invent faults that are not there.
 
-    .venv/bin/python -m harness.digits --set dev
+    .venv/Scripts/python -m harness.digits --set dev
 
 Finds PDFs that DISPLAY one number and STORE another - `1951` on the page,
 `1901` in the text. It reports CANDIDATES, not verdicts: on the dev set 4 of 7
@@ -172,7 +174,12 @@ PDF's own text layer.
 
 Fourteen suites, all passing as of 2026-09-20. Each is a plain script:
 
-    for t in harness/test_*.py; do .venv/bin/python "$t" || echo "FAILED $t"; done
+    export PYTHONUTF8=1
+    for t in harness/test_*.py; do .venv/Scripts/python "$t" || echo "FAILED $t"; done
+
+`PYTHONUTF8=1` matters on Windows: without it, printing Arabic to a pipe or a
+log file raises `UnicodeEncodeError` and four suites fail for reasons that have
+nothing to do with the converter.
 
     alignment  arabic  footnotes  heading_style  headings  image_drop
     images  inline  lists  loss_gate  pagination  tables  text_score
@@ -191,8 +198,9 @@ Confusing them has cost real time, twice:
   Longest-increasing-subsequence over located sentences.
 - `page_score` — did words land on the **matching page**?
 
-`page_score` is not exactly reproducible: LibreOffice does not render
-identically every time, so **treat movement under about half a point as noise.**
+`page_score` was not exactly reproducible under LibreOffice, which did not
+render identically every time, so movement under about half a point was noise.
+Word's run-to-run noise has not been measured yet; assume the same until it is.
 
 ## layout
 

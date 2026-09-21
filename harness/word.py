@@ -1,29 +1,19 @@
 #!/usr/bin/env python3
-"""Render a .docx to PDF with real Microsoft Word, not LibreOffice.
+"""Render a .docx to PDF with real Microsoft Word - the project's only renderer.
 
-    from harness.word import docx_to_pdf          # same signature as roundtrip's
+    from harness.word import docx_to_pdf          # roundtrip.docx_to_pdf calls this
     python -m harness.word some.docx --outdir out/work/pdf
 
-Why this exists, in the words of the two things it is meant to settle:
+Word is what a reader actually opens the file in, so it is the ground truth
+this project was approximating all along. LibreOffice was used until
+2026-09-21 and removed: it lacked Simplified Arabic, Traditional Arabic and
+Sakkal Majalla and substituted wider faces, so `convert/fit.py` may have been
+shrinking text to fix spill that was the substitute's (FLAGS.md 6).
 
-  FLAGS.md 6  we may be shrinking text to fix overflow that does not exist.
-              `convert/fit.py` detects spill by rendering through LibreOffice,
-              which lacks Simplified Arabic, Traditional Arabic and Sakkal
-              Majalla and substitutes wider faces. If the spill is the
-              substitute's, every shrink is making the document worse for the
-              reader in order to make a number better.
+**A score from this renderer is NOT comparable to one recorded under
+LibreOffice.** Every run before 2026-09-20 was LibreOffice.
 
-  TASKS.md C2 render in Word rather than LibreOffice for a trustworthy check.
-              Word is what a reader actually opens the file in, so it is the
-              ground truth this project has been approximating all along.
-
-**A score from this renderer is NOT comparable to a score from LibreOffice**,
-and mixing the two silently is the corpus-drift and font-drift failure
-(`PLAN.md` caveats 7 and 11) in a third place. `harness.env` reports which
-renderer produced a run; keep them apart.
-
-Windows only, and needs Word installed. `pywin32` carries an environment marker
-in requirements.txt so a Linux checkout still installs.
+Windows only, and needs Word installed.
 """
 import argparse
 import atexit

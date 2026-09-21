@@ -4,8 +4,8 @@
 We put a page break before each original page's content, so a page that
 overflows by a single line becomes two, and the error repeats all the way down:
 page counts swelled by about half. Every attempt to predict the right size from
-the PDF was wrong, because Word and LibreOffice shape and wrap Arabic
-differently than the original renderer did.
+the PDF was wrong, because Word shapes and wraps Arabic differently than the
+original renderer did.
 
 So stop predicting. Convert, render, see which pages actually spilled, shrink
 only those, and go again.

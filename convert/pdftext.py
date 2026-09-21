@@ -25,6 +25,7 @@ whoever has text. Both sides derive the same map from the same file and apply
 it to whatever they extracted, so neither can be repaired without the other.
 """
 import difflib
+import os
 import re
 import unicodedata
 
@@ -32,7 +33,20 @@ import pymupdf
 
 from convert.arabic import _ZERO_W, repair_line
 
-__all__ = ["fix_map", "apply_fixes", "line_items"]
+__all__ = ["fix_map", "apply_fixes", "line_items", "enabled"]
+
+
+def enabled():
+    """Is the geometric repair switched on? QIRTAS_ARABIC_FIX=off turns it off.
+
+    It exists to measure the repair against its own absence on the same code,
+    the same machine and the same renderer. Off is exactly the behaviour
+    before the repair: `fix_map` returns nothing, and since the reader and the
+    checker both get their repairs only from `fix_map`, they switch together -
+    one side repaired and not the other is the failure this file was written
+    around. On by default.
+    """
+    return os.environ.get("QIRTAS_ARABIC_FIX", "on").strip().lower()         not in ("off", "0", "false", "no")
 
 # A fragment shorter than this is too common to replace safely: mapping ال onto
 # لا everywhere would corrupt every definite article in the document. The
@@ -198,6 +212,8 @@ def fix_map(path):
         word without one. A substitution is global even when the evidence for
         it is local, so it is only kept when every occurrence agrees.
     """
+    if not enabled():
+        return {}
     seen, bad = {}, set()
     stored_all, repaired_all = [], []
     with pymupdf.open(path) as d:
