@@ -115,11 +115,11 @@ In order:
   key"). Run it after every structural change, beside the gate.
 - **N2a. DONE (2026-09-21).** `reader.read_labels`. Headings 31% -> 98%,
   lists 31% -> 100% right, gate held at 100%. Write-up in `PLAN.md` ("N2a").
-- **N2b. Footnotes in the writer, on labelled files: 6%.** The reader finds
-  them; the writer anchors a note only when its number matches a marker in the
-  text. Several notes arrive as one block ("9 - ... 10 - ..."): split them by
-  number, and find how Word marks the reference in the body. `z21764080`,
-  `z21763864`, `z21762915` hold most of the footnote text.
+- **N2b. DONE (2026-09-21).** Footnotes 6% -> 74% on the dev files, real
+  Word endnotes, and Moaz's `الفصل الثالث` notes back at the foot of the page.
+  Write-up in `PLAN.md` ("N2b"). Left: notes not starting with their number,
+  full-size "9 - ... 10 -" numbering, and the (34)/(35) notes becoming real
+  Word footnotes though the page never cites them.
 - **N2c. The shrinking loop misreads which pages spilled.** `fit._spilled`
   attributes each rendered page to the one original page it overlaps most, so
   a page holding the end of one and the start of the next hides a spill.

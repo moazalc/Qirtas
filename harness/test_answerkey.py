@@ -14,6 +14,8 @@ time in a way that looked like a converter fault:
   - A right-to-left table may store its cells in the other order and still
     draw them the same way round. Matched as a stream it scored 0%, while a
     duplicate of its numbers written as loose text took the credit.
+  - A bibliography repeats each note's citation. Matched to the first copy
+    in order, correct footnotes were graded as list text.
 """
 import sys
 from pathlib import Path
@@ -74,6 +76,13 @@ def main():
     c = table(grade([("furniture", "مجلة الجامعة", p) for p in range(5)],
                     [("furniture", "مجلة الجامعة")]))
     check("header written once covers every page", c["furniture"]["found"], 1.0)
+
+    # A bibliography repeats a note's citation word for word.
+    cite = "صالح الدين محمد أمين الإبداع المالي في الأسواق المالية مجلة كلية بغداد"
+    c = table(grade([("paragraph", PROSE, 0), ("footnote", cite, 0)],
+                    [("paragraph", PROSE), ("list", cite), ("footnote", cite)]))
+    check("a note repeated in the bibliography matches the note",
+          c["footnote"]["found"], 1.0)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

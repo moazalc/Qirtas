@@ -63,6 +63,7 @@ def text_of_docx(docx_path):
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
         notes = _footnote_texts(z)
+        endnotes = _footnote_texts(z, "endnote")
         furniture = _furniture_texts(z)
     out, buf, pending = [], [], []
 
@@ -107,6 +108,9 @@ def text_of_docx(docx_path):
         else:
             buf.append(m.group(1))
     end_page()
+    # Endnotes are printed after the last page, as the original printed them.
+    # Unread, every one of them would count as lost text.
+    out.extend(endnotes[k] for k in sorted(endnotes, key=int))
     # Word stores text XML-escaped: "A & B" is "A &amp; B" on disk. Without
     # unescaping, every ampersand looked like lost text.
     return html.unescape("\n".join(out))
@@ -134,14 +138,15 @@ def _furniture_texts(z):
     return out
 
 
-def _footnote_texts(z):
-    """{w:id: text} from word/footnotes.xml, skipping Word's two separators."""
-    if "word/footnotes.xml" not in z.namelist():
+def _footnote_texts(z, note="footnote"):
+    """{w:id: text} from word/footnotes.xml (or endnotes.xml), skipping
+    Word's two separators."""
+    if f"word/{note}s.xml" not in z.namelist():
         return {}
-    xml = z.read("word/footnotes.xml").decode("utf-8")
+    xml = z.read(f"word/{note}s.xml").decode("utf-8")
     out = {}
-    for m in re.finditer(r'<w:footnote (?![^>]*w:type=)[^>]*w:id="(\d+)"[^>]*>'
-                         r'(.*?)</w:footnote>', xml, re.S):
+    for m in re.finditer(rf'<w:{note} (?![^>]*w:type=)[^>]*w:id="(\d+)"[^>]*>'
+                         rf'(.*?)</w:{note}>', xml, re.S):
         body = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", m.group(2)))
         if body.strip():
             out[m.group(1)] = body

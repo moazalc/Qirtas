@@ -19,6 +19,7 @@ import pymupdf
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, IMAGE, TABLE
 from convert.arabic import repair_lam_alef
 from convert.pdftext import apply_fixes, fix_map
+from convert.footnotes import MARK_OPEN, MARK_CLOSE, marker_numbers
 
 # Structure labels that mean "a block starts here".
 BLOCK_TAGS = {
@@ -239,8 +240,11 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         kind = BLOCK_TAGS[tag]
         # A /Footnote holds its text in nested /P children. Those emit their own
         # blocks, leaving the footnote itself empty and dropped. Push the kind
-        # down so the nested paragraphs come out as footnotes.
-        if ctx in (FOOTNOTE,) and kind == PARAGRAPH:
+        # down so the nested paragraphs come out as footnotes - and nested list
+        # items too: `الفصل الثالث`'s notes (34) and (35) are a list inside a
+        # footnote, and pushing down only paragraphs is how they landed in the
+        # middle of the body (Moaz's example, 2026-09-21).
+        if ctx in (FOOTNOTE,) and kind in (PARAGRAPH, LIST_ITEM, HEADING):
             kind = ctx
         text = str(node.get("/ActualText") or "")
         inner = []
@@ -436,8 +440,14 @@ def read_labels(path):
                         here = chain + [tag]
                         inside = owner is not None and \
                             LABEL_CONTAINER & set(owner[1])
-                        own = (id(b), here) if tag in LABEL_UNIT and not inside \
-                            else owner
+                        # Word puts a note's label where it is referenced, so
+                        # a note referenced inside a list item sits INSIDE
+                        # that item. It is still its own note: absorbed, 1,011
+                        # letters of `z21490618`'s notes became list text.
+                        note = tag in ("Note", "Footnote") and not (
+                            owner and {"Note", "Footnote"} & set(owner[1]))
+                        own = (id(b), here) if tag in LABEL_UNIT and \
+                            (note or not inside) else owner
                         walk(b, here, own)
                     elif b["type"] == 0:
                         key, ch = (id(b), []) if owner is None else owner
@@ -447,13 +457,134 @@ def read_labels(path):
             page_blocks = []
             for chain, blocks in units.values():
                 kind, level = _label_kind(chain)
+                # Not in headings: `z21764080` numbers one "1.1" with a small
+                # "1", which was taken for a reference and vanished into it.
+                if kind != HEADING:
+                    _mark_note_numbers(blocks)
                 blk = _rich_block(blocks, i, kind)
                 if blk:
                     blk.level = level
-                    page_blocks.append(blk)
+                    page_blocks.extend(_split_notes(blk) if kind == FOOTNOTE
+                                       else [_unmark(blk)])
+            page_blocks = _split_typed_notes(page_blocks)
             for blk in _join_same_line(page_blocks):
                 doc.add(blk)
     return doc
+
+
+TYPED_NUMBER = re.compile(r"\((\d{1,3})\)")
+
+
+def _split_typed_notes(blocks):
+    """Split notes that arrived as one block but number themselves "(7) ...
+    (8) ..." in type the same size as the text, so `_split_notes` cannot see
+    them (`z21760325`). A "(k)" starts a new note only when k is the NEXT
+    number and the page's body refers to k - an author's own "(2)" inside a
+    note, a volume say, meets neither."""
+    refs = {m for b in blocks if b.kind != FOOTNOTE
+            for m in marker_numbers(b.text)}
+    out = []
+    for b in blocks:
+        if b.kind != FOOTNOTE:
+            out.append(b)
+            continue
+        m = TYPED_NUMBER.match(b.text)
+        if not m:
+            out.append(b)
+            continue
+        cuts, want = [], int(m.group(1)) + 1
+        for n in TYPED_NUMBER.finditer(b.text, m.end()):
+            if int(n.group(1)) == want and n.group(1) in refs:
+                cuts.append(n.start())
+                want += 1
+        for a, z in zip([0] + cuts, cuts + [len(b.text)]):
+            piece = b.text[a:z].strip()
+            if piece:
+                nb = Block(kind=FOOTNOTE, text=piece, page=b.page, size=b.size,
+                           y=b.y, y1=b.y1, x0=b.x0, x1=b.x1,
+                           spans=[(piece, False, False)])
+                out.append(nb)
+    return out
+
+
+# A note number, as Word prints it: one to three digits set smaller than the
+# text around them. Word draws the reference in the body and the number at
+# the start of each note that way - "شاتليه¹³" - where the theses type
+# "(13)". Found only by size: the superscript flag is set on some and not
+# others in the same paragraph (`z21763864`), and the raised digits sit on a
+# line of their own in PyMuPDF's view, so the comparison is with the whole
+# labelled piece, not the line.
+NOTE_NUMBER = re.compile(r"[0-9\u0660-\u0669]{1,3}")
+NOTE_SMALL = 0.8
+NOTE_PIECE = re.compile(r"[0-9\u0660-\u0669()\[\]]+")
+NOTE_DIGITS = re.compile(r"[0-9\u0660-\u0669]")
+# Wrapped in footnotes.MARK_OPEN/CLOSE - private-use characters that survive
+# _clean - so a number found here can be told from a "(2)" the author typed.
+MARKED =re.compile(MARK_OPEN + r"([0-9\u0660-\u0669]{1,3})" + MARK_CLOSE)
+ADJACENT_MARKS = re.compile(MARK_CLOSE + r"\s*" + MARK_OPEN)
+
+
+def _mark_note_numbers(text_blocks):
+    """Wrap every small number in these PyMuPDF blocks in MARK_OPEN/CLOSE."""
+    spans = [s for b in text_blocks for l in b["lines"] for s in l["spans"]
+             if s["text"].strip()]
+    weight = {}
+    for s in spans:
+        if not NOTE_NUMBER.fullmatch(s["text"].strip()):
+            weight[s["size"]] = weight.get(s["size"], 0) + len(s["text"])
+    if not weight:
+        return
+    body = max(weight, key=weight.get)
+    # A number may also come in brackets and in pieces: `z21760325` refers to
+    # note 11 as "(1" then "1", and numbers its notes "(11)". A run of
+    # neighbouring small pieces made only of digits and brackets is one number.
+    run = []
+    for s in spans + [None]:
+        t = s["text"].strip() if s else ""
+        if s and s["size"] <= body * NOTE_SMALL and NOTE_PIECE.fullmatch(t):
+            run.append(s)
+            continue
+        digits = "".join(NOTE_DIGITS.findall("".join(r["text"] for r in run)))
+        if run and NOTE_NUMBER.fullmatch(digits):
+            run[0]["text"] = MARK_OPEN + digits + MARK_CLOSE
+            for r in run[1:]:
+                r["text"] = ""
+        run = []
+
+
+def _joined(t):
+    """A two-digit number can arrive as two small spans - `z21760325` refers
+    to note 21 as "2" and "1" - so neighbouring marks are one number."""
+    return ADJACENT_MARKS.sub("", t)
+
+
+def _unmark(blk):
+    """A body reference stays marked: the writer anchors a note to it, or
+    writes it back as the raised digits it was."""
+    fix = _joined
+    blk.text = fix(blk.text)
+    blk.spans = [(fix(t), b, i) for t, b, i in blk.spans]
+    return blk
+
+
+def _split_notes(blk):
+    """One block per note. Word often labels a page's notes as ONE piece -
+    "1 ... 2 ... 5 ..." - and the writer can pair a note with its reference
+    only when the note starts with its own number."""
+    parts = MARKED.split(_joined(blk.text))
+    out = []
+    head = parts[0].strip()
+    if head:                                  # the tail of an earlier note
+        out.append(head)
+    for num, text in zip(parts[1::2], parts[2::2]):
+        out.append(f"({num}) {text.strip()}")
+    blocks = []
+    for t in out:
+        b = Block(kind=FOOTNOTE, text=MARKED.sub(r"(\1)", t), page=blk.page,
+                  size=blk.size, y=blk.y, y1=blk.y1, x0=blk.x0, x1=blk.x1)
+        b.spans = [(b.text, False, False)]
+        blocks.append(b)
+    return blocks or [_unmark(blk)]
 
 
 def _join_same_line(blocks):

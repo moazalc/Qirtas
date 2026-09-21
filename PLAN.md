@@ -1130,6 +1130,56 @@ number to a marker in the text, and on these files several notes arrive as one
 block ("9 - ... 10 - ..."), with endnote-style bibliography entries labelled
 as notes too (`z21764080`).
 
+## N2b: notes as Word prints them, 2026-09-21
+
+The labels found the notes (N2a); the writer made real notes of 6% of them.
+It paired a note with its reference only through a typed "(13)", and Word
+draws references as small raised digits. Now:
+
+- **The reader finds raised references by size** (<= 0.8 of the labelled
+  piece's usual size), not by the superscript flag - set on some and not
+  others in one paragraph - and not by line, since PyMuPDF puts raised digits
+  on a line of their own. Pieces in brackets are one number: "(1" + "1" is 11.
+  They travel as private-use marks (`footnotes.MARK_OPEN`), so an author's own
+  "(2)" is never taken for one, and one no note claims is written back raised,
+  not as "(13)". Headings are skipped: a small "1" in "1.1" was taken for one.
+- **Notes labelled as one piece are split** at their raised numbers, and at a
+  typed "(k)" when k is the next number and the page refers to it.
+- **A note referenced inside a list item is still a note** (it was absorbed).
+- **Endnotes**, written as real Word endnotes (`footnotes.py` now builds both
+  parts). A note is one when its page does not cite it but an earlier page
+  does - only if at least 3 pair up and all sit after the last citing page.
+  Pages left with only a scrap of text once their notes leave are folded into
+  the page before. The checker reads endnotes (`compare.text_of_docx`), or
+  every one would count as lost.
+- **The thesis reader**, same bug in its own code: a list item inside a
+  footnote now stays a footnote. Moaz's `الفصل الثالث` example - notes (34)
+  and (35) sat in the middle of the last page and are now at its foot, under
+  the rule. They are not yet real Word footnotes: the page cites only (1) and
+  (2), so nothing in the text to attach them to.
+
+The grader was wrong twice more and is fixed, with tests: a bibliography
+repeating a note's citation took the match, and a matching run crossing from
+one piece into the next handed the second the first one's kind. Both change
+earlier numbers, so "before" below is the N2a code re-graded.
+
+    dev (36 Word-made files)       before (re-graded)    after
+    footnote   found / right       6.3% / 100%           73.7% / 99.7%
+    paragraph  right               88.7%                 91.7%
+    theses     footnote found      84.9%                 88.1%
+               list right          93.2%                 98.4%
+               words in order      98.8%                 99.0%
+    gate       nothing lost        100% theses and 24 unseen, both runs
+
+Right page on unseen files 30.9% -> 30.7%: `z21760107` again (32 -> 35
+pages), the shrinking loop's file (N2c), and 1.5 points on one other.
+Endnote files lose some order on purpose - Word prints endnotes after the last
+page, the original just before its last page's references.
+
+Left: a note that does not start with its own number (`z21760107` p.5);
+endnotes numbered "9 - ... 10 - ..." at full size (`z21764080`); and
+`z21762915` spills every page onto two, before N2b as after.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

@@ -20,6 +20,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
 from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
+                               marker_numbers, RAISED,
                                build_xml, install)
 
 PT_PER_EMU = 12700
@@ -41,6 +42,10 @@ ARABIC_FONT = "Arial"
 BODY_PT = 12
 FIT = 0.95              # small safety margin: a slight overflow turns every page into two
 FOOTNOTE_PT = 9
+# Fewer notes than this at the end of a document are not treated as endnotes.
+ENDNOTES_MIN = 3
+# What may be left on a page emptied of its endnotes for it still to go.
+ENDNOTE_PAGE_SCRAP = 60
 # How much of a page a stack of pictures may claim. Measured, not chosen: at
 # 0.95 a picture-only title page still needed two pages, at 0.88 it fitted, and
 # below that nothing more was gained. 0.85 leaves room for the paragraph each
@@ -767,8 +772,10 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         # print it twice.
         for piece, num in _split_markers(text, notes or {}):
             if num is None:
-                if piece:
-                    add(piece, sbold, sital, lead)
+                for bit, raised in _raised(piece):
+                    run = add(bit, sbold, sital, lead)
+                    if raised:
+                        _superscript(run)
                     lead = False
                 continue
             if num not in notes:          # already used earlier in this page
@@ -782,13 +789,35 @@ def _split_markers(text, notes):
     """-> [(text, None) | ("", number)] splitting on markers we have a note for."""
     out, at = [], 0
     for m in FN_MARKER.finditer(text):
-        if m.group(1) not in notes:
+        num = m.group(1) or m.group(2)
+        if num not in notes:
             continue
         out.append((text[at:m.start()], None))
-        out.append(("", m.group(1)))
+        out.append(("", num))
         at = m.end()
     out.append((text[at:], None))
     return out
+
+
+def _raised(text):
+    """-> [(text, raised)]. A raised reference the reader found but no note
+    claimed is written back as the small raised digits it was. As "(13)" it
+    would be text the original never printed."""
+    out, at = [], 0
+    for m in RAISED.finditer(text or ""):
+        if m.start() > at:
+            out.append((text[at:m.start()], False))
+        out.append((m.group(1), True))
+        at = m.end()
+    if at < len(text or ""):
+        out.append((text[at:], False))
+    return out
+
+
+def _superscript(run):
+    va = OxmlElement("w:vertAlign")
+    va.set(qn("w:val"), "superscript")
+    run._r.get_or_add_rPr().append(va)
 
 
 def _take(notes, num):
@@ -798,14 +827,88 @@ def _take(notes, num):
 
 
 def _footnote_ref(run, wid):
-    """Turn an empty run into a superscript reference to footnote `wid`."""
+    """Turn an empty run into a superscript reference to footnote `wid`, or
+    to an endnote when `wid` is ("endnote", id)."""
+    note = "footnote"
+    if isinstance(wid, tuple):
+        note, wid = wid
     rPr = run._r.get_or_add_rPr()
     va = OxmlElement("w:vertAlign")
     va.set(qn("w:val"), "superscript")
     rPr.append(va)
-    ref = OxmlElement("w:footnoteReference")
+    ref = OxmlElement(f"w:{note}Reference")
     ref.set(qn("w:id"), str(wid))
     run._r.append(ref)
+
+
+def _endnotes(pages):
+    """Notes printed together at the END of the document, each referred to
+    from an earlier page.
+
+    Word labels endnotes and footnotes alike, so the reader cannot tell them
+    apart; where they are printed can. A note becomes an endnote when its own
+    page does not refer to its number but an earlier page does - the earliest
+    such page is where the reference goes. `z21763864` prints all its notes
+    on its last six pages, referred to from pages 2 to 18; paired page by page
+    as footnotes, not one of them was found.
+
+    Only when the document really ends with its notes: at least ENDNOTES_MIN
+    of them pair up this way, and none sits before a page that refers to one.
+    Without that, `z21764080` - footnotes, and a heading "1.1" - had a page-13
+    note paired with the heading's "1" on page 1 as an "endnote".
+
+    Endnote blocks are taken out of `pages`: Word prints endnotes itself, and
+    pages left with nothing are dropped, or Word would print them blank.
+    -> ({page: {number: ("endnote", w:id)}}, [(w:id, text)])
+    """
+    refs = {}                 # number -> earliest page whose body cites it
+    for page, blocks in pages.items():
+        body = " ".join(b.text for b in blocks
+                        if b.kind not in (FOOTNOTE, IMAGE, TABLE))
+        for num in marker_numbers(body):
+            refs.setdefault(num, page)
+    found = []                # (note page, block, number, rest, cited on)
+    for page, blocks in pages.items():
+        own = " ".join(b.text for b in blocks
+                       if b.kind not in (FOOTNOTE, IMAGE, TABLE))
+        own_refs = set(marker_numbers(own))
+        for b in blocks:
+            if b.kind != FOOTNOTE:
+                continue
+            num, rest = split_number(b.text)
+            if num is None or not rest or num in own_refs:
+                continue
+            at = refs.get(num)
+            if at is not None and at < page:
+                found.append((page, b, num, rest, at))
+    if len(found) < ENDNOTES_MIN or \
+            min(f[0] for f in found) <= max(f[4] for f in found):
+        return {}, []
+    anchors, notes, wid = {}, [], FIRST_ID
+    for page, b, num, rest, at in found:
+        if num in anchors.get(at, {}):
+            continue
+        anchors.setdefault(at, {})[num] = ("endnote", wid)
+        notes.append((wid, RAISED.sub(r"\1", rest)))
+        wid += 1
+        pages[page].remove(b)
+    # A page that held little but endnotes goes: kept, it printed nearly
+    # blank - five of them in `z21763864`, each left with only its running
+    # line "2016 10 - 26 -". That scrap is not dropped (nothing may be lost);
+    # it joins the page before.
+    order = list(pages)
+    for page in sorted({f[0] for f in found}):
+        left = pages[page]
+        if sum(len(b.text) for b in left) > ENDNOTE_PAGE_SCRAP or \
+                any(b.kind in (IMAGE, TABLE) for b in left):
+            continue
+        before = [p for p in order if p < page and p in pages]
+        if before:
+            pages[before[-1]].extend(left)
+        elif left:
+            continue
+        del pages[page]
+    return anchors, notes
 
 
 def write(model: Doc, out_path, scale=None):
@@ -849,6 +952,7 @@ def write(model: Doc, out_path, scale=None):
 
     real_notes = []          # [(w:id, text)] for footnotes.xml
     next_id = FIRST_ID
+    end_anchors, end_notes = _endnotes(pages)
 
     for n, (page, blocks) in enumerate(pages.items()):
         body = [b for b in blocks if b.kind not in (FOOTNOTE, IMAGE, TABLE)]
@@ -865,13 +969,16 @@ def write(model: Doc, out_path, scale=None):
             num, rest = split_number(b.text)
             if num is None or num in anchors or not rest \
                     or not FN_MARKER.search(page_text) \
-                    or num not in FN_MARKER.findall(page_text):
+                    or num not in marker_numbers(page_text):
                 loose.append(b)
                 continue
             anchors[num] = next_id
-            real_notes.append((next_id, rest))
+            real_notes.append((next_id, RAISED.sub(r"\1", rest)))
             next_id += 1
         notes = loose
+        # This page's references to endnotes, where a footnote on the page
+        # has not already claimed the number.
+        anchors = {**end_anchors.get(page, {}), **anchors}
         body = _interleave(body, pics, model)
         k = scale.get(page, 1.0)
         first = True
@@ -923,6 +1030,11 @@ def write(model: Doc, out_path, scale=None):
         install(str(out_path), build_xml(real_notes,
                                          font=model.font or ARABIC_FONT,
                                          size_pt=max(7.0, model.body_size * 0.78)))
+    if end_notes:
+        install(str(out_path), build_xml(end_notes,
+                                         font=model.font or ARABIC_FONT,
+                                         size_pt=max(7.0, model.body_size * 0.78),
+                                         note="endnote"), note="endnote")
     if model.dropped_images:
         n = len(model.dropped_images)
         print(f"warning: {n} picture{'s' if n > 1 else ''} could not be placed "

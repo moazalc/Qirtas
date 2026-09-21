@@ -238,7 +238,7 @@ def ours(docx):
                 k = "paragraph"
             out.append((k, txt))
         for name in z.namelist():
-            kind = ("footnote" if name == "word/footnotes.xml" else
+            kind = ("footnote" if name in ("word/footnotes.xml", "word/endnotes.xml") else
                     "furniture" if re.match(r"word/(header|footer)\d*\.xml$", name)
                     else None)
             if kind:
@@ -326,13 +326,22 @@ def grade(truth_units, our_units, n=12):
                  if ok[j] == "furniture" or (j not in starts and j not in used)]
         if not cands:
             continue
-        after = [j for j in cands if j > last]
-        j = min(after) if after else cands[0]
+        # The same text written twice - a note, and the bibliography that
+        # repeats its citation - is matched to the copy of the kind the
+        # labels say. Taking the first copy in order graded `z21490618`'s
+        # correct footnotes as 1,011 letters of list text.
+        same = [j for j in cands if ok[j] == tk[i]]
+        pool = same or cands
+        after = [j for j in pool if j > last]
+        j = min(after) if after else pool[0]
         if ok[j] != "furniture":
             starts.add(j)
         last = j
         for d in range(n):
-            if got[i + d] is None:
+            # A run labels only letters of the piece it started in; across a
+            # boundary it would hand the next piece the kind of whichever
+            # copy THIS piece matched.
+            if got[i + d] is None and tk[i + d] == tk[i]:
                 got[i + d] = ok[j + d]
             hit.add(j + d)
     conf = {k: collections.Counter() for k in KINDS}
