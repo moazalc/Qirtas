@@ -559,8 +559,10 @@ words), it is photographed as one picture - A2. Three costs:
 - **"Pictures kept" falls** - 26 pictures become 1, and the score counts
   placements, not appearance. Chapters show 48 -> 37 and similar. Nothing
   visible was lost; the score cannot tell.
-- **The title page loses its printed page number** where one existed, because
-  Word's header and footer are off for that page to avoid printing it twice.
+- ~~The title page loses its printed page number~~ - fixed 2026-09-21 on the
+  chapters, whose photo stops above the number: the footer is copied onto the
+  first page. On `مقدمة البحث` the number is inside the photo, so it shows but
+  is not a field.
 
 **Closes when:** Moaz accepts the trade, or asks for the title lines to stay
 editable.

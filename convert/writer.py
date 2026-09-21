@@ -4,6 +4,7 @@ The only part that knows about Word. Everything right-to-left lives here -
 paragraph direction, run direction, and the complex-script font - the three
 things every other tool we tested forgets.
 """
+import copy
 import hashlib
 import re
 import sys
@@ -278,7 +279,14 @@ def _running_furniture(model):
         # photos happens to overlap a word of the page (2026-09-21).
         if by_position and any(b.over_text for b in blocks):
             continue
-        draw.setdefault(where, []).append(blocks[0])
+        # Draw a copy with no page text caught inside it, where there is one.
+        # Each copy is photographed off its own page, and a header photo can
+        # take in the tops of the first body line beneath it. The first
+        # page's copy used to be the one drawn and happened to be clean; once
+        # a title page is photographed whole it is no longer in the group, and
+        # page 2's copy printed a sliver of page 2's text under every header.
+        clean = [b for b in blocks if not b.over_text]
+        draw.setdefault(where, []).append((clean or blocks)[0])
     return lift, draw
 
 
@@ -359,6 +367,14 @@ def _running_text(model):
         # page is ordinary, being first on the page with the same words every
         # time is furniture.
         sibs = by_page.get(b.page) or []
+        # A block that is BOTH first and last - the only text on its page -
+        # is settled by which half of the page it sits in, when that is known.
+        # A photographed title page leaves its page number alone on the page,
+        # and asking "first?" before "last?" filed it as a header, so it never
+        # joined the footer group and the chapter lost its first page number.
+        if sibs and b is sibs[0] and b is sibs[-1] and (b.y or b.y1):
+            return "footer" if (b.y + b.y1) / 2 > model.page_height / 2 \
+                else "header"
         if sibs and b is sibs[0]:
             return "header"
         if sibs and b is sibs[-1]:
@@ -447,6 +463,33 @@ def _draw_text_furniture(doc, draw, model):
             run = p.add_run(WS_RUN.sub(" ", block.text.strip()))
             run.font.size = Pt(size)
             _rtl_run(run, size, model.font, rtl)
+
+
+def _first_page_number(doc, model, draw, lift):
+    """Keep the page number on a photographed title page, when the photo does
+    not already show it.
+
+    A title page photographed whole turns Word's header and footer off for
+    that page (`reader._collage`), so nothing the photo shows is printed
+    twice. But on Moaz's chapters the photo stops at y~725 and the number sits
+    at y=778, below it - so turning the footer off simply lost the chapter's
+    first page number. Copy the footer onto the first page in that case only.
+    """
+    photo = next((b for b in model.blocks if b.collage and b.page == 0), None)
+    foot = draw.get("footer")
+    if photo is None or foot is None or _page_number_start(model, foot) is None:
+        return
+    first = [b for b in model.blocks
+             if lift.get(id(b)) == "footer" and b.page == 0]
+    if not first or not first[0].y or first[0].y < photo.y1:
+        return                               # the photo shows the number
+    section = doc.sections[0]
+    target = section.first_page_footer
+    target.is_linked_to_previous = False
+    for p in list(target.paragraphs):
+        p._p.getparent().remove(p._p)
+    for p in section.footer.paragraphs:
+        target._element.append(copy.deepcopy(p._p))
 
 
 def _set_page_number_start(section, start):
@@ -787,6 +830,7 @@ def write(model: Doc, out_path, scale=None):
     tlift, tdraw = _running_text(model)
     if tdraw:
         _draw_text_furniture(doc, tdraw, model)
+        _first_page_number(doc, model, tdraw, tlift)
         lift = {**lift, **tlift}
     img_fit = _image_fit(model, lift)
 

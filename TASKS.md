@@ -93,8 +93,8 @@ down and wrong.** Re-check the note before trusting it.
 
 ## Tasks, in the order worth doing
 
-**Next session: A13 - the theses print no page numbers in our output.** Then
-C1. The two decisions above block the wild corpus, not the theses.
+**Next session: A14 (page-number digits), then C1.** The two decisions above
+block the wild corpus, not the theses.
 
 ### A. Toward Moaz's goal: his files above 90% on right page
 
@@ -240,7 +240,31 @@ apart. Note what it cost: `FLAGS.md` 16.
 **B4. `z21312494.pdf`** — nine words genuinely missing (author names and
 affiliations) across ten of its 432 pages. The only remaining real loss.
 
-**A13. NEW (2026-09-21) - the theses print no page numbers.** Found while
+**A13. DONE (2026-09-21).** Every page of all five chapters now prints the
+original's page number, title pages included - checked page by page against
+the source. Three faults, found in turn:
+
+- Word marks a page number as page furniture, so it is absent from the
+  structure labels the theses are read from. `reader._page_numbers` takes it
+  from the text layer when an edge carries a lone number on half the pages.
+- A title page's number is the only text on its page, so it was both first
+  and last there and got filed as a header. Position now breaks the tie.
+- Keeping it exposed a sliver of body text under every running header: each
+  copy of the header is photographed off its own page and most catch the tops
+  of the line beneath. `_mark_edge_ink` measures ink along each copy's top and
+  bottom edge and the header uses the cleanest. Three attempts to remove the
+  intruder before photographing failed - these files draw their text as
+  glyphs that do not decode, so neither "remove text" nor "remove pictures"
+  touches it.
+
+No score moved; none can see page numbers. Found and checked by looking.
+
+**A14. NEW - page numbers print as 48, the original shows ٤٨.** The PDF stores
+the Western digits and only DRAWS them Arabic-Indic. Word's PAGE field shows
+Western digits. Likely a field switch or the paragraph's language/numeral
+setting; verify in Word before choosing.
+
+Original note: **the theses print no page numbers.** Found while
 looking at A2. Every page of `الفصل الخامس المبحث الثالث` in our output ends
 without its number, and did yesterday too - not caused by A2 or C3. Likely:
 the number is an untagged artifact, the tag route never sees it, so

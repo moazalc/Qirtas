@@ -108,6 +108,66 @@ def _backfill(chosen, results, path):
     return chosen
 
 
+# A printed page number: one to four digits, Western or Arabic-Indic, with at
+# most some dashes or brackets around it.
+PAGE_NO = re.compile(r"^[\s.\-–—()\[\]]*"
+                     r"[0-9٠-٩۰-۹]{1,4}"
+                     r"[\s.\-–—()\[\]]*$")
+# How close to the top or bottom edge a number must sit to be the page's own.
+PAGE_NO_EDGE = 0.12
+
+
+def _page_numbers(doc, path):
+    """Put back printed page numbers the chosen route never saw.
+
+    Word tags a page number as an ARTIFACT - page furniture, not content - so
+    it is absent from the structure tree, and every thesis chapter comes
+    through the tag route. The number was never read, `writer._running_text`
+    had nothing to turn into a PAGE field, and the theses came out with no page
+    numbers at all (found 2026-09-21). The text layer has it: "2" at y=778 on
+    page 2 of `الفصل الخامس المبحث الثالث`.
+
+    Each number found near the top or bottom edge, on a page where the reader
+    has no block with that text, is added as the LAST block of its page with
+    its coordinates, which is where the running-text detection looks.
+
+    Only an edge that carries a number on at least half the pages is used -
+    the same bar `_running_text` sets - so a stray figure at the foot of one
+    page, a table cell say, is never added to the body as a lone paragraph.
+    """
+    try:
+        d = pymupdf.open(path)
+    except Exception:
+        return
+    have = {}
+    for b in doc.blocks:
+        if b.text.strip():
+            have.setdefault(b.page, set()).add(b.text.strip())
+    found = {"top": [], "bottom": []}
+    with d:
+        pages = len(d)
+        for i, page in enumerate(d):
+            H = page.rect.height
+            for x0, y0, x1, y1, text, *_ in page.get_text("blocks"):
+                t = text.strip()
+                if not t or not PAGE_NO.match(t) or t in have.get(i, ()):
+                    continue
+                edge = "top" if y1 < PAGE_NO_EDGE * H else \
+                    "bottom" if y0 > (1 - PAGE_NO_EDGE) * H else None
+                if edge:
+                    found[edge].append(Block(kind=PARAGRAPH, text=t, page=i,
+                                             x0=x0, x1=x1, y=y0, y1=y1))
+    need = max(3, pages // 2)
+    added = False
+    for blocks in found.values():
+        if len({b.page for b in blocks}) >= need:
+            for b in blocks:
+                doc.add(b)
+            added = True
+    if added:
+        doc.blocks.sort(key=lambda b: b.page)
+
+
 def _recovered(doc):
     """How much did this reader actually get? Arabic if any, else total text.
 
@@ -848,6 +908,60 @@ def read_images(path, outdir):
     return blocks
 
 
+EDGE_BAND = 0.08         # top and bottom share of a photo checked for leaks
+EDGE_SLACK = 20          # dark pixels above the cleanest copy still counted clean
+
+
+def _edge_ink(path):
+    """Dark pixels along the top and bottom edges of a picture file."""
+    try:
+        pix = pymupdf.Pixmap(path)
+        if pix.alpha:
+            pix = pymupdf.Pixmap(pix, 0)
+        if pix.n != 1:
+            pix = pymupdf.Pixmap(pymupdf.csGRAY, pix)
+        w, h, s = pix.width, pix.height, pix.samples
+        band = max(1, int(h * EDGE_BAND))
+        rows = list(range(band)) + list(range(h - band, h))
+        return sum(1 for y in rows for v in s[y * w:(y + 1) * w] if v < 128)
+    except Exception:
+        return None
+
+
+def _mark_edge_ink(blocks):
+    """Mark copies of a repeated decoration whose photo caught the page.
+
+    Each copy is photographed off its own page and takes in whatever reaches
+    into its rectangle there. On `الفصل الثالث` page 2 the heading "تمهيد"
+    starts at y=71 under a header picture ending at y=79, so that copy carried
+    the tops of the heading's letters - and once it was the copy drawn, every
+    page's header showed the sliver (2026-09-21). The heading is drawn as
+    glyphs that do not decode, so neither removing text nor removing pictures
+    before the photo gets rid of it; three attempts at that failed.
+
+    Measured instead: whatever leaks in arrives at the photo's top or bottom
+    edge, so count the ink there. On that header the bottom strip reads 108
+    dark pixels with the sliver and 34 without. Copies more than EDGE_SLACK
+    above the cleanest are marked `over_text`, and the writer draws a clean
+    one.
+    """
+    groups = {}
+    for b in blocks:
+        if b.origin:
+            groups.setdefault(b.origin, []).append(b)
+    for copies in groups.values():
+        if len(copies) < 3:
+            continue
+        inks = [_edge_ink(b.image) for b in copies]
+        known = [v for v in inks if v is not None]
+        if not known:
+            continue
+        floor = min(known)
+        for b, v in zip(copies, inks):
+            if v is not None and v > floor + EDGE_SLACK:
+                b.over_text = True
+
+
 def _unreverse(cell, page_flat):
     """Table extraction hands back Arabic in visual order.
 
@@ -1133,7 +1247,23 @@ def read(path, image_dir=None):
     if image_dir and real <= COLLAGE_MAX_WORDS:
         whole = _collage(path, pictures, image_dir)
         if whole:
-            pictures = [b for b in pictures if b.page != 0] + [whole]
+            rest = [b for b in pictures if b.page != 0]
+            # Keep the title page's copies of a decoration that repeats on
+            # most pages. They are lifted into Word's header, never placed on
+            # the page, and they are often the only clean photo of it: every
+            # other copy of `الفصل الثاني`'s header catches a sliver of the
+            # body text beneath it. Dropped with the rest of page 1, they left
+            # nothing clean to draw.
+            on = {}
+            for b in rest:
+                on.setdefault(b.origin, set()).add(b.page)
+            need = max(2, best.pages // 2)
+            keep = [b for b in pictures if b.page == 0 and b.origin
+                    and len(on.get(b.origin, ())) >= need]
+            pictures = rest + keep + [whole]
+    # After the title page has become one photo, so the copies compared are
+    # the copies that will actually be drawn from.
+    _mark_edge_ink(pictures)
     for b in pictures:
         best.add(b)
     if any(b.collage for b in pictures):
@@ -1158,6 +1288,7 @@ def read(path, image_dir=None):
                 b.rows = [[apply_fixes(c, fixes) for c in row] for row in b.rows]
 
     best = _backfill(best, results, path)
+    _page_numbers(best, path)
     best = detect_headings(best)
     best = detect_lists(best)
     measure_layout(path, best)
