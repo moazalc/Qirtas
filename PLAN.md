@@ -1,6 +1,6 @@
 # Qirtas - Arabic PDF back to Word: the plan
 
-Last updated 2026-09-20.
+Last updated 2026-09-21.
 
 ## Picking this up again
 
@@ -957,6 +957,126 @@ single file yields ~900 fragments and the character multiset is unchanged.
 caught only by the hard gate, and one of those was mangling a Quranic verse -
 the same verse `reader._backfill` exists to protect. Nothing but the gate said
 so; `page_score` was flat throughout.
+
+## Checkpoint A: does Word already do this? 2026-09-21
+
+The question behind the whole project had never been asked of the most obvious
+competitor. RESEARCH.md tested Acrobat, pdf2docx and html-to-docx - not Word,
+which has opened PDFs as editable documents ("PDF Reflow") since 2013, and not
+ABBYY FineReader. Asked now of Word, on the regression set and on the same 24
+dev files as `out/runs/2026-09-21-dev-thesis-page-numbers`, scored by the same
+`compare()`. Word needs `DisableConvertPdfWarning=1` under
+`HKCU\Software\Microsoft\Office\16.0\Word\Options` or it blocks on a hidden
+dialog; set for the run and removed after. Script and outputs were scratch,
+not committed.
+
+**On the theses Word fails outright.** 0% text on all six chapters: they are
+the ActualText case, the glyphs decode to nothing, and Word turns every page
+into hundreds of pictures (`الفصل الرابع` -> 5,233 pictures, 38 pages from
+24). Ours: ~98%. The project's reason to exist holds for Moaz's files.
+
+**On the dev set, three groups, and the text score misreads two of them.**
+
+    11 files  stored backwards (FLAGS 1)   Word: a picture of each page, 0 words
+                                           ours: every word, unreadable, scores ~100%
+    13 files  ordinary                     Word: 57-99% of words at all (median ~0.82)
+                                           ours: 100% by the same count
+
+Word's text score on the ordinary 13 is 0.02-0.99 and not to be trusted: it
+lays most text out in floating text boxes (up to 328 per file), which is bad
+for editing and wrecks order, and our reference text has its own faults (next
+paragraph). A presence count - fraction of the original's words found at all -
+is the fairer measure and is the one quoted above.
+
+**The comparison exposed a fault in our own reference, which is the real
+finding.** On the words Word "lost", Word was often right and the reference
+wrong: `خلال`, `نلاحظ`, `دلالة`, `معدلات` where the PDF's text layer - and so
+both our output and our checker - reads `خالل`, `نالحظ`, `داللة`, `معدالت`.
+On `z21761968` our output is presentation-form glyphs (ﻤ ﺔ) with words
+reversed inside each line, and scores 99% because the checker reads the same
+thing. Word's text there reads naturally. Word has its own damage (`رأس` ->
+`أرس` 69 times, words split mid-way), so it is not a reference either - but it
+is an INDEPENDENT one, which ours is not. See FLAGS 22 for the scale.
+
+**Decision: keep building.** Word cannot do the theses, cannot do backwards
+files, and its output is floating boxes rather than an editable document. But
+not as before: "extracting Arabic is solved" is true for recovering the words,
+false for spelling them right in over half the corpus, and nothing we measure
+can see the difference.
+
+## Scope: what Qirtas promises, 2026-09-21
+
+Set by Moaz after checkpoint A. Every task is judged against this; anything
+outside it gets a warning or a refusal, never a silent guess.
+
+**Promised.** A digital Arabic PDF, typically saved from Word, becomes a Word
+file you can edit straight away:
+
+1. Every word is there, readable, in the right order and direction, and
+   **spelled as printed**. Lam-alef stored backwards is repaired (FLAGS 22);
+   text stored backwards is reordered (FLAGS 1). Both need a check that does
+   not share our extractor before they count as done.
+2. Built the way Word builds documents: real headings, footnotes, lists and
+   tables, with headers, footers and page numbers in Word's own header and
+   footer.
+3. Close to the original in look: fonts, pictures in place, roughly the same
+   pages.
+
+**Warned, not refused.** Numbers the PDF prints one way and stores another
+(FLAGS 13): the file converts, and the user is told which pages to check.
+
+**Refused.** Scanned PDFs.
+
+**Not promised, for now.** Multi-column periodicals, equations, exact
+page-for-page layout. Right page stays a safety check, not a goal.
+
+**Proven on files we did not tune on**, one score per feature (TASKS N2).
+
+## The answer key, and the first honest scorecard, 2026-09-21
+
+`harness/answerkey.py`. Word writes structure labels into the PDFs it saves:
+what each piece of text was (paragraph, heading, list item, footnote, table
+cell), with running headers and page numbers left outside them. That is the
+answer key; nobody had to make one. The key reads the labels, lines them up
+against our .docx, and reports per feature:
+
+    found   of the text the labels call X, the share we made X
+    right   of the text we made X, the share that really was X
+    extra   text we wrote as X that the original does not have
+
+It was wrong three times before it was believed, all caught because the gate
+disagreed with it (`harness/test_answerkey.py` keeps each case): label pieces
+shorter than a matching run read as missing; joining the pieces glued the
+poems' words together; a right-to-left table stored in the other order scored
+0% while a duplicate of its numbers as loose text took the credit. Text is now
+compared as bare letters, spaces ignored, lam-alef runs sorted; table cells
+and headers matched whole.
+
+**Baseline, `out/runs/2026-09-21-dev-baseline`: 36 Word-made tuning files**
+(13 skipped: over 60 pages, or unlabelled). Sizes in letters.
+
+                 size     found   right    extra   where the rest went
+    heading     13,290    31.2%   47.6%       66   paragraph 8,718
+    paragraph  666,909    89.1%   85.8%   15,607   list 65,826
+    list        56,816    64.2%   30.6%      229   paragraph 19,804
+    footnote    36,435     0.0%     -          0   paragraph 24,021, list 11,641
+    table       69,983    34.4%   72.3%   13,440   paragraph 39,734
+    furniture   34,823    59.9%  100.0%        0   table 6,730, paragraph 6,354
+
+**Theses, `out/runs/2026-09-21-regression-baseline`: 7 graded** (one over the
+label threshold). Paragraph 96.4%, list 99.8%, footnote 84.9% (4,391 letters
+as body text, 1,347 as list items - the `الفصل الثالث` case). The theses have
+no heading labels at all: the author never used heading styles, so every
+heading we make counts against us. Read that row as "the author did not", not
+"we are wrong".
+
+**The largest finding is not in the table. On all 36 ordinary files the
+converter ignored the labels.** The tags route reads only `/ActualText`, which
+ordinary files do not carry, so it recovers almost nothing and geometry wins
+every time. Graded with labels kept and with labels stripped, the two results
+are identical. The structure that 40% of the corpus hands us for free is
+thrown away, and the geometry route then guesses it - finding no footnotes at
+all, and making lists of prose.
 
 ## Known unfinished
 

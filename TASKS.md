@@ -56,9 +56,10 @@ version, which Arabic faces are installed, and whether the Arabic fix was on.
 Without the document's own face Word picks a wider one, so text overflows and
 the converter takes the blame.
 
-## Two decisions are waiting on Moaz
+## Decisions (settled 2026-09-21)
 
-Nothing else here is blocked; these two are.
+Moaz: reorder backwards text, warn on untrustworthy numbers, and fix the
+lam-alef spelling (`FLAGS.md` 22). Kept below for the reasoning.
 
 1. **Text stored backwards** — a third of the corpus. Reorder it, or refuse the
    file? `FLAGS.md` 1. Nothing further is worth measuring on those files while
@@ -91,10 +92,50 @@ down and wrong.** Re-check the note before trusting it.
 
 ---
 
-## Tasks, in the order worth doing
+## New direction, 2026-09-21 — this replaces the order below
 
-**Next session: A14 (page-number digits), then C1.** The two decisions above
-block the wild corpus, not the theses.
+Moaz's call after `update.md`: stop fixing file by file; build a way to grade
+each feature, then fix in order of how often each problem occurs. Right page
+becomes a safety check, not the goal. The goal is a Word file you can edit
+straight away: every word there and spelled right, built with real headings,
+footnotes, lists and tables, and honest about what it could not do.
+
+**Checkpoint A is done** (`PLAN.md`): Word's own PDF opening fails the theses
+completely and the backwards-stored files too, so we keep building. It also
+showed our checker cannot see misspelled Arabic (`FLAGS.md` 22).
+
+In order:
+
+- **N1. DONE.** Moaz, 2026-09-21: **reorder** backwards text, **fix** the
+  lam-alef spelling, **warn** on untrustworthy numbers. Scope written into
+  `PLAN.md` ("Scope"). Building the reorder and spelling fixes waits for N3,
+  so they can be checked by something that does not share our extractor.
+- **N2. DONE (2026-09-21).** `python -m harness.answerkey --set dev` (and
+  `--set regression`). Baseline and what it found in `PLAN.md` ("The answer
+  key"). Run it after every structural change, beside the gate.
+- **N2a. NEW, and the largest lever the key found: use the labels.** On all 36
+  ordinary Word files the reader ignores the labels (the tags route reads only
+  `/ActualText`) and geometry guesses the structure. Read the labels over the
+  glyph text - `answerkey.truth_from_glyphs` already does exactly this - and
+  keep "measure, don't predict": run it alongside the others and keep whichever
+  recovers more. Expect footnotes 0% -> near 100% on those files.
+- Then by size of the gap on the dev scorecard: geometry lists (65,826 letters
+  of prose made into lists; right 30.6%), tables (39,734 letters of cells as
+  paragraphs, 13,440 extra from tables written twice), geometry footnotes (0%),
+  headings (31%). Recount after N2a: it changes all of these for tagged files.
+- **N3. A spelling check that does not share our extractor.** Word's PDF
+  reading as a word-level second opinion on ordinary files. Unblocks FLAGS 20.
+- **N4. Look at 50 random pages**, log every defect by kind, count them. That
+  count sets the fix order.
+- **N5. Fix from the top of that count.** Known first candidate: a list
+  inside a `/Footnote` escapes into the body (`reader.py` pushes only
+  PARAGRAPH down into footnote context). It is Moaz's `الفصل الثالث` example.
+- **N6. Try PyMuPDF-Layout** on the label-stripped copies only; keep it only
+  if it beats our rules on the N2 scorecard.
+
+## Tasks, in the order worth doing (before 2026-09-21)
+
+**Superseded by the list above.** Kept for the detail of each item.
 
 ### A. Toward Moaz's goal: his files above 90% on right page
 

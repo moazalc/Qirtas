@@ -9,7 +9,8 @@ Each entry says what it is, why it matters, and what would close it.
 
 ## 1. A third of the corpus produces unreadable output, and the score says 99%
 
-**Status: needs Moaz's decision. Largest known correctness problem.**
+**Status: DECIDED 2026-09-21 - reorder, not refuse (Moaz). Not built yet;
+waits for a check that does not share our extractor (FLAGS 22, TASKS N3).**
 
 Some Arabic PDFs — typically LaTeX output — store their character stream
 already reversed. The page displays perfectly; the text underneath runs
@@ -340,7 +341,9 @@ repair: it also flips the lam-alef ligature. `harness/test_tables.py`. See
 
 ## 13. A PDF can display one number and store another
 
-**Status: not our bug. Our output is still wrong, and every score says 100%.**
+**Status: DECIDED 2026-09-21 - warn, not refuse (Moaz). Not built yet.**
+
+Not our bug. Our output is still wrong, and every score says 100%.
 
 `z21358439.pdf` page 8 displays the 1951 Geneva Convention and its 1967
 protocol. Its text layer stores **1901** and **1922**. Also `المادة 3` stored as
@@ -367,8 +370,15 @@ sample cannot clear a file - `z21358439` prints 2026 correctly on page 1 and
 1951-as-1901 on page 8. Two of the four are flag 1 reaching the numbers: 2014
 stored as 4102 is the run reversed.
 
-**Still open:** warn on such a file, or refuse it. Same shape of decision as
-flag 1, and probably the same answer.
+**Decided: warn** (Moaz, 2026-09-21). The file converts; the user is told
+which pages may carry wrong numbers. Move the `digits.py` check into the
+converter and attach a message - small.
+
+**Correcting, later.** The check that finds a lying entry also knows the
+answer: the font says glyph 50 is a 5. A partial mismatch could be corrected to
+the digit the page draws. Not yet: it cannot reach a wholly permuted table,
+and a silent rewrite of numbers needs its own independent check first - the
+same lesson as the spelling repair (FLAGS 20, 22).
 
 ---
 
@@ -566,3 +576,37 @@ words), it is photographed as one picture - A2. Three costs:
 
 **Closes when:** Moaz accepts the trade, or asks for the title lines to stay
 editable.
+
+---
+
+## 22. Our checker cannot see misspelled Arabic, because it reads the same text we do
+
+**Status: DECIDED 2026-09-21 - fix the spelling (Moaz). Found at checkpoint A
+(`PLAN.md`). Changes what "nothing lost" means.**
+
+Every score compares our Word file against text extracted from the PDF by the
+same library the converter uses. A fault in that extraction appears on both
+sides and cancels out. Scanning the first 10 pages of every wild file:
+
+    225 files   56 little or no text (scanned or picture-only)
+               169 with Arabic text
+                88 of those (52%) spell common words with lam-alef reversed:
+                   خالل for خلال, نالحظ for نلاحظ, داللة for دلالة
+                11 come out as presentation-form glyphs (ﻤ ﺔ): not searchable,
+                   not spell-checkable, and on z21761968 in reverse word order
+
+Our output carries every one of these into the Word file, and scores ~99%.
+This is FLAGS 1 again in a different form: a flaw shared by the converter and
+the checker is invisible to the checker. It is also why FLAGS 20 cannot be
+judged by the gate: a correct spelling repair makes our output DIFFER from a
+misspelled reference, which the gate reads as lost words.
+
+The line in `CLAUDE.md`, "Do not rebuild Arabic text extraction. It works", is
+true for recovering the words and false for spelling them right. It should be
+reworded once Moaz agrees.
+
+**Closes when:** the checker has a reference that does not share our
+extractor - Word's PDF reading as a word-level second opinion, or original
+.docx files - and the spelling rate is measured by it. (Word's structure
+labels on tagged files are independent for STRUCTURE only; their text usually
+comes from the same glyphs.)

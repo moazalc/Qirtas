@@ -125,6 +125,12 @@ Score the converter (PDF → DOCX → Word → PDF → compare; no ground-truth
     .venv/Scripts/python -m harness.eval                 # the whole tuning set
     .venv/Scripts/python -m harness.eval --set regression  # the hard ActualText case
 
+Grade each feature (footnotes, headings, lists, tables, headers) against the
+structure labels Word saved into the PDF - the answer key, see `PLAN.md`:
+
+    .venv/Scripts/python -m harness.answerkey --set dev          # ~5 minutes
+    .venv/Scripts/python -m harness.answerkey --set regression
+
 A full 102-file run takes roughly 25–35 minutes. It schedules longest-file-first,
 so **the long files finish last** — progress through the file count is not
 progress through the work, and estimating from early completions will be wrong.
