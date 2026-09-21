@@ -113,16 +113,22 @@ In order:
 - **N2. DONE (2026-09-21).** `python -m harness.answerkey --set dev` (and
   `--set regression`). Baseline and what it found in `PLAN.md` ("The answer
   key"). Run it after every structural change, beside the gate.
-- **N2a. NEW, and the largest lever the key found: use the labels.** On all 36
-  ordinary Word files the reader ignores the labels (the tags route reads only
-  `/ActualText`) and geometry guesses the structure. Read the labels over the
-  glyph text - `answerkey.truth_from_glyphs` already does exactly this - and
-  keep "measure, don't predict": run it alongside the others and keep whichever
-  recovers more. Expect footnotes 0% -> near 100% on those files.
-- Then by size of the gap on the dev scorecard: geometry lists (65,826 letters
-  of prose made into lists; right 30.6%), tables (39,734 letters of cells as
-  paragraphs, 13,440 extra from tables written twice), geometry footnotes (0%),
-  headings (31%). Recount after N2a: it changes all of these for tagged files.
+- **N2a. DONE (2026-09-21).** `reader.read_labels`. Headings 31% -> 98%,
+  lists 31% -> 100% right, gate held at 100%. Write-up in `PLAN.md` ("N2a").
+- **N2b. Footnotes in the writer, on labelled files: 6%.** The reader finds
+  them; the writer anchors a note only when its number matches a marker in the
+  text. Several notes arrive as one block ("9 - ... 10 - ..."): split them by
+  number, and find how Word marks the reference in the body. `z21764080`,
+  `z21763864`, `z21762915` hold most of the footnote text.
+- **N2c. The shrinking loop misreads which pages spilled.** `fit._spilled`
+  attributes each rendered page to the one original page it overlaps most, so
+  a page holding the end of one and the start of the next hides a spill.
+  `z21760107`: 29 pages out one run, 32 the next, same content.
+- Seen on the way, not yet counted: table cell text stored backwards on
+  `z21760107` (FLAGS 12 was closed for another file), the journal logo drawn
+  twice on its first page.
+- Tables are the largest gap left on the scorecard: 47,132 letters of cells
+  come out as paragraphs, and 16,036 are extra - tables written twice.
 - **N3. A spelling check that does not share our extractor.** Word's PDF
   reading as a word-level second opinion on ordinary files. Unblocks FLAGS 20.
 - **N4. Look at 50 random pages**, log every defect by kind, count them. That

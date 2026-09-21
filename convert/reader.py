@@ -1,12 +1,15 @@
 """The reader: work out what is in the PDF.
 
-Two ways of looking, because no single one works everywhere:
+Three ways of looking, because no single one works everywhere:
 
-  tags      the PDF's own hidden labels say "this is a paragraph". Exact where
-            present (~76% of files).
+  tags      the labels' own /ActualText. The theses keep their words only
+            there - their glyphs decode to nothing.
+  labels    Word's labels for what each piece IS, over the page's glyph text
+            for what it SAYS. Ordinary Word files.
   geometry  group lines by position on the page. Works when labels are missing.
 
-We run both and keep whichever recovered more Arabic — measure, don't predict.
+We run all three and keep whichever recovered more Arabic, preferring the
+labelled ones when they come close — measure, don't predict.
 """
 import re
 from pathlib import Path
@@ -91,6 +94,12 @@ def _backfill(chosen, results, path):
         if other is chosen:
             continue
         for b in other.blocks:
+            # A picture's description is not text the page printed. Backfilled,
+            # Word's "A green circle with white letters AI-generated content
+            # may be incorrect" - an ORCID icon's /Alt - took a page of its own
+            # in `z21095413` and put every later page one out of step.
+            if b.from_alt:
+                continue
             sents = _sentences(b.text)
             if not sents:
                 continue
@@ -315,12 +324,11 @@ def read_geometry(path):
     return doc
 
 
-def _page_rich(page, i):
-    out = []
-    for b in sorted(page.get_text("dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
-        if b.get("type") != 0:
-            continue
-        text, size, bold, spans = [], 0.0, False, []
+def _rich_block(text_blocks, i, kind=PARAGRAPH):
+    """One Block from one or more PyMuPDF text blocks, with size, boldness and
+    runs of like formatting. None if they hold no text."""
+    text, size, bold, spans = [], 0.0, False, []
+    for b in text_blocks:
         for line in b["lines"]:
             for sp in line["spans"]:
                 run = sp["text"]
@@ -338,13 +346,149 @@ def _page_rich(page, i):
                     spans[-1] = (spans[-1][0] + " " + run, bo, it)
                 else:
                     spans.append((run, bo, it))
-        if spans:
-            out.append(Block(kind=PARAGRAPH, text=_clean(" ".join(text)),
-                             page=i, size=round(size, 1), bold=bold,
-                             spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
-                             y=round(b["bbox"][1], 1), y1=round(b["bbox"][3], 1),
-                             x0=round(b["bbox"][0], 1), x1=round(b["bbox"][2], 1)))
+    if not spans:
+        return None
+    boxes = [b["bbox"] for b in text_blocks]
+    return Block(kind=kind, text=_clean(" ".join(text)),
+                 page=i, size=round(size, 1), bold=bold,
+                 spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
+                 y=round(min(r[1] for r in boxes), 1),
+                 y1=round(max(r[3] for r in boxes), 1),
+                 x0=round(min(r[0] for r in boxes), 1),
+                 x1=round(max(r[2] for r in boxes), 1))
+
+
+def _page_rich(page, i):
+    out = []
+    for b in sorted(page.get_text("dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
+        if b.get("type") != 0:
+            continue
+        blk = _rich_block([b], i)
+        if blk:
+            out.append(blk)
     return _join_lines(out)
+
+
+# ---------------------------------------------------------------- labels
+
+# What Word's labels say a piece of text is. A unit starts at any of these,
+# except inside a CONTAINER: a list item's number and its text are separate
+# labels (Lbl, LBody) but one item, and a footnote may hold paragraphs or even
+# a list - `الفصل الثالث`'s (34) and (35) are a list inside a footnote, and
+# splitting them out is exactly how they landed in the body. A chart's axis
+# numbers and legend sit inside a Figure; one paragraph each, they stacked
+# down the page and `z20375390` ran from 24 pages to 29.
+LABEL_UNIT = {"P", "H", "H1", "H2", "H3", "H4", "H5", "H6", "Title", "LI",
+              "TD", "TH", "Caption", "TOCI", "Note", "Footnote", "Textbox",
+              "Figure"}
+LABEL_CONTAINER = {"LI", "Note", "Footnote", "TD", "TH", "Figure"}
+
+
+def _label_kind(chain):
+    """-> (kind, heading level). The whole chain decides: a list inside a
+    footnote is a footnote. Table cells stay paragraphs here; `read_tables`
+    builds the tables and drops the text found inside them, as it does for
+    every other route."""
+    s = set(chain)
+    if s & {"Footnote", "Note"}:
+        return FOOTNOTE, 0
+    if s & {"TD", "TH", "Table"}:
+        return PARAGRAPH, 0
+    for t in reversed(chain):
+        if t in ("H", "Title"):
+            return HEADING, 1
+        if len(t) == 2 and t[0] == "H" and t[1].isdigit():
+            return HEADING, int(t[1])
+    if s & {"LI", "LBody", "Lbl"}:
+        return LIST_ITEM, 0
+    return PARAGRAPH, 0
+
+
+def read_labels(path):
+    """Word's structure labels over the page's own glyph text.
+
+    The tags route reads only /ActualText, which is where the theses keep
+    their words. Ordinary Word files keep theirs in the glyphs, so on those
+    the tags route recovered next to nothing and geometry won every time -
+    on all 36 Word-made tuning files, which threw away what the author's own
+    Word said each piece was and guessed it back from positions: no footnote
+    found on any of them, and a third of prose made into list items
+    (`PLAN.md`, "The answer key").
+
+    Text outside every label is Word's page furniture - running headers,
+    footers, page numbers. It is kept as ordinary blocks with their positions,
+    so the writer's furniture detection sees it exactly as before.
+    """
+    doc = Doc(source_route="labels")
+    with pymupdf.open(path) as d:
+        if "/StructTreeRoot" not in d.xref_object(d.pdf_catalog(), compressed=True):
+            raise RuntimeError("not tagged")
+        doc.pages = len(d)
+        for i, page in enumerate(d):
+            tree = page.get_text("dict", flags=pymupdf.TEXTFLAGS_DICT
+                                 | pymupdf.TEXT_COLLECT_STRUCTURE)
+            units = {}           # key -> [chain, [text blocks]], in order
+
+            def walk(node, chain, owner):
+                for b in node.get("blocks", []):
+                    if b["type"] == 2:
+                        tag = b.get("std") or b.get("raw") or ""
+                        here = chain + [tag]
+                        inside = owner is not None and \
+                            LABEL_CONTAINER & set(owner[1])
+                        own = (id(b), here) if tag in LABEL_UNIT and not inside \
+                            else owner
+                        walk(b, here, own)
+                    elif b["type"] == 0:
+                        key, ch = (id(b), []) if owner is None else owner
+                        units.setdefault(key, [ch, []])[1].append(b)
+
+            walk(tree, [], None)
+            page_blocks = []
+            for chain, blocks in units.values():
+                kind, level = _label_kind(chain)
+                blk = _rich_block(blocks, i, kind)
+                if blk:
+                    blk.level = level
+                    page_blocks.append(blk)
+            for blk in _join_same_line(page_blocks):
+                doc.add(blk)
+    return doc
+
+
+def _join_same_line(blocks):
+    """Pieces of one kind that share a line are one paragraph.
+
+    A form puts its fields side by side - `عن بعد` has اسم الطالبة, التوقيع
+    and الرقم on one line, each labelled on its own. Written as three
+    paragraphs they stacked, and the one-page form ran onto a second page.
+    Joined in reading order: right to left when the text is Arabic.
+    """
+    out = []
+    for b in blocks:
+        prev = out[-1] if out else None
+        if prev and prev.kind == b.kind and b.kind != FOOTNOTE and _same_line(prev, b):
+            pieces = sorted([prev, b], key=lambda x: x.x1,
+                            reverse=bool(ARABIC.search(prev.text + b.text)))
+            prev.text = " ".join(x.text for x in pieces)
+            prev.spans = [s for x in pieces for s in x.spans]
+            prev.bold = prev.bold or b.bold
+            prev.size = max(prev.size, b.size)
+            prev.y, prev.y1 = min(prev.y, b.y), max(prev.y1, b.y1)
+            prev.x0, prev.x1 = min(prev.x0, b.x0), max(prev.x1, b.x1)
+            continue
+        out.append(b)
+    return out
+
+
+def _same_line(a, b):
+    """Do two blocks sit on one line: single-line each, heights overlapping
+    by most of the shorter one, and side by side rather than stacked?"""
+    ha, hb = a.y1 - a.y, b.y1 - b.y
+    if ha <= 0 or hb <= 0 or max(ha, hb) > 2.2 * min(a.size, b.size or a.size or 1):
+        return False
+    overlap = min(a.y1, b.y1) - max(a.y, b.y)
+    return overlap >= 0.6 * min(ha, hb) and (b.x1 <= a.x0 or b.x0 >= a.x1)
 
 
 ENDS_PARA = (".", "؟", "!", ":", "؛")
@@ -1196,7 +1340,7 @@ def _drop_text_inside_tables(doc, tables):
 def read(path, image_dir=None):
     """Run both, keep whichever recovered more Arabic."""
     results = []
-    for fn in (read_tags, read_geometry):
+    for fn in (read_tags, read_labels, read_geometry):
         try:
             d = fn(path)
             results.append((_recovered(d), d))
@@ -1207,12 +1351,16 @@ def read(path, image_dir=None):
 
     # Prefer the labels when they recover essentially as much text. One file
     # picked geometry by 0.6% and lost every footnote and list item with it -
-    # a rounding-error win on quantity, a real loss on structure.
+    # a rounding-error win on quantity, a real loss on structure. The theses'
+    # /ActualText first, then labels over glyphs, then geometry.
     top = max(r[0] for r in results)
-    tagged = [r for r in results if r[1].source_route == "tags"]
-    if tagged and tagged[0][0] >= top * TIE_MARGIN:
-        best = tagged[0][1]
-    else:
+    best = None
+    for route in ("tags", "labels"):
+        got = [r for r in results if r[1].source_route == route]
+        if got and got[0][0] >= top * TIE_MARGIN:
+            best = got[0][1]
+            break
+    if best is None:
         best = max(results, key=lambda r: r[0])[1]
     tables = []
     try:
@@ -1290,7 +1438,10 @@ def read(path, image_dir=None):
     best = _backfill(best, results, path)
     _page_numbers(best, path)
     best = detect_headings(best)
-    best = detect_lists(best)
+    # Word's labels already say which paragraphs are list items. Guessing on
+    # top of them is how geometry turned a third of prose into lists.
+    if best.source_route != "labels":
+        best = detect_lists(best)
     measure_layout(path, best)
     with pymupdf.open(path) as d:
         r = d[0].rect

@@ -1078,6 +1078,58 @@ are identical. The structure that 40% of the corpus hands us for free is
 thrown away, and the geometry route then guesses it - finding no footnotes at
 all, and making lists of prose.
 
+## N2a: reading Word's labels on ordinary files, 2026-09-21
+
+`reader.read_labels`: Word's labels for what each piece IS, over the glyph
+text for what it SAYS. Run beside tags and geometry; preferred, like tags,
+when it recovers within 3% of the best. `detect_lists` is skipped on it - the
+labels already say which paragraphs are list items.
+
+    dev scorecard (36 Word-made files)    before        after
+    heading      found / right            31% / 48%     98% / 84%
+    list         found / right            64% / 31%    100% / 100%
+    paragraph    found / right            89% / 86%     99% / 88%
+    footnote     found                     0%            6%
+    table, furniture                      unchanged (not in scope)
+
+    gate                                  before        after
+    theses       nothing lost             100.0%        100.0%
+                 right page                69.4%         68.3%
+    24 unseen    nothing lost             100.0%        100.0%
+                 words in order            67.6%         68.9%
+                 right page                31.5%         30.9%
+                 page inflation            1.51x         1.54x
+
+The theses are identical file by file except `عن بعد`, a one-page form:
+0.83 -> 0.75, one token, because the original page glues three fields into
+`الطالبة:التوقيع:الرقم` and ours spaces them. No word is missing.
+
+Found by looking, on the way in - each has a test in `harness/test_labels.py`:
+
+- **Fields side by side** (`عن بعد`) were labelled separately and stacked as
+  three headings; the form ran to two pages. Same-kind pieces on one line are
+  joined, right to left for Arabic.
+- **A chart's axis numbers** sit inside a Figure label; one paragraph each,
+  they stacked down the page and `z20375390` went 24 -> 29 pages. A Figure is
+  now one piece, like a footnote or list item.
+- **A picture's description was backfilled as text** - Word's "A green circle
+  with white letters AI-generated content may be incorrect", an ORCID icon's
+  /Alt - and took a page of its own in `z21095413`. Present before N2a too.
+  `_backfill` now skips /Alt text.
+
+**Right page is 0.6 points down on unseen files, and it is the shrinking loop,
+not the reading.** `z21760107` went 29 -> 32 pages. Unshrunk, the new reading
+is SHORTER (38 pages against geometry's 39); `fit._spilled` attributes each
+rendered page to the original page it overlaps most, misses spills where a
+page holds the end of one original page and the start of the next, and so
+shrinks a different set of pages each time. Recorded as a task.
+
+**Footnotes are still 6%, and it is now the writer.** The reader finds them;
+the writer only makes a real Word footnote when it can match the note's
+number to a marker in the text, and on these files several notes arrive as one
+block ("9 - ... 10 - ..."), with endnote-style bibliography entries labelled
+as notes too (`z21764080`).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
