@@ -1052,7 +1052,7 @@ poems' words together; a right-to-left table stored in the other order scored
 compared as bare letters, spaces ignored, lam-alef runs sorted; table cells
 and headers matched whole.
 
-**Baseline, `out/runs/2026-09-21-dev-baseline`: 36 Word-made tuning files**
+**Baseline, `out/runs/2026-09-21-dev-answerkey-baseline`: 36 Word-made tuning files**
 (13 skipped: over 60 pages, or unlabelled). Sizes in letters.
 
                  size     found   right    extra   where the rest went
@@ -1063,7 +1063,7 @@ and headers matched whole.
     table       69,983    34.4%   72.3%   13,440   paragraph 39,734
     furniture   34,823    59.9%  100.0%        0   table 6,730, paragraph 6,354
 
-**Theses, `out/runs/2026-09-21-regression-baseline`: 7 graded** (one over the
+**Theses, `out/runs/2026-09-21-regression-answerkey-baseline`: 7 graded** (one over the
 label threshold). Paragraph 96.4%, list 99.8%, footnote 84.9% (4,391 letters
 as body text, 1,347 as list items - the `الفصل الثالث` case). The theses have
 no heading labels at all: the author never used heading styles, so every

@@ -492,14 +492,20 @@ def main():
     a = ap.parse_args()
     pdfs = a.pdfs or files_for(a.set or "dev")
     stamp = time.strftime("%Y-%m-%d")
-    name = f"{stamp}-{a.set or 'files'}-{a.label}"
+    # "answerkey" in the name: the eval writes <date>-<set>-<label> too, and
+    # sharing its names overwrote three of its records on 2026-09-21.
+    name = f"{stamp}-{a.set or 'files'}-answerkey-{a.label}"
+    n = 2
+    while (Path("out/runs") / name).exists():
+        name = f"{stamp}-{a.set or 'files'}-answerkey-{a.label}-{n}"
+        n += 1
     work = Path("out/work/answerkey") / name
     per_file, summary, _ = run(pdfs, work, a.max_pages, a.v)
     graded = sum(1 for r in per_file if "ours" in r)
     text = show(summary, graded, len(per_file) - graded)
     print(text)
     outdir = Path("out/runs") / name
-    outdir.mkdir(parents=True, exist_ok=True)
+    outdir.mkdir(parents=True)
     (outdir / "summary.txt").write_text(text, encoding="utf-8")
     (outdir / "results.json").write_text(json.dumps(
         {"summary": summary, "files": per_file}, ensure_ascii=False, indent=1),
