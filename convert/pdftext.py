@@ -46,7 +46,8 @@ def enabled():
     one side repaired and not the other is the failure this file was written
     around. On by default.
     """
-    return os.environ.get("QIRTAS_ARABIC_FIX", "on").strip().lower()         not in ("off", "0", "false", "no")
+    flag = os.environ.get("QIRTAS_ARABIC_FIX", "on").strip().lower()
+    return flag not in ("off", "0", "false", "no")
 
 # A fragment shorter than this is too common to replace safely: mapping ال onto
 # لا everywhere would corrupt every definite article in the document. The
@@ -254,9 +255,28 @@ def _pattern(fragment):
     return re.compile(r"(?<!\S)" + r"\s+".join(words) + r"(?!\S)")
 
 
+_COMPILED = {}
+
+
 def _compile(fixes):
-    return [(_pattern(k), v) for k, v in
-            sorted(fixes.items(), key=lambda kv: len(kv[0]), reverse=True)]
+    """-> [(first word, pattern, repair)], longest fragment first. Built once
+    per map.
+
+    It used to be rebuilt on every call. A wild file yields ~1,650 fragments,
+    more than `re`'s own cache holds, so every paragraph recompiled every
+    pattern - and the reader calls this per paragraph, per span and per table
+    cell, on every round of `fit.py`. That made a 30-file run take 3-4x as
+    long with the repair on as with it off (2026-09-21).
+    """
+    hit = _COMPILED.get(id(fixes))
+    if hit is not None and hit[0] is fixes:
+        return hit[1]
+    out = [((k.split() or [""])[0], _pattern(k), v) for k, v in
+           sorted(fixes.items(), key=lambda kv: len(kv[0]), reverse=True)]
+    if len(_COMPILED) > 8:
+        _COMPILED.clear()
+    _COMPILED[id(fixes)] = (fixes, out)
+    return out
 
 
 def apply_fixes(text, fixes):
@@ -265,9 +285,14 @@ def apply_fixes(text, fixes):
     Bounded by whitespace or the ends of the string, so a fragment can only
     replace whole words - `حامال` must not fire inside a longer word that
     happens to contain it.
+
+    Applied one fragment at a time, in order, each to the result of the last -
+    exactly as before. The substring test only skips a pattern that cannot
+    match: its first word is not in the text as it stands at that step.
     """
     if not text or not fixes:
         return text
-    for pat, after in _compile(fixes):
-        text = pat.sub(lambda _, a=after: a, text)
+    for first, pat, after in _compile(fixes):
+        if first in text:
+            text = pat.sub(lambda _, a=after: a, text)
     return text
