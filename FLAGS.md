@@ -146,8 +146,14 @@ So this is the first machine in the project's life that can render these
 documents in the application people actually open them in, with the fonts they
 actually ask for.
 
-**Closes when:** a regression run is recorded on it and the overflow is
-confirmed or dismissed. Not yet done - see `TASKS.md` C1.
+**2026-09-21: LibreOffice has been removed; Word is the only renderer.** So
+`fit.py` now measures spill in Word with the real fonts, and whatever
+LibreOffice made it shrink before no longer happens. What is left is to record
+how much it still shrinks in Word - if almost nothing, the old shrinking was
+LibreOffice's fonts all along.
+
+**Closes when:** a Word run records `fit.py`'s shrinking per file. See
+`TASKS.md` C1.
 
 ---
 
@@ -238,19 +244,14 @@ chosen.
 
 ## 10. `مقدمة البحث` is an undiagnosed outlier
 
-**Status: open, and now the biggest single drag on the regression set.**
+**Status: diagnosed, not fixed. `TASKS.md` A2.**
 
 33.7% where its siblings now reach 56–73%, and the only regression file still
-running one page long (17 against 16). Its text and picture scores are both
-perfect, so whatever is wrong is positional.
+running one page long (17 against 16). `harness.drift` shows one spurious page
+among the first two (both picture-only) and a constant +1 on every page after
+it - not overflow. Probably flag 9: `fit.py` cannot see a page with no words.
 
-The A1 fix (duplicate backfill, see `PLAN.md`) cured exactly this shape of
-fault on two other files and did **not** touch this one, so it is a different
-cause. Worth mapping where its pages land before guessing — that is what found
-A1.
-
-**Closes when:** the cause is found, or it is shown to be the same line-break
-drift affecting everything else.
+**Closes when:** the spurious page is gone and the file runs 16 pages.
 
 ---
 
@@ -435,7 +436,9 @@ refuse.
 
 ---
 
-## 16. Correct list structure costs page alignment
+## 19. Correct list structure costs page alignment
+
+*(Numbered 16 until 2026-09-21, which was already taken.)*
 
 **Status: needs Moaz's decision. A trade, not a bug.**
 
@@ -491,9 +494,6 @@ corpus when it was transferred onto the Windows machine - 1 page, 1,321
 characters, matching what `RESEARCH.md` records. The regression set is 8 files
 again.
 
-**The baseline has NOT been re-measured**, because that machine has no
-LibreOffice yet, so 68.8% remains a number from before the file went missing
-rather than one taken since it came back. Quote 64.3% for the 7 files actually
-measured until an 8-file run exists.
-
-**Closes when:** an 8-file regression run is recorded with its environment.
+**CLOSED 2026-09-20.** An 8-file regression run was recorded in Word:
+`out/runs/2026-09-20-regression-word-*`, right page **64.4%**, gate 100%. That
+is the baseline now. 68.8% was LibreOffice and is not comparable to it.

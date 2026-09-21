@@ -36,15 +36,22 @@ On 30 files nobody tuned on:
     right page        26.7%
     page inflation     1.46x
 
-All 14 test suites pass. Everything is committed and pushed to `main`.
+All 14 test suites pass, rendering through Word.
+
+**2026-09-21: Word is the only renderer.** LibreOffice has been removed from
+the code at Moaz's call - Word is what readers open the file in, and this
+machine has the documents' own fonts. Every number above that predates
+2026-09-20 was taken under LibreOffice and is not comparable to a Word one.
+Work up to 2026-09-21 is committed locally; not yet pushed.
 
 **64.3% is not a fall from 68.8%.** The 8-file set scored 68.8%; the same 7
 files score 64.3% both before and after every change made today. The whole
 difference is the deleted control file, which scored 100%. See A11.
 
-**Run `python -m harness.env` before trusting any number.** A machine without
-the Arabic font substitutions falls back to Noto Sans Arabic, which is wider,
-so text overflows and the converter takes the blame.
+**Run `python -m harness.env` before trusting any number.** It reports the Word
+version, which Arabic faces are installed, and whether the Arabic fix was on.
+Without the document's own face Word picks a wider one, so text overflows and
+the converter takes the blame.
 
 ## Two decisions are waiting on Moaz
 
@@ -115,7 +122,7 @@ Both leading pages are picture-only, which is exactly the blind spot in
 has none, so its fill factor has to be right first time. Look at output page 2
 and at `IMAGE_PAGE_FILL` before anything else.
 
-    .venv/bin/python -m harness.drift "corpus/مقدمة البحث.pdf" <our rebuilt pdf>
+    .venv/Scripts/python -m harness.drift "corpus/مقدمة البحث.pdf" <our rebuilt pdf>
 
 **A3. Line-break drift inside correctly-numbered pages.** What remains after
 pagination was fixed. It's a wrapping difference between renderers and may not
@@ -227,14 +234,17 @@ Set up 2026-09-20 as a VM: Python 3.13, the full corpus restored and verified
 against `out/split.json`, and Office 16.
 
 **C2. DONE (2026-09-20).** `harness/word.py` renders through real Word over
-COM. `QIRTAS_RENDERER=word` routes the harness, `fit.py` included. LibreOffice
-stays the default and the two are **not comparable** — keep runs apart.
+COM. Since 2026-09-21 it is the only renderer, `fit.py` included; LibreOffice
+has been removed. Word scores are **not comparable** to older LibreOffice ones.
 
 **C1. Ready to answer, not yet answered.** The VM has Simplified Arabic,
 Traditional Arabic and Sakkal Majalla installed, so a Word run there renders
 with the documents' own faces and nothing substituted — the first machine in
 the project that can. What is left is to record one regression run on it and
-compare page counts against a LibreOffice run of the same code. `FLAGS.md` 6.
+~~compare page counts against a LibreOffice run of the same code~~ - there is
+no LibreOffice any more. The question is now simply: rendering in Word, does
+`fit.py` shrink anything, and on which files? If it barely does, the old
+shrinking was LibreOffice's fonts. `FLAGS.md` 6.
 
 **C3. NEW — the page-number box is printed twice.** Found immediately on the
 first Word comparison. A boxed page number is rasterised into the body AND
@@ -242,10 +252,9 @@ written as a `PAGE` field in the footer, so the reader sees it twice and the
 picture costs a line of every page. 37 pages → 43 on `z21358439.pdf`. No score
 shows it. `FLAGS.md` 18.
 
-**C4. Re-measure the 8-file regression baseline.** `ödev.pdf` is back
-(`FLAGS.md` 17), so the set is whole again — but 68.8% is still a number from
-before it went missing. Needs C1 settled first, or the run records a font
-environment nobody will be able to reproduce.
+**C4. DONE (2026-09-20).** 8-file regression baseline recorded in Word with
+its environment: right page **64.4%**, gate 100%, words 98.8%, pages 1.00x.
+`out/runs/2026-09-20-regression-word-*`. This replaces 68.8% (LibreOffice).
 
 ---
 
@@ -305,10 +314,14 @@ looking wrong. See `FLAGS.md` 15.
 
 ## Running it
 
-    .venv/bin/python -m harness.env                    # check the environment first
-    .venv/bin/python -m harness.eval --set regression --label what-changed
-    .venv/bin/python -m harness.eval --n 30 --label what-changed
-    for t in harness/test_*.py; do .venv/bin/python -m harness.$(basename $t .py); done
+    export PYTHONUTF8=1                                   # else Arabic output crashes on Windows
+    .venv/Scripts/python -m harness.env                    # check the environment first
+    .venv/Scripts/python -m harness.eval --set regression --label what-changed
+    .venv/Scripts/python -m harness.eval --n 30 --label what-changed
+    for t in harness/test_*.py; do .venv/Scripts/python -m harness.$(basename $t .py); done
+
+`QIRTAS_ARABIC_FIX=off` turns the geometric lam-alef repair off on both sides
+at once, for measuring it against its own absence. `harness.env` records it.
 
 Every eval run records itself in `out/runs/<date>-<set>-<label>/` with the
 scores, the per-file rows and the environment. Pass `--label`; a run nobody can
@@ -316,21 +329,20 @@ identify later is a run nobody can compare.
 
 Finding out WHERE a file is wrong, which no score tells you:
 
-    .venv/bin/python -m harness.drift original.pdf rebuilt.pdf
-    .venv/bin/python -m harness.look  original.pdf rebuilt.pdf --pages 4 --align
-    .venv/bin/python -m harness.digits --set dev
+    .venv/Scripts/python -m harness.drift original.pdf rebuilt.pdf
+    .venv/Scripts/python -m harness.look  original.pdf rebuilt.pdf --pages 4 --align
+    .venv/Scripts/python -m harness.digits --set dev
 
 `drift` says whether a bad score is ONE spurious page (a constant offset, worth
 chasing) or content genuinely overflowing (a growing one). `look` puts the two
 pages side by side — use `--align` whenever the page count moved. `digits`
 finds files that display one number and store another.
 
-LibreOffice is now auto-detected (`QIRTAS_SOFFICE` overrides). The holdout set
-is paused at Moaz's request.
+Rendering is Word only, over COM, so this runs on Windows with Office
+installed. The holdout set is paused at Moaz's request.
 
 ## Deeper reading
 
 - `PLAN.md` — full history, every measurement trap, the complete unfinished list
 - `README.md` — setup, commands, what the three scores mean
 - `RESEARCH.md` — what was established about the problem space; don't redo it
-- `docs/fonts.md` — font substitution setup, required for comparable scores

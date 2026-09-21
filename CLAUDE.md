@@ -81,6 +81,10 @@ for this reason. It is currently paused at Moaz's request.
 the rendering environment have been caught drifting. Run `python -m harness.env`
 before trusting any number.
 
+**Word is the only renderer.** Since 2026-09-21, at Moaz's call. LibreOffice
+has been removed; do not bring it back as a default or a fallback. Scores taken
+under it are not comparable to Word ones.
+
 **Render a page and look at it.** The largest known correctness problem in this
 project — a third of the corpus producing unreadable output while scoring 99% —
 was found by looking, not by any metric.
