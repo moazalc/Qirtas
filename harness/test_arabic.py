@@ -69,6 +69,14 @@ def main():
 
     print("\nand text that is already correct must come through unchanged")
     check("correct lam-alef", repair_lam_alef("لا يمكن"), "لا يمكن")
+    # Display shapes (N3c): one codepoint per shape of a letter. Folded to the
+    # letters; symbols an author types on purpose are kept.
+    check("display shapes become letters",
+          repair_lam_alef("ﻟﻠﺪﺮﺎﺳﺎﺕ"), "للدراسات")
+    check("lam-alef shape in reading order", repair_lam_alef("ﻻ ﻣﻪ"), "لا مه")
+    check("salla-llahu symbol kept", repair_lam_alef("محمد ﷺ"), "محمد ﷺ")
+    check("Quran brackets kept", repair_lam_alef("﴾الحمد لله﴿"),
+          "﴾الحمد لله﴿")
     # في stored يف (z20763272, 231 times). Only standing alone: كيف and
     # السيف end in the same two letters and are right as stored.
     check("standalone ya-fa is fi", repair_lam_alef("وهذا يف البيت"), "وهذا في البيت")

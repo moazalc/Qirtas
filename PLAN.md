@@ -1398,6 +1398,35 @@ Small files of the sample (`--max-pages 30`) and the theses
 not comparable with one after. The spelling check's "backwards" rows for
 those files go away with them.
 
+## N3c: display shapes folded to letters, 2026-09-22
+
+Some PDF makers store Arabic as presentation forms - one codepoint per SHAPE
+of a letter (initial, medial, final, isolated) rather than the letter. It
+looks right and cannot be searched, spell-checked or reshaped by Word.
+`arabic.fold_display_forms` maps each shape back to its letter (Unicode
+NFKC, per character), and the lam-alef shapes to لا لأ in reading order. It
+runs inside `repair_lam_alef`, so the reader, the gate's reference and right
+page all get it at the same point. Kept as typed: ﷺ ﷻ ﷽ and the Quran
+brackets ﴾ ﴿, which NFKC would expand or flatten.
+
+Spelling check (Word's own reading), our output before -> after, all four
+at 100% nothing lost both ways:
+
+    z20679271   9 pages   confirmed  4.6% -> 91.4%   display 95.0% -> 0
+    z20276275  18 pages              2.5% -> 88.6%           97.4% -> 0
+    z19740548  20 pages              2.5% -> 80.5%           97.0% -> 0
+    z21761968  20 pages             33.9% -> 87.5%           61.5% -> 0
+
+Small files of the sample and the theses (`2026-09-22-dev-n3c-display`):
+gate 100%, only z21761968 moved - right page 0.331 -> 0.683, as its text now
+matches what Word prints - average 49.1% -> 52.0%. Theses unchanged.
+
+**Revealed, not caused:** 14% of z19740548's words now read backwards
+(لصاوتلا for التواصل). Part of it is stored in screen order; as display
+shapes those words were unreadable too. It is the short digital backwards
+file N3b lacked (FLAGS 1) - 20 pages, the one to build a line reorder on.
+z21761968 also has words in reverse order within some lines.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

@@ -161,6 +161,10 @@ In order:
   digital file is backwards except `z21889411` (LaTeX, 130 pages), parked.
   Averages jump because scans left them - not comparable with before.
   Write-up in `PLAN.md` ("N3b"). New: garbled fonts, FLAGS 23.
+- **N3c. DONE (2026-09-22).** Display shapes folded to letters: four small
+  files from 3-34% confirmed words to 80-91%, gate 100%, theses unchanged.
+  Write-up in `PLAN.md` ("N3c"). Found: `z19740548` (20 pages) is partly
+  stored backwards - the short example for a line reorder, if wanted.
 - ~~N3b. Build the reorder of backwards files~~ (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).

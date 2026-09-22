@@ -74,6 +74,34 @@ YA, FA = "ي", "ف"
 _STANDALONE_YF = re.compile(rf"(?<=[{_BOUND}]){YA}{FA}(?=[{_BOUND}])")
 
 
+import unicodedata
+
+# Arabic presentation forms (TASKS N3c, 2026-09-22): one codepoint per SHAPE of
+# a letter - initial, medial, final, isolated - instead of the letter itself.
+# Some PDF makers store text that way. It displays right and is useless: Word
+# cannot search it, spell-check it or reshape it, and z21508463 was 93% such
+# glyphs. Unicode's compatibility folding (NFKC) maps each shape back to its
+# letter, and the lam-alef ligature shapes (ﻻ ﻷ) to لا لأ in reading order.
+#
+# Letter shapes only. The same blocks hold symbols an author types on
+# purpose - ﷺ, ﷻ, ﷽ and the ornate Quran brackets ﴾ ﴿ - which NFKC would
+# expand into whole phrases or plain brackets, changing the document.
+_KEEP = {chr(c) for c in range(0xFDF0, 0xFE00)} | {"﴾", "﴿"}
+
+
+def _is_display_form(c):
+    o = ord(c)
+    return (0xFB50 <= o <= 0xFDFF or 0xFE70 <= o <= 0xFEFC) and c not in _KEEP
+
+
+def fold_display_forms(text):
+    """Arabic presentation-form letters -> the letters they are shapes of."""
+    if not text or not any(_is_display_form(c) for c in text):
+        return text
+    return "".join(unicodedata.normalize("NFKC", c) if _is_display_form(c) else c
+                   for c in text)
+
+
 def repair_lam_alef(text):
     """Put reversed lam-alef ligatures back in their written order.
 
@@ -89,6 +117,7 @@ def repair_lam_alef(text):
     """
     if not text:
         return text
+    text = fold_display_forms(text)
     text = _STANDALONE_AL.sub(LAM + ALEF, text)
     text = _STANDALONE_YF.sub(FA + YA, text)
     return _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)

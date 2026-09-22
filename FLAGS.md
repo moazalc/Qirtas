@@ -12,7 +12,8 @@ Each entry says what it is, why it matters, and what would close it.
 **Status: CLOSED 2026-09-22 (TASKS N3b).** Premise was wrong: the files are
 mostly SCANS, now refused (Moaz: "refuse scans, fix the few"). Of digital
 files, one is really backwards - `z21889411`, LaTeX, reversed line by line,
-130 pages - parked until a short example exists. Details in `PLAN.md` "N3b".
+130 pages - parked until a short example exists. (Found with N3c: `z19740548`,
+20 pages, is partly backwards once its display shapes are folded.) Details in `PLAN.md` "N3b".
 
 **2026-09-22, starting N3b.** Counting function words against their
 reversals on the first pages of every corpus file with Arabic text (156):

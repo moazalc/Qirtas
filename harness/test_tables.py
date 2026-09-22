@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 
 from convert.reader import _cell_text, WS
+from convert.arabic import fold_display_forms
 
 FAILED = []
 FONT = Path.home() / ".local/share/fonts/arabic/Amiri-Regular.ttf"
@@ -86,6 +87,9 @@ def main():
     # What the page itself holds in the cell's rectangle. This, not our own
     # idea of the text, is what a correct read must return.
     on_page = flat_of(page.get_text("text", clip=tight))
+    # As the reader hands it on: this font writes display shapes, and the
+    # reader folds them to letters since 2026-09-22 (TASKS N3c).
+    want = fold_display_forms(on_page)
 
     print("the bug: flipping the string is not the inverse of visual order")
     # Exactly the failure seen on z21011460: reversing the stored form
@@ -95,7 +99,7 @@ def main():
 
     print("\nthe page's own reading wins over a corrupted one")
     got = flat_of(_cell_text(page, tight, corrupt, flat))
-    check("clip is used, not the fallback", got, on_page)
+    check("clip is used, not the fallback", got, want)
     check("the corrupted reading was discarded", got == corrupt, False)
 
     print("\nguard 1: a clip that swallows a neighbour is refused")
@@ -103,11 +107,11 @@ def main():
     # the table finder's reading. Trusting it would put a neighbouring cell's
     # words inside this one.
     got = flat_of(_cell_text(page, greedy, on_page, flat))
-    check("a clip much longer than the cell is not trusted", got, on_page)
+    check("a clip much longer than the cell is not trusted", got, want)
 
     print("\nguard 2: no box at all falls back rather than guessing")
     got = flat_of(_cell_text(page, None, on_page, flat))
-    check("the fallback is used when there is no rectangle", got, on_page)
+    check("the fallback is used when there is no rectangle", got, want)
 
     print("\na cell the table finder read as empty still gets its text")
     check("an empty fallback does not blank the cell",
