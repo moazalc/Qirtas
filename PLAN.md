@@ -1422,6 +1422,20 @@ fault, next to fix.
 
 Every one of these made the numbers lie before it was found:
 
+0. **Right page read Word's own backwards ligatures (2026-09-22).** Our
+   output is rendered to PDF by Word to be scored, and Word writes its
+   ligatures backwards like the documents it made: our correct خلال reads
+   back as خالل. The original's words were compared as stored, broken the
+   same way, so it mostly cancelled - until the converter began spelling
+   them right. Repairing only the original made right page FALL (z19851706
+   0.824 -> 0.747); repairing both sides, as the gate always did, is right.
+   Re-scored on identical output: small unseen files 30.6% -> 35.2%, theses
+   68.2% -> 73.1%. Unrelated documents 3.5% -> 3.7%, so it is not a more
+   generous scorer - words on the right page were being missed. **Every
+   right page recorded under Word before this is understated and is not
+   comparable.** `fit._spilled` still reads both sides unrepaired, which is
+   consistent with itself.
+
 1. **~~LibreOffice reverses Arabic letter pairs~~ (لا -> ال) — WRONG, and the
    wrong explanation sat here long enough to be repeated as fact.** The
    reversal is in the SOURCE pdf. لا is a ligature, one glyph, and the font's

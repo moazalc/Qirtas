@@ -152,8 +152,10 @@ In order:
 - **N3a+. DONE (2026-09-22): other backwards ligatures** (في, المجتمع,
   التي). Confirmed words 81.6% -> 84.1% on the small readable files, one
   file 77.7% -> 88.5%, gate 100%. Write-up in `PLAN.md` ("Other ligatures").
-  Next: right page compares with the original's words as stored, so fixing
-  spelling reads as a loss there - repair the original's side too.
+  Right page read Word's own backwards ligatures on OUR side and the stored
+  misspellings on the original's; both are now repaired (`PLAN.md`
+  caveat 0). Same output re-scored: small unseen 30.6% -> 35.2%, theses
+  68.2% -> 73.1%. Older right-page numbers are not comparable.
 - **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).

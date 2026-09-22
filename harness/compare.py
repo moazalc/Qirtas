@@ -303,9 +303,20 @@ def ink_iou(pa, pb, dpi=72):
 MIN_WORD = 4
 
 
-def _page_words(page):
-    """Distinctive words on a page - short ones match everywhere, so drop them."""
-    return [w for w in WORD.findall(page.get_text("text")) if len(w) >= MIN_WORD]
+def _page_words(page, fixes=None):
+    """Distinctive words on a page - short ones match everywhere, so drop them.
+
+    `fixes`: repair the page's text the way `text_of` does before matching.
+    Both sides need it. The original's, or every word the converter spells
+    right stops matching its stored misspelling - z21095413 0.335 -> 0.318
+    the day ligatures were repaired (2026-09-22). And OURS: the rebuilt pdf
+    is made by Word, and Word writes its ligatures backwards like everyone
+    else, so our correct خلال reads back as خالل. Repairing only the
+    original made right page FALL on most files (z19851706 0.824 -> 0.747)."""
+    t = page.get_text("text")
+    if fixes is not None:
+        t = apply_fixes(repair_lam_alef(t), fixes)
+    return [w for w in WORD.findall(t) if len(w) >= MIN_WORD]
 
 
 def page_alignment(orig_pdf, rebuilt_pdf):
@@ -322,9 +333,15 @@ def page_alignment(orig_pdf, rebuilt_pdf):
     it renders our .docx, which damages a few words per page, not enough to
     matter against thousands.
     """
+    fixes = {}
+    for side in (orig_pdf, rebuilt_pdf):
+        try:
+            fixes[side] = fix_map(side)
+        except Exception:
+            fixes[side] = {}
     with pymupdf.open(orig_pdf) as A, pymupdf.open(rebuilt_pdf) as B:
-        pa = [_page_words(p) for p in A]
-        pb = [_page_words(p) for p in B]
+        pa = [_page_words(p, fixes[orig_pdf]) for p in A]
+        pb = [_page_words(p, fixes[rebuilt_pdf]) for p in B]
     if not pa:
         return 0.0, []
     per = []
