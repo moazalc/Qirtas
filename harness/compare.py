@@ -12,6 +12,7 @@ import pymupdf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.arabic import repair_lam_alef
+from convert.glyphs import repaired
 from convert.pdftext import apply_fixes, fix_map
 
 WORD = re.compile(r"\S+")
@@ -36,6 +37,10 @@ def text_of(pdf_path):
     # substitutions to whatever each of them extracted. Deriving them here
     # independently - rather than being handed them - is what makes that true
     # regardless of which route the reader took.
+    # A font whose table names the wrong letters is read through the same
+    # corrected copy the converter reads (FLAGS.md 23) - on either side:
+    # Word's own export of our file drops vowel marks to blanks the same way.
+    pdf_path = repaired(pdf_path)
     try:
         fixes = fix_map(pdf_path)
     except Exception:
@@ -333,6 +338,7 @@ def page_alignment(orig_pdf, rebuilt_pdf):
     it renders our .docx, which damages a few words per page, not enough to
     matter against thousands.
     """
+    orig_pdf, rebuilt_pdf = repaired(orig_pdf), repaired(rebuilt_pdf)
     fixes = {}
     for side in (orig_pdf, rebuilt_pdf):
         try:

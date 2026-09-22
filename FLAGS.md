@@ -672,15 +672,36 @@ comes from the same glyphs.)
 
 ## 23. Fonts that map letters to the wrong characters
 
-**Status: found 2026-09-22, not counted, no decision.**
+**Status: repaired where the font is installed, 2026-09-22 (Moaz: "we need to
+fix flag 23"). Open for fonts that are not installed.**
 
-Some digital files decode to gibberish because the font's table from glyphs
-to letters is wrong, not reversed: `z21764814` from page 2 (رحلة reads
-رحيي, و reads هن), `z21760325`, and part of `z20375390`. There is no right
-text inside the file to recover. The checker reads the same gibberish, so
-the gate scores it 100%, as it did the scans. Only a picture of the page,
-or character recognition, could get the words back.
+Some digital files decode to gibberish because the table from each drawn
+shape to its letter is wrong: `z20375390` prints يعد السرطان مشكلة صحية
+and stores يعد السررررررشكلة صحرررررررة. This note first said "there is no
+right text inside the file to recover". **That was wrong.** The shapes are
+right, each with its number in the font, and when the font is installed
+here its own tables name every shape. `convert/glyphs.py` writes a corrected
+table into a copy of the PDF; the converter and every score read that copy.
+Write-up in `PLAN.md` ("FLAGS 23").
 
-**Closes when:** such files are detected, and Moaz chooses: warn, refuse, or
-convert those pages as pictures.
+It is far wider than the three files first seen: 75 of 233 corpus files
+have at least one wrong shape, among them 3,371 of 11,097 words of
+`z20763272`. Word's OWN export does it too - on this machine it stores vowel
+marks as blanks in our rebuilt PDFs - so the checker repairs both sides.
+
+**Two things this leaves:**
+
+- **Fonts not installed here** (AL-Mohanad, Amiri, 29LT Azer, Cairo) cannot
+  be named, so their files stay gibberish, silently: `z21760325` and part of
+  `z21764814`. A user's machine has fewer fonts than this one.
+- **No independent check sees it.** Word's own reading (the spelling check,
+  N3) reads through the same broken table - its reading of `z20763272` has
+  كالسياسية five times and والسياسية never - so after the repair it marks
+  the corrected words "unconfirmed". The gate reads the corrected copy on
+  both sides. Only looking at the page verifies it; it was looked at on
+  `z20393612`, `z20763272` and `z20375390`.
+
+**Closes when:** files whose fonts cannot be named are detected and Moaz
+chooses warn, refuse, or pages as pictures; and something other than Word's
+reading checks the repair.
 

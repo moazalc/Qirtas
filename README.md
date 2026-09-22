@@ -179,7 +179,7 @@ PDF's own text layer.
 
 ### tests
 
-Twenty suites, all passing as of 2026-09-22. Each is a plain script:
+Twenty-one suites, all passing as of 2026-09-22. Each is a plain script:
 
     export PYTHONUTF8=1
     for t in harness/test_*.py; do .venv/Scripts/python "$t" || echo "FAILED $t"; done
@@ -188,9 +188,9 @@ Twenty suites, all passing as of 2026-09-22. Each is a plain script:
 log file raises `UnicodeEncodeError` and four suites fail for reasons that have
 nothing to do with the converter.
 
-    alignment  answerkey  arabic  fit  footnotes  heading_style  headings
-    image_drop  images  inline  labels  lists  loss_gate  notes  pagination
-    scan  spelling  tables  text_score  xml_safe
+    alignment  answerkey  arabic  fit  footnotes  glyphs  heading_style
+    headings  image_drop  images  inline  labels  lists  loss_gate  notes
+    pagination  scan  spelling  tables  text_score  xml_safe
 
 Their docstrings are where the failure modes are recorded — `test_arabic.py` and
 `test_loss_gate.py` especially are worth reading before touching either area.
@@ -220,6 +220,8 @@ Word's run-to-run noise has not been measured yet; assume the same until it is.
 - `convert/writer.py` — builds the .docx, handling the right-to-left details
 - `convert/fit.py` — page-fitting, so page breaks line up with the original
 - `convert/arabic.py` — repairs for text the source PDF hands over backwards
+- `convert/glyphs.py` — reads a font's shapes when its table names the wrong
+  letters (FLAGS 23); needs the font installed
 - `harness/` — the checker, corpus tooling and tests
 
 `convert/arabic.py` is imported by **both** the converter and the checker, and

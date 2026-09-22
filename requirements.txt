@@ -1,6 +1,8 @@
 cffi==2.1.1
 charset-normalizer==3.5.1
 cryptography==50.0.1
+# For convert/glyphs.py: reads the installed fonts' own tables (FLAGS.md 23).
+fonttools==4.65.0
 lxml==6.1.3
 numpy==2.5.3
 packaging==26.3

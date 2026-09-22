@@ -1459,6 +1459,60 @@ to a few words wide - a table-layout fault shrinking cannot fix (tables).
 Left: a picture-only ORIGINAL page that spills is still blamed on the page
 before it (FLAGS 9).
 
+## FLAGS 23: fonts naming the wrong letters, repaired, 2026-09-22
+
+A PDF stores, for each letter, the SHAPE drawn (its number in the font) and
+a table saying which character the shape is. Word's export writes that table
+wrong for some fonts, and every reader - PyMuPDF, Word's own PDF reading,
+copy and paste - trusts it. The page looks right and reads as gibberish;
+the gate saw 100%, because it read the same gibberish.
+
+`convert/glyphs.py`. For each composite font whose codes are shape numbers
+(Identity-H), look the font up among the installed ones and name each shape
+from the font's own tables: the character map, then the shaping rules
+(GSUB) for letter forms and joined pairs. Word keeps the installed font's
+shape numbers when it embeds part of it; that is checked per font - 90% of
+the widths the PDF records must equal the installed font's - before
+anything changes. A corrected copy is written (cached in the temp folder by
+content), and `v1.convert`, `fit`, `compare.text_of` and `page_alignment`
+all read it.
+
+Replacing is per shape, and only where it is safe. Every rule was a wrong
+change on a real file first (tests in `harness/test_glyphs.py`):
+
+    kept as stored   a typed 2 or ; that Word DISPLAYS as ٢ or ؛  (z22110258)
+                     a letter with its vowel mark - تِ is one shape, and
+                     the rules named it تن                        (our own)
+                     a letter with the same base shape as the name,
+                     unless the font is scrambled (dots drawn as marks
+                     name the base of في as ڜ)                     (z21095413)
+                     a hamza drawn as its own mark                 (z21760107)
+    replaced         the stretching stroke stored as ر ي ذ or blank
+                     a letter stored as a blank or a letter of another shape
+                     a joined pair or vowel mark stored as junk
+
+The best check was our own files: we know exactly what text went into the
+rebuilt PDFs, so every proposed change there could be checked against it.
+After the rules, the only changes left there were vowel marks Word stored as
+blanks - all in our text.
+
+    small files (2026-09-22-dev-glyph-repair-2)   right page 54.4% -> 55.3%
+                  z20763272 0.83 -> 0.96, z19851706 0.82 -> 0.84;
+                  z20375390 0.47 -> 0.45, z20397518 0.45 -> 0.43 (not looked at)
+    theses        right page 73.1% -> 73.9% - an instrument change, not a
+                  converter one: our rebuilt PDFs' vowel marks now read
+    gate          100% both
+
+Word-reading spelling check: 74.8% confirmed, and it FELL on the repaired
+files (z20763272 88.5% -> 59.6%) - Word reads through the broken table
+too, so its word list is the gibberish. Not usable for these files; see
+FLAGS 23. Looked at instead: z20393612 (مراجعة نقدية مقارنة recovered from
+مغاحعت هلض ًت ملاعهت), z20763272 (العلوم القانونية والسياسية), z20375390.
+
+Where the stretching stroke was stored as a letter, it becomes the stroke
+character (ـ) in our Word file, as the page drew it. An empty entry would
+have been cleaner but readers then fall back to a Latin-1 letter (»).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

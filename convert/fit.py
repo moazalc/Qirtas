@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 
+from convert.glyphs import repaired
 from convert.v1 import convert as convert_once
 from harness.compare import _page_words
 
@@ -26,7 +27,7 @@ ROUNDS = 6
 
 def _spilled(orig_pdf, rebuilt_pdf):
     """Which original pages needed more than one page in our output?"""
-    with pymupdf.open(orig_pdf) as A, pymupdf.open(rebuilt_pdf) as B:
+    with pymupdf.open(orig_pdf) as A, pymupdf.open(repaired(rebuilt_pdf)) as B:
         orig = [set(_page_words(p)) for p in A]
         ours = [set(_page_words(p)) for p in B]
     return {i for i, n in collections.Counter(_owners(orig, ours)).items()
@@ -91,6 +92,9 @@ def _owners(orig, ours):
 
 def convert(pdf_path, out_path, render=None):
     """render(docx) -> pdf path. Without one this is a single pass."""
+    # Matched against the corrected copy when a font needed one: our pages
+    # carry the real words, the original's table does not (FLAGS.md 23).
+    pdf_path = repaired(pdf_path)
     scale, route = {}, convert_once(pdf_path, out_path)
     if render is None:
         return route

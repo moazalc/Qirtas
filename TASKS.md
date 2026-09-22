@@ -163,6 +163,11 @@ In order:
   digital file is backwards except `z21889411` (LaTeX, 130 pages), parked.
   Averages jump because scans left them - not comparable with before.
   Write-up in `PLAN.md` ("N3b"). New: garbled fonts, FLAGS 23.
+- **FLAGS 23. DONE where the font is installed (2026-09-22).** Fonts that
+  name the wrong letters are read by their shapes: 75 of 233 corpus files
+  touched, `z20763272` 3,371 words recovered, gate 100%, theses unchanged
+  but for an instrument change. Write-up in `PLAN.md` ("FLAGS 23"). Left:
+  fonts not installed (FLAGS 23), and no check but looking.
 - **N3c. DONE (2026-09-22).** Display shapes folded to letters: four small
   files from 3-34% confirmed words to 80-91%, gate 100%, theses unchanged.
   Write-up in `PLAN.md` ("N3c"). Found: `z19740548` (20 pages) is partly
