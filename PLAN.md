@@ -1567,8 +1567,16 @@ twice (23 -> 39 pages), `z21087226` reads its English references as tables
 Seen outside the sample, not counted: `الفصل الثالث` writes its opening
 heading three times (تمهيدتمهيدتمهيد) and doubles its first paragraph.
 
-**Caveat.** One grader, and it is me. Severity is judgement. Moaz is to
-spot-check a handful of pages against the log.
+**Moaz reviewed all 49 pages against the log** (2026-09-22): 42 agree, 7
+"missed something", none too harsh or too lenient. So the grading
+undercounts, it does not inflate. His additions (13, now 123 defects):
+page numbers wrong or missing on 4 files (a consequence of overflow where
+Word counts its own pages, or no number at all); a full stop inside a word
+(العرا .ق - stored so in the source: this file has 50 word-initial full
+stops, and we copy every one); a table running left-to-right; a chart title
+misplaced; a page with no header or footer at all. On `الفصل الثالث` p.16
+he reads the stacked line pictures as the text twice; the fix he wants is
+the one the log names - only the box, at the right size.
 
 ## Known unfinished
 
