@@ -141,6 +141,14 @@ In order:
   sides repairing in different orders. Write-up in `PLAN.md` ("N3a").
   Left: `z22246498` (over 60 pages, not in the sample) had ~290 more words
   backwards in an unrecorded older output - check it with the repair on.
+- **Seen 2026-09-22, looking at `z22110258` p.38 (not yet counted):** a
+  sentence ending in a note number is printed twice - once in its paragraph
+  with the number now a real footnote reference, once again at the page
+  foot as plain text ending "1". Likely backfill: the sentence with "1" is
+  not found once the "1" became a note, so it is added again. Same page: its
+  three notes merged into note 1; the running header sits in the body on
+  every page; "في" comes out "يف" and "المعلومات" as "املعلومات" (other
+  ligatures stored backwards - lam-meem, and ya-fa), visible on every line.
 - **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).
