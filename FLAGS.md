@@ -527,7 +527,10 @@ is the baseline now. 68.8% was LibreOffice and is not comparable to it.
 
 ## 20. The Arabic lam-alef fix breaks the gate on unseen files
 
-**Status: PARKED at Moaz's call, 2026-09-21. Off by default.**
+**Status: CLOSED 2026-09-22 - traced, fixed, ON by default (TASKS N3a).**
+Parked at Moaz's call on 2026-09-21; switched back on under his decision to
+fix the spelling (FLAGS 22), once it held the gate. Details in `PLAN.md`
+("N3a"). Kept below for the history.
 
 `convert/pdftext.py` (geometric lam-alef and punctuation repair) changed
 nothing on the theses - its trust check excludes them by design - so the
@@ -552,8 +555,18 @@ recompiled per paragraph); fixed, verified byte-identical.
 misspellings against Word's reading, which does not share our extractor.
 A working repair shows as that share falling to ~0 (TASKS N3a).
 
-**Closes when:** the loss is traced and the fix passes the gate on unseen
-files, or it is dropped.
+**Traced (2026-09-22): not lost text.** The reader and the checker applied
+the spelling repair and the glyph repair in opposite orders, and the spelling
+repair is not safe to run twice. On z22110258 the checker got الاسلامية and
+we got الاسالمية; the gate read every such sentence as lost. Also fixed on
+the way: the map keyed on whitespace tokens (a note number glued to a word
+stopped it), the punctuation half of the repair (it made DVB-S into D-VBS,
+and is out), words stretched with alefs (z20276145), and a second glyph
+signature that finds ~130 more broken words. After, repair on vs off:
+
+    nothing lost      100% on 24 unseen files and the 8 theses
+    lam-alef words    1.2% -> 0.1% (harness.spelling, not our extractor)
+    words in order    68.9% -> 68.9%     right page 30.7% -> 30.8%
 
 ---
 

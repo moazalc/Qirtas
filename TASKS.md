@@ -48,8 +48,8 @@ Windows. Committed locally; not yet pushed.
 pages** (`--max-pages`, Moaz's call: no more long waits); a regression run
 takes under two minutes.
 
-**The Arabic lam-alef fix is PARKED, off by default.** It broke the gate on
-unseen files - `FLAGS.md` 20.
+**The Arabic lam-alef fix is ON by default since 2026-09-22** (N3a). It was
+parked after breaking the gate on unseen files - `FLAGS.md` 20, now closed.
 
 **Run `python -m harness.env` before trusting any number.** It reports the Word
 version, which Arabic faces are installed, and whether the Arabic fix was on.
@@ -135,11 +135,12 @@ In order:
   glyphs, backwards files 35% provably backwards - and our output matches
   the gate's reference on every count, so the gate sees none of it. Write-up
   in `PLAN.md` ("N3").
-- **N3a. Build the lam-alef repair and judge it with N3** (FLAGS 20): the
-  lam-alef share should fall to ~0 with confirmed rising by the same, gate
-  held. Start with `z22110258`, where the old attempt lost 20%. Also look
-  at `z22246498`: an unrecorded older output of it had ~290 more words
-  backwards than the reference (`PLAN.md` "N3").
+- **N3a. DONE (2026-09-22).** The lam-alef repair, on by default. Lam-alef
+  misspellings 1.2% -> 0.1% of words on the 24 unseen files, gate 100% there
+  and on the theses, nothing else moved. The old 20% "loss" was the two
+  sides repairing in different orders. Write-up in `PLAN.md` ("N3a").
+  Left: `z22246498` (over 60 pages, not in the sample) had ~290 more words
+  backwards in an unrecorded older output - check it with the repair on.
 - **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).
@@ -433,7 +434,7 @@ looking wrong. See `FLAGS.md` 15.
     .venv/Scripts/python -m harness.eval --n 30 --label what-changed
     for t in harness/test_*.py; do .venv/Scripts/python -m harness.$(basename $t .py); done
 
-`QIRTAS_ARABIC_FIX=off` turns the geometric lam-alef repair off on both sides
+`QIRTAS_ARABIC_FIX=off` turns the geometric lam-alef repair (on by default) off on both sides
 at once, for measuring it against its own absence. `harness.env` records it.
 
 Every eval run records itself in `out/runs/<date>-<set>-<label>/` with the

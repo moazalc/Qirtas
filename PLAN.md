@@ -1249,6 +1249,64 @@ in `out/work/wordread/`.
 lam-alef share should fall to ~0 and confirmed rise by the same, with the
 gate reading the same repair on both sides.
 
+## N3a: the lam-alef repair, on and holding the gate, 2026-09-22
+
+The glyph repair (`convert/pdftext.py`) was parked on 2026-09-21 after it
+cost the gate 20% on `z22110258` (FLAGS 20). N3 gave a way to judge it that
+does not share our extractor, so it was taken apart.
+
+**The 20% was not lost text.** Two repairs touch lam-alef: the spelling
+rules (`arabic.repair_lam_alef`, always on) and the glyph map. The reader
+ran spelling first, as it read, and the map at the end; the checker ran the
+map first. A word with two broken ligatures, االسالمية for الاسلامية, was
+half-repaired by spelling to الاسالمية, and the map - keyed on the stored
+form - no longer recognised it. The checker had the right word, we did not,
+and every sentence holding one read as lost. The spelling rules are also
+not safe to run twice, which is what the last two failures turned out to be.
+
+What changed, each found by a run that failed:
+
+- **Both sides run the same order:** spelling as read, then the map
+  (`compare.text_of` was the other way round). The map carries each word
+  both as stored and as the spelling rules leave it. The reader does not
+  run the spelling rules a second time - on `z20276145` that moved alefs
+  one place further and cost 21% of the gate.
+- **The map is keyed on words, not whitespace tokens.** A word is a run of
+  Arabic letters, so a note number glued to it (`واإلسالميني1`) - which N2b
+  turns into a real note on our side only - no longer stops the repair on
+  one side.
+- **The punctuation half is out.** The repair also moved spaces and marks
+  to where the page draws them. Those moves cross words and only fire where
+  both sides split words alike; it gave the checker `D-VBS` for DVB-S and
+  `دراسةم لأمون`. `arabic.reorder_neutrals` still exists, unused by the map.
+- **A second glyph signature.** In some fonts the ligature's alef is not
+  zero width. It and the lam still END AT THE SAME EDGE, being one glyph.
+  On ten files every zero-width case had the shared edge too, and the edge
+  alone found ~130 more broken words (االعالم, األجل) with no false hit. A
+  looser test - the alef inside its neighbour's box - changed غزال and تزال.
+- **Words stretched with alefs are skipped** (`z20276145` sets المصلحة as
+  المصاااالحة). Three alefs in a row are never spelling; the two sides
+  moved different filler alefs. Without this rule that file keeps 95.2%.
+
+Repair on vs off, same 24 unseen files and the theses
+(`out/runs/2026-09-22-dev-n3a-fix-on-v3`, `-regression-n3a-fix-on-v3`,
+`-dev-spelling-n3a-v3`, against `2026-09-21-dev-n2b`):
+
+    nothing lost          100% / 100% theses        100% / 100%
+    lam-alef words        1.2%                      0.1%    (harness.spelling)
+    confirmed words       58.8%                     60.0%
+    words in order        68.9%                     68.9%
+    right page            30.7%                     30.8%   same page counts
+
+The theses do not change: their glyphs are untrustworthy by the existing
+check, so the map is empty there. **On by default** since this run;
+`QIRTAS_ARABIC_FIX=off` turns it off on both sides.
+
+Left: the 11 backwards-stored files moved from 34.5% to 36.5% "backwards"
+by the spelling check, as ligatures inside reversed words were put right -
+consistent with, not a substitute for, the reorder (N3b). Other broken
+ligatures, like lam-meem (اجملتمع for المجتمع), are untouched.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

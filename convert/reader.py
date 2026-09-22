@@ -1558,13 +1558,20 @@ def read(path, image_dir=None):
         fixes = fix_map(path)
     except Exception:
         fixes = {}
+    # The spelling repair is NOT run again here. It is not safe twice: on
+    # z20276145, which stretches words with alefs, each pass moves an alef
+    # one place further, and a second pass cost that file 21% of the gate.
+    # The checker (`compare.text_of`) runs the same two steps in this order:
+    # spelling as read, then the map.
     if fixes:
+        def fix(t):
+            return apply_fixes(t, fixes)
         for b in best.blocks:
-            b.text = apply_fixes(b.text, fixes)
+            b.text = fix(b.text)
             if b.spans:
-                b.spans = [(apply_fixes(t, fixes), *rest) for t, *rest in b.spans]
+                b.spans = [(fix(t), *rest) for t, *rest in b.spans]
             if b.rows:
-                b.rows = [[apply_fixes(c, fixes) for c in row] for row in b.rows]
+                b.rows = [[fix(c) for c in row] for row in b.rows]
 
     best = _backfill(best, results, path)
     _page_numbers(best, path)

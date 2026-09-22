@@ -20,24 +20,23 @@ our output stops matching the thing it is scored against and a genuine fix
 reads as a regression.
 
 So the repairs are derived from the glyphs ONCE, expressed as
-{broken text -> repaired text} over whole words, and then applied as text by
+{broken word -> repaired word}, and then applied as text by
 whoever has text. Both sides derive the same map from the same file and apply
 it to whatever they extracted, so neither can be repaired without the other.
 """
-import difflib
 import os
 import re
 import unicodedata
 
 import pymupdf
 
-from convert.arabic import _ZERO_W, repair_line
+from convert.arabic import _ZERO_W, repair_lam_alef, repair_ligatures
 
 __all__ = ["fix_map", "apply_fixes", "line_items", "enabled"]
 
 
 def enabled():
-    """Is the geometric repair switched on? QIRTAS_ARABIC_FIX=on turns it on.
+    """Is the geometric repair switched on? QIRTAS_ARABIC_FIX=off turns it off.
 
     It exists to measure the repair against its own absence on the same code,
     the same machine and the same renderer. Off is exactly the behaviour
@@ -46,12 +45,16 @@ def enabled():
     one side repaired and not the other is the failure this file was written
     around.
 
-    OFF by default since 2026-09-21: on 29 unseen files it broke the hard
-    gate, 100.0% -> 98.3%, worst file 79.9%. Parked, not diagnosed - see
-    FLAGS.md 20. QIRTAS_ARABIC_FIX=on to measure it.
+    Off from 2026-09-21 to 2026-09-22: on 29 unseen files it broke the hard
+    gate, 100.0% -> 98.3%, worst file 79.9%. ON again since 2026-09-22 (TASKS
+    N3a): the loss was the reader and the checker applying the two repairs in
+    different orders, not lost text. Fixed, the gate holds at 100% on the 24
+    unseen files and the theses, and lam-alef misspellings fall from 1.2% to
+    0.1% of words by `harness.spelling`, which does not share our extractor.
+    See FLAGS.md 20 and PLAN.md "N3a".
     """
-    flag = os.environ.get("QIRTAS_ARABIC_FIX", "off").strip().lower()
-    return flag in ("on", "1", "true", "yes")
+    flag = os.environ.get("QIRTAS_ARABIC_FIX", "on").strip().lower()
+    return flag not in ("off", "0", "false", "no")
 
 # A fragment shorter than this is too common to replace safely: mapping ال onto
 # لا everywhere would corrupt every definite article in the document. The
@@ -59,22 +62,25 @@ def enabled():
 # unit has to be big enough to be specific.
 MIN_FRAGMENT = 3
 
-# One word of context on each side of a change. Without it a neutral that
-# crossed a word boundary produces a one-sided pair: the period that moves from
-# the front of a line to the end gave `.طنجة،` -> `طنجة،`, which DELETES a
-# character wherever it fires. With context the same change reads as a balanced
-# replacement of two words by two words.
-CONTEXT = 1
 
 
 def line_items(line):
-    """One rawdict line -> [(char, x0, x1)], repaired and ordered."""
+    """One rawdict line -> [(char, x0, x1)], lam-alef repaired.
+
+    Lam-alef only. This used to be `arabic.repair_line`, which also moves
+    spaces and punctuation to where the page draws them. That half is out,
+    2026-09-21 (TASKS N3a): a moved neutral crosses words, so its fragment is
+    several words long and fires only where both sides split the words alike.
+    On z22110258 it gave the checker "دراسةم لأمون فندي( 2008)" and "D-VBS"
+    for DVB-S while our text kept the page's spacing - reported as lost.
+    A lam-alef swap stays inside one word, and the gate's pass or fail no
+    longer depends on where each side put its spaces."""
     items = []
     for span in line.get("spans", []):
         for ch in span["chars"]:
             x0, _, x1, _ = ch["bbox"]
             items.append((ch["c"], x0, x1))
-    return repair_line(items)
+    return repair_ligatures(items)
 
 
 # A glyph layer has to be worth reading before its geometry can be trusted.
@@ -151,51 +157,38 @@ def _line_pairs(page, all_lines=None):
     return out
 
 
-def _fragments(stored, repaired):
-    """Minimal word-level (before, after) pairs between two versions of a line.
+# A word, for the map: a run of Arabic letters and their marks. Not a
+# whitespace-separated token - a note number or a bracket glued to the word
+# ("واإلسالميني1") is part of a token, and the reader moves such numbers into
+# real notes (N2b), so a token-keyed repair then fired on the checker's side
+# only.
+LETTERS = "ء-غف-يً-ٰٟٱ-ۓ"
+_WORD = re.compile(f"[{LETTERS}]+")
+# Three alefs in a row are not Arabic spelling. z20276145 stretches its words
+# with them - المصلحة set as المصاااالحة - and there the alefs next to a lam
+# are filler, not ligature halves: the checker and the reader each moved a
+# different one, and the gate lost 14% of the file. Such words are left to
+# the spelling rules, which both sides apply alike.
+_STRETCHED = re.compile("[اأإآ]{3,}")
 
-    Words rather than characters, because a character-level diff of a line
-    whose spaces moved produces fragments like " " -> "" that are meaningless
-    out of context and dangerous to apply globally.
+
+def _fragments(stored, repaired):
+    """(before, after) for each WORD the ligature repair changed.
+
+    The repair swaps two adjacent letters and nothing else, so the repaired
+    line is the stored one with some pairs exchanged: same length, and every
+    word in the same place. Compared position by position, a changed word is
+    one whose letters changed - no diff, and no fragment that can span words.
     """
-    # split() rather than split(" "): runs of whitespace collapse, so a
-    # fragment is a sequence of WORDS and never carries an empty token or a
-    # stray leading space. apply_fixes matches it back against any spacing,
-    # which is what makes this survive the two extraction modes disagreeing
-    # about where spaces fall - PLAN.md caveat 1.
-    a, b = stored.split(), repaired.split()
-    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b).get_opcodes():
-        if tag == "equal":
-            continue
-        i1, j1 = max(0, i1 - CONTEXT), max(0, j1 - CONTEXT)
-        i2, j2 = min(len(a), i2 + CONTEXT), min(len(b), j2 + CONTEXT)
-        before, after = " ".join(a[i1:i2]), " ".join(b[j1:j2])
-        # Never yield a pair that removes text. The hard gate exists to stop
-        # words going missing, and a repair that can delete one is a worse
-        # failure than the defect it fixes. `.strip()`, not truthiness: the
-        # first version of this test passed `' '` as a target and would have
-        # deleted a whole heading.
-        if not before.strip() or not after.strip():
-            continue
-        # A repair REORDERS characters; it never adds or removes one. Whole
-        # lines always satisfy that - both repairs are permutations - but a
-        # fragment of a line need not, because a character can move from one
-        # end of the line to the other. The full stop stored at the front of a
-        # line gave `.طنجة، المملكة` -> `طنجة، المملكة` and
-        # `المملكة المغربية` -> `المملكة المغربية.`, a matched pair that only
-        # balances if BOTH fire. Applied singly either one changes the text
-        # length, and 72 characters went missing from one file that way.
-        #
-        # So the fragment must be a permutation on its own, ignoring spaces
-        # (a displaced space is exactly what `ت بدأ` -> `تبدأ` removes). The
-        # cost is that a punctuation mark stored at the wrong end of its line
-        # stays there. That is the right side to err on: it is legible, and
-        # losing a character is not.
-        if sorted(before.split()) and \
-                sorted(c for c in before if not c.isspace()) != \
-                sorted(c for c in after if not c.isspace()):
-            continue
-        if before != after and len(before) >= MIN_FRAGMENT:
+    if len(stored) != len(repaired):
+        return
+    for m in _WORD.finditer(stored):
+        before, after = m.group(), repaired[m.start():m.end()]
+        # Never a word the swap reached into from outside: then it is not a
+        # permutation of itself, and applying it alone would change letters.
+        if (before != after and sorted(before) == sorted(after)
+                and len(before) >= MIN_FRAGMENT
+                and not _STRETCHED.search(before)):
             yield before, after
 
 
@@ -203,19 +196,18 @@ def fix_map(path):
     """-> {broken fragment: repaired fragment} for this PDF.
 
     Derived from glyph geometry, so it says only what the page itself shows:
-    which alef-lam pairs came out of a single ligature glyph, and which spaces
-    and punctuation marks are stored away from where they are drawn.
+    which alef-lam pairs came out of a single ligature glyph. One entry per
+    word (a run of letters).
 
-    Two fragments are dropped rather than trusted:
+    Two words are dropped rather than trusted:
 
       - one that maps to two different repairs. The same broken text is then
         genuinely ambiguous, and guessing is how a repair starts corrupting
         text instead of fixing it;
-      - one whose `before` still appears somewhere the page did NOT repair.
-        `المغربية` -> `المغربية.` is right on the line whose full stop was
-        stored at the front, and wrong on every other line that ends the same
-        word without one. A substitution is global even when the evidence for
-        it is local, so it is only kept when every occurrence agrees.
+      - one whose `before` still appears somewhere the page did NOT repair -
+        a real alef beside a real lam somewhere else. A substitution is global
+        even when the evidence for it is local, so it is only kept when every
+        occurrence agrees.
     """
     if not enabled():
         return {}
@@ -245,18 +237,29 @@ def fix_map(path):
         if _pattern(k).search(settled):
             continue
         out[k] = v
+    # The same word as both sides will hold it when the map is applied: the
+    # reader and the checker both repair lam-alef by spelling first
+    # (`reader._clean`, `compare.text_of`), then apply this map. A word with
+    # two ligatures - االسالمية, stored for الاسلامية - is half-repaired by
+    # spelling to الاسالمية, and a map keyed only on the stored form no
+    # longer matched it. When the checker applied the map first, it got the
+    # word right and we did not, and the gate read 20% of z22110258 as lost
+    # (FLAGS 20). Spaces around it, because the spelling rule needs a
+    # boundary on both sides.
+    for k, v in list(out.items()):
+        k2 = repair_lam_alef(" " + k + " ").strip()
+        if k2 != k and k2 not in out and k2 not in seen \
+                and not _pattern(k2).search(settled):
+            out[k2] = v
     return out
 
 
 def _pattern(fragment):
-    """A fragment as a regex: whole words, any whitespace between them.
+    """A word as a regex: whole, bounded by anything that is not a letter.
 
-    The two readers and the checker extract through different pymupdf modes,
-    and those disagree about where spaces fall. Matching `\\s+` between words
-    rather than a literal space is what lets one map repair all of them.
-    """
-    words = [re.escape(w) for w in fragment.split()]
-    return re.compile(r"(?<!\S)" + r"\s+".join(words) + r"(?!\S)")
+    So `حامال` never fires inside a longer word, and does fire beside a digit,
+    a bracket or a line break."""
+    return re.compile(f"(?<![{LETTERS}])" + re.escape(fragment) + f"(?![{LETTERS}])")
 
 
 _COMPILED = {}
@@ -275,7 +278,7 @@ def _compile(fixes):
     hit = _COMPILED.get(id(fixes))
     if hit is not None and hit[0] is fixes:
         return hit[1]
-    out = [((k.split() or [""])[0], _pattern(k), v) for k, v in
+    out = [(k, _pattern(k), v) for k, v in
            sorted(fixes.items(), key=lambda kv: len(kv[0]), reverse=True)]
     if len(_COMPILED) > 8:
         _COMPILED.clear()

@@ -112,6 +112,9 @@ import unicodedata
 # own, not a glyph. Measured at exactly 0.0 on every case seen; the tolerance
 # is for fonts that round.
 _ZERO_W = 0.15
+# Two boxes ending within this of each other end at the same edge: halves of
+# one glyph. Measured at exactly equal on every case seen.
+_SAME_EDGE = 0.3
 
 
 def repair_ligatures(chars):
@@ -134,13 +137,24 @@ def repair_ligatures(chars):
     the next step sees it beside the FOLLOWING lam and swaps again: زيلالي
     stored as زياللي came back زيللاي, moving the alef one place too far. The
     two halves of a ligature are one glyph and can only be swapped once.
+
+    A second signature, 2026-09-22: in some fonts the first half is NOT zero
+    width. The z22110258 bibliography, in Traditional Arabic, gives the alef
+    of اإلعالم a box 6.45 wide - but the alef and the lam END AT THE SAME
+    EDGE, because they are one glyph's two halves, and the lam runs on past
+    it. Two real glyphs never share an edge like that. On ten files every
+    zero-width case also had the shared edge; the edge alone found ~130 more
+    broken words (األجل, االختالف) and fired on no correctly spelled one. A
+    looser "the alef sits inside its neighbour's box" test did: غزال, تزال.
     """
     out = list(chars)
     i = 0
     while i < len(out) - 1:
         a, ax0, ax1 = out[i][:3]
-        b = out[i + 1][0]
-        if a in HAMZA_ALEFS and b == LAM and (ax1 - ax0) < _ZERO_W:
+        b, bx0, bx1 = out[i + 1][:3]
+        one_glyph = ((ax1 - ax0) < _ZERO_W
+                     or (abs(ax1 - bx1) < _SAME_EDGE and bx0 < ax0 - _SAME_EDGE))
+        if a in HAMZA_ALEFS and b == LAM and one_glyph:
             out[i], out[i + 1] = out[i + 1], out[i]
             i += 2
         else:

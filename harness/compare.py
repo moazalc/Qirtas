@@ -42,7 +42,13 @@ def text_of(pdf_path):
         fixes = {}
     with pymupdf.open(pdf_path) as d:
         raw = "\n".join(pg.get_text("text") for pg in d)
-    return repair_lam_alef(apply_fixes(raw, fixes))
+    # Spelling repair FIRST, then the map - the reader's order (`_clean` as it
+    # reads, the map at the end). The spelling repair is not safe to run
+    # twice, so the two orders differ on some words: on z20375390 the map's
+    # output was spelling-repaired again here and not in the reader, and the
+    # gate lost 1.6% (TASKS N3a). The map carries each word both as stored
+    # and as the spelling repair leaves it, so either order finds it.
+    return apply_fixes(repair_lam_alef(raw), fixes)
 
 
 def text_of_docx(docx_path):

@@ -174,6 +174,21 @@ def main():
         line("جمال", [3, 3, 3, 3])))
     check("a real word ending alef-lam is left alone", got, "جمال")
 
+    # z22110258's bibliography font: the ligature's alef has a real width, but
+    # it and the lam are one glyph, so they END AT THE SAME EDGE and the lam
+    # runs on past the alef. Stored االعالم for الاعلام.
+    items = [("ا", 440, 443), ("ا", 436, 440), ("ل", 431, 436), ("ع", 425, 431),
+             ("ا", 424, 430), ("ل", 418, 430), ("م", 414, 418)]
+    got = "".join(t[0] for t in repair_ligatures(items))
+    check("a ligature with a wide alef, by its shared edge", got, "االعلام")
+
+    # غزال: a real alef that overlaps the letter before it, as kerning does.
+    # Its own box, and it does not end where the lam ends. Untouched - the
+    # looser test "the alef sits inside its neighbour" changed this word.
+    items = [("غ", 440, 446), ("ز", 434, 440), ("ا", 434, 437), ("ل", 428, 434)]
+    got = "".join(t[0] for t in repair_ligatures(items))
+    check("a kerned real alef is left alone", got, "غزال")
+
     print("\nand neutrals go where the page says they go")
     # `مقدمة:` is stored `:مقدمة`, colon first, and the first line of a
     # paragraph stores its TRAILING space second - so `تبدأ` arrives as `ت بدأ`,
@@ -226,6 +241,27 @@ def main():
     check("a well-formed rtl line is a no-op",
           "".join(t[0] for t in reorder_neutrals(good)), "قال لا شيء")
     check("empty line", logical_text([]), "")
+
+    print("\nand the fix map works in words, whatever sits beside them")
+    # FLAGS 20: the map was keyed on whitespace tokens with a word of context.
+    # A note number glued on ("واإلسالميني1") became a real note in our text
+    # and stayed in the checker's, so the repair fired on one side only.
+    from convert.pdftext import _fragments, apply_fixes
+    check("one pair per changed word, letters only",
+          list(_fragments("للعرب واإلسالميني1 .", "للعرب والإسلاميني1 .")),
+          [("واإلسالميني", "والإسلاميني")])
+    # z20276145 stretches words with alefs (المصلحة as المصاااالحة). Those
+    # alefs are filler; the two sides moved different ones and the gate fell
+    # to 95% with this rule off.
+    check("a word stretched with alefs is left to the spelling rules",
+          list(_fragments("المصاااالحة", "المصااالاحة")), [])
+    check("no pair when the lengths differ (not a swap)",
+          list(_fragments("اال", "الا ")), [])
+    fixes = {"واإلسالميني": "والإسلاميني"}
+    check("fires beside a digit or a bracket",
+          apply_fixes("(واإلسالميني1)", fixes), "(والإسلاميني1)")
+    check("never inside a longer word",
+          apply_fixes("كواإلسالميني", fixes), "كواإلسالميني")
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
