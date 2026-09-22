@@ -181,11 +181,22 @@ In order:
 - **N3c. Display-form glyphs** (`z21508463`, `z21761968`): fold to ordinary
   letters (Unicode NFKC does it) - a scope question for Moaz only if the
   fold breaks something.
-- **N4. Look at 50 random pages**, log every defect by kind, count them. That
-  count sets the fix order.
-- **N5. Fix from the top of that count.** Known first candidate: a list
-  inside a `/Footnote` escapes into the body (`reader.py` pushes only
-  PARAGRAPH down into footnote context). It is Moaz's `الفصل الثالث` example.
+- **N4. DONE (2026-09-22).** 49 random pages looked at: 110 defects, every
+  page has one. Count and method in `PLAN.md` ("N4"); log in
+  `out/work/n4/defects.json`.
+- **N5. Fix from the top of that count**, cheapest first where it is close:
+  1. **Wrong body font** - `_dominant_font` skips Arial as generic and
+     picks a font seen once. One line; every page of 3 thesis chapters.
+  2. **Running headers, page-number graphics, coloured bands in the body**
+     - 16 pages, 7 files. The largest cause.
+  3. **Punctuation, numbers, brackets in RTL lines** - 15 pages, 9 files.
+     Careful: the last attempt moved punctuation and broke DVB-S (N3a).
+  4. **Footnotes and endnotes** - 12 pages: notes as body text, the list
+     inside a note escaping (Moaz's `الفصل الثالث`), Roman numerals.
+  5. **Tables** - 7 pages, but the worst files: written twice, false tables
+     from a reference list, squeezed columns, shaded boxes as grids.
+  6. **Whole pages written twice** (`z21762915`) - severity 3.
+  7. Then headings/lists merged, formatting, digits, letters.
 - **N6. Try PyMuPDF-Layout** on the label-stripped copies only; keep it only
   if it beats our rules on the N2 scorecard.
 

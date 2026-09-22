@@ -1513,6 +1513,63 @@ Where the stretching stroke was stored as a letter, it becomes the stroke
 character (ـ) in our Word file, as the page drew it. An empty entry would
 have been cleaner but readers then fall back to a Latin-1 letter (»).
 
+## N4: 49 pages looked at, defects counted, 2026-09-22
+
+The scores cannot see most of what is wrong - the box drawn twice, a whole
+page written twice, gibberish all scored "nothing lost 100%". So: 49 random
+pages, looked at against the original, every defect logged by cause and
+severity (3 can't use it / 2 fix by hand / 1 cosmetic). Sample fixed by seed
+2026 (`out/work/n4/sample.json`): 15 of Moaz's thesis pages (7 chapters,
+`عن بعد` has one page, hence 49) and 34 from 15 small wild files, at most 3
+per file. Log: `out/work/n4/defects.json`. Each suspected defect was checked
+against the original first - the box on `الفصل الثالث` turned out to be
+PICTURES in the original too, not text we duplicated.
+
+**Every one of the 49 pages has at least one defect. 110 in all.**
+
+    cause                                               pages files  weight
+    running header / page-number graphics in the body     16    7      34
+    punctuation, numbers, brackets misplaced in RTL lines  15    9      29
+    footnotes/endnotes: in the body, lists escaping,
+      Roman numerals                                       12    8      23
+    wrong body font                                        10    5      20
+    tables: written twice, squeezed, boxes as grids,
+      false tables                                          7    7      17
+    headings, lists, title blocks merged / marks lost      10    7      15
+    letters wrong (stretch strokes as alef, jumbled
+      header, honorific lost, loose marks)                  6    5      13
+    formatting lost (bold, italic, underline, colour)      12    8      12
+    Arabic-Indic digits shown as Western                   10    5      10
+    whole text or entries written twice                     3    2       8
+    wrong page numbers                                      3    1       6
+    lines stored backwards                                  2    1       4
+    overlaid pictures stacked                               1    1       2
+
+    weight = severity summed over defects
+
+**On Moaz's theses** (15 pages) the text is right almost everywhere; what is
+wrong is how it looks: digits (10 pages), the wrong font (8), bold lost (6),
+three footnote faults, the honorific ﷺ lost twice.
+
+**The wrong-font bug** is one line of cause: `reader._dominant_font` counts
+fonts by pages seen and skips Arial, Calibri and Times as generic - and the
+theses' body IS Arial, so the only candidate left is a font seen once. Three
+chapters come out entirely in AGA Arabesque, a symbol font not installed
+here; `مقدمة البحث` in Sakkal Majalla.
+
+**The worst files are journals**: running headers, page-number graphics and
+coloured bands in the body (FLAGS 14 was closed for repeating TEXT; these
+are pictures, boxes and one-off headers it does not catch), and three files
+two-thirds longer than the original - `z21762915` writes each page's text
+twice (23 -> 39 pages), `z21087226` reads its English references as tables
+(23 -> 41), `z21418248` overflows every page (22 -> 36).
+
+Seen outside the sample, not counted: `الفصل الثالث` writes its opening
+heading three times (تمهيدتمهيدتمهيد) and doubles its first paragraph.
+
+**Caveat.** One grader, and it is me. Severity is judgement. Moaz is to
+spot-check a handful of pages against the log.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
