@@ -12,8 +12,12 @@ import pymupdf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.arabic import repair_lam_alef
-from convert.glyphs import repaired
+from convert.glyphs import repaired, spell_out
 from convert.pdftext import apply_fixes, fix_map
+# ١٢١ and 121 are the same number, read the same on both sides. The writer
+# shows digits the way the original's pages did (N5a), and the original
+# STORES them typed: without this every number it corrected read as lost.
+from convert.footnotes import WESTERN
 
 WORD = re.compile(r"\S+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")   # harakat + tatweel
@@ -53,7 +57,7 @@ def text_of(pdf_path):
     # output was spelling-repaired again here and not in the reader, and the
     # gate lost 1.6% (TASKS N3a). The map carries each word both as stored
     # and as the spelling repair leaves it, so either order finds it.
-    return apply_fixes(repair_lam_alef(raw), fixes)
+    return spell_out(apply_fixes(repair_lam_alef(raw), fixes)).translate(WESTERN)
 
 
 def text_of_docx(docx_path):
@@ -124,7 +128,7 @@ def text_of_docx(docx_path):
     out.extend(endnotes[k] for k in sorted(endnotes, key=int))
     # Word stores text XML-escaped: "A & B" is "A &amp; B" on disk. Without
     # unescaping, every ampersand looked like lost text.
-    return html.unescape("\n".join(out))
+    return html.unescape("\n".join(out)).translate(WESTERN)
 
 
 def _furniture_texts(z):
@@ -321,7 +325,7 @@ def _page_words(page, fixes=None):
     t = page.get_text("text")
     if fixes is not None:
         t = apply_fixes(repair_lam_alef(t), fixes)
-    return [w for w in WORD.findall(t) if len(w) >= MIN_WORD]
+    return [w for w in WORD.findall(spell_out(t).translate(WESTERN)) if len(w) >= MIN_WORD]
 
 
 def page_alignment(orig_pdf, rebuilt_pdf):

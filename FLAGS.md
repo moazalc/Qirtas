@@ -715,3 +715,21 @@ is not a fault - most files with one read fine.
 **Closes when:** that warning is built, and something other than Word's
 reading checks the repair.
 
+## 24. Four small files lose text, and the usual sample never ran them
+
+**Status: open, found 2026-09-22 (N5a).**
+
+Every eval so far took a 23-file sample of the small dev files. N5a ran all
+48, and four lose text: `z21094872` 99.35%, `z21095073` 98.65%, `z21762458`
+98.67%, `z21763864` 98.89%. **Not caused by N5a** - converted with the code
+before it, all four lose exactly the same sentences. So "nothing lost has
+held at 100%" was true of the sample, not of the dev set.
+
+What is missing, by a first look: long runs of words with no spaces
+(`صـــدرللكاتبالمغربي...`), numbered lines ending `(12)`, and on `z21763864`
+a line of jumbled letters (`ونّرصفالنأيوقفاإىل`). Not yet known whether the
+text is truly gone or the checker misreads it.
+
+**Closes when:** each is traced, fixed or shown to be the checker, and the
+gate runs on all small dev files, not the sample.
+

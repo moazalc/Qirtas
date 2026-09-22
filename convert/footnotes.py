@@ -48,9 +48,15 @@ MARKER = re.compile(r"(?:[\(\[]\s*(\d{1,3})\s*[\)\]]|"
                     + MARK_OPEN + r"(\d{1,3})" + MARK_CLOSE + ")")
 
 
+# A note number as a plain number: ١٢ and 12 are the same note. The writer
+# shows digits as the original did (N5a), in the body by the Arabic around
+# them - so a reference and its note can come out in different forms.
+WESTERN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)
+
+
 def marker_numbers(text):
     """Every note number referred to in this text, in order."""
-    return [a or b for a, b in MARKER.findall(text or "")]
+    return [(a or b).translate(WESTERN) for a, b in MARKER.findall(text or "")]
 
 
 def split_number(text):
@@ -58,7 +64,7 @@ def split_number(text):
     m = NUMBER.match(text or "")
     if not m:
         return None, (text or "").strip()
-    return m.group(1), (text or "")[m.end():].strip()
+    return m.group(1).translate(WESTERN), (text or "")[m.end():].strip()
 
 
 def _sep(kind, tag, wid, note="footnote"):

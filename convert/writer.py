@@ -18,9 +18,10 @@ from docx.oxml.ns import qn
 from docx.shared import Emu, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
+from convert.glyphs import spell_out
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
 from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
-                               marker_numbers, RAISED,
+                               marker_numbers, RAISED, WESTERN,
                                build_xml, install)
 
 PT_PER_EMU = 12700
@@ -89,13 +90,71 @@ def _scrub(model: Doc):
     builds its XML by hand and whose escape() does not touch controls either).
     Cleaning the model instead means all three are covered by one pass, and the
     invariant - nothing unrepresentable gets past this line - is in one place.
+    A sign no font draws is written out here for the same reason
+    (glyphs.SPELLED).
     """
     for b in model.blocks:
-        b.text = _xml_safe(b.text)
+        b.text = spell_out(_xml_safe(b.text))
         if b.spans:
-            b.spans = [(_xml_safe(t), *rest) for t, *rest in b.spans]
+            b.spans = [(spell_out(_xml_safe(t)), *rest) for t, *rest in b.spans]
         if b.rows:
-            b.rows = [[_xml_safe(c) for c in row] for row in b.rows]
+            b.rows = [[spell_out(_xml_safe(c)) for c in row] for row in b.rows]
+
+
+SHOWN = {"arabic": str.maketrans("0123456789", "\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669"),
+         "persian": str.maketrans("0123456789", "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9")}
+STRONG = re.compile(r"[A-Za-z\u00C0-\u024F\u0370-\u04FF]|"
+                    r"[\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF\uFB50-\uFDFF\uFE70-\uFEFC]")
+
+
+def _in_context(text, table, rtl):
+    """Typed digits as the original showed them: after an Arabic letter in
+    the shown form, after a Latin one as typed - Word's own "Context" rule.
+    Digits before any letter follow the paragraph's direction."""
+    out, arabic, last = [], rtl, 0
+    for m in STRONG.finditer(text):
+        piece = text[last:m.start()]
+        out.append(piece.translate(table) if arabic else piece)
+        arabic = not LTR_CHARS.match(m.group(0))
+        out.append(m.group(0))
+        last = m.end()
+    tail = text[last:]
+    out.append(tail.translate(table) if arabic else tail)
+    return "".join(out)
+
+
+def _show_digits(model: Doc):
+    """Write digits the way the original's pages show them (N5a).
+
+    Word stores a typed 121 and, set to Hindi or Context numbers, DRAWS
+    ١٢١: the text says one thing and the page another. Moaz's theses show
+    ١٢١ everywhere; ours showed 121, because the reader's Word is set
+    otherwise and the file cannot say which it wants. So the digits are
+    written as shown. Only where the embedded font proves it
+    (glyphs.shown_digits) - a typed 121 displayed as 121 stays 121.
+
+    Page numbers cannot follow: they are Word's PAGE field, whose digits come
+    from the reader's settings (hindiNumbers is Devanagari, tried 2026-09-22).
+    Idempotent, since write() runs on the same model every fit round.
+    """
+    table = SHOWN.get(model.digits)
+    if table is None:
+        return
+    for b in model.blocks:
+        rtl = is_rtl(b.text)
+        b.text = _in_context(b.text, table, rtl)
+        if b.spans:
+            # Spans are pieces of one line of text: take the context across
+            # them, then cut back at the same places (a digit stays one char).
+            joined = _in_context("".join(t for t, *_ in b.spans), table, rtl)
+            spans, at = [], 0
+            for t, *rest in b.spans:
+                spans.append((joined[at:at + len(t)], *rest))
+                at += len(t)
+            b.spans = spans
+        if b.rows:
+            b.rows = [[_in_context(c, table, is_rtl(c)) for c in row]
+                      for row in b.rows]
 
 
 def _flag(parent, tag, val="1"):
@@ -790,7 +849,7 @@ def _split_markers(text, notes):
     """-> [(text, None) | ("", number)] splitting on markers we have a note for."""
     out, at = [], 0
     for m in FN_MARKER.finditer(text):
-        num = m.group(1) or m.group(2)
+        num = (m.group(1) or m.group(2)).translate(WESTERN)
         if num not in notes:
             continue
         out.append((text[at:m.start()], None))
@@ -915,6 +974,7 @@ def _endnotes(pages):
 def write(model: Doc, out_path, scale=None):
     doc = Document()
     _scrub(model)
+    _show_digits(model)
     _page_setup(doc, model)
     # write() is called repeatedly on the same model by the fit loop, so start
     # from empty rather than accumulating the same drops once per round.

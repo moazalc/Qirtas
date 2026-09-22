@@ -1578,6 +1578,66 @@ misplaced; a page with no header or footer at all. On `الفصل الثالث` 
 he reads the stacked line pictures as the text twice; the fix he wants is
 the one the log names - only the box, at the right size.
 
+## N5a: the look of the theses - font, signs, digits, 2026-09-22
+
+Three faults N4 found on Moaz's theses, all on how the text LOOKS.
+
+**The body font.** `_dominant_font` counted the pages each font appeared on
+and skipped Arial, Calibri and Times as "generic". The theses' body IS
+Arial, and their words are pictures labelled with their text (the tags
+route), so no font draws them: what was left was a font seen once. Three
+chapters came out in AGA Arabesque, one in Sakkal Majalla. Now it counts
+the letters each font draws - Arabic ones, or ones that do not decode;
+Latin only when there is no Arabic - and skips only fonts of signs. All six
+chapters now pick Arial.
+
+It found a second fault on the way: **the font was written under its PDF
+name**, `SimplifiedArabic`, `SakkalMajalla`, `TimesNewRomanPSMT`. Word looks
+fonts up by family name, finds nothing and substitutes. `glyphs.family()`
+turns the PDF name into the installed family's (`Simplified Arabic`); 168
+of 233 corpus files choose differently now, most of them only by that name.
+Many now pick Times New Roman - it is what draws their Arabic (Word's default
+complex-script font), counted, not assumed: `z20129076` draws 9,746 Arabic
+letters in it and 911 in Simplified Arabic.
+
+**The signs ﷺ and رضي الله عنه.** AGA Arabesque stores them as private codes
+(F072, F074), and they were dropped altogether: on the tags route a sign is
+the only real text on the page, under a label with no text, and the route
+reads labels only. Two changes:
+- `glyphs.SYMBOL_FONTS` names the signs in the repaired copy: F072 as ﷺ
+  (U+FDFA, in every common font), F074 as U+FD47. No font here draws FD47,
+  so the writer and the checker both spell it out (`spell_out`). Named by the
+  three words directly, the line holding it came out BACKWARDS in PyMuPDF
+  and the gate fell to 97.9% - a PDF table entry must be one character.
+- `reader._sign_reader`: a label with no text of its own takes the text its
+  content draws, in a font of signs only - every other file reads as before.
+`الفصل الثالث` now has all 13 رضي الله عنه and both ﷺ, each in its place.
+
+**Digits.** Word stores a typed 121 and, set to Hindi or Context numbers,
+draws ١٢١. The theses show ١٢١; ours showed 121, since that is a setting of
+the reader's Word, not of the file. `glyphs.shown_digits` asks the font
+embedded in the PDF what it drew for each typed digit - in the theses the
+shape stored as 5 is the embedded Arial's `uni0665`. Six theses and six wild
+files show Arabic-Indic. For those the writer writes ١٢١ after Arabic and
+121 after Latin (Word's own Context rule). Footnote pairing and the checker
+read ١٢١ and 121 as one number (`footnotes.WESTERN`).
+- **Page numbers cannot follow.** They are Word's PAGE field, drawn in the
+  reader's setting. `hindiNumbers` is Devanagari (१२१), `\* Arabic` and an
+  Arabic language tag change nothing - all tried in Word.
+- A first try matched Persian digits: Arial draws ٤ and ۴ with one shape.
+
+**Results** (`--max-pages 30`, `2026-09-22-{dev,regression}-n5a-font-digits-3`):
+
+    theses          nothing lost 100%, words in order 97.6 -> 99.0%,
+                    right page 80.4%, every chapter its own page count
+    dev, all 48     nothing lost 99.9% - four files, and ALL FOUR lose the
+                    same with the code before this change (FLAGS 24)
+
+Looked at (`out/work/n5a/look`): `الفصل الثالث` page 20 and `مقدمة البحث`
+page 4 - Arial, ١١٥٧/٣ and ١٤٨ as in the original, the signs in place.
+Still different there: bold body text lost, page numbers 66 not ٦٦, Word's
+footnote numbers 1, 2, 3 (N5d).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

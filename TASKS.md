@@ -187,11 +187,12 @@ In order:
 - **N5. Fix from the top of the N4 count.** Order agreed with Moaz
   2026-09-22. Each step: fix, tests, small-file eval + theses, gate 100%,
   and look at the N4 pages it touched.
-  - **N5a. Look of the theses** - `_dominant_font` skips Arial as generic
-    and picks a font seen once (3 chapters in AGA Arabesque). With it: the
-    honorific ﷺ (a private-use character in AGA Arabesque) written as ﷺ;
-    Arabic-Indic digits shown where the original shows them - Moaz:
-    "whatever is used must stay the same", the typed digits unchanged.
+  - **N5a. Look of the theses** - DONE 2026-09-22 (PLAN "N5a"). The body
+    font by the letters each font draws, under the name Word knows it by;
+    ﷺ and رضي الله عنه read and written; digits shown as the original
+    showed them. Left: page numbers stay in the reader's setting (Word
+    cannot be told), and FLAGS 24 - four small files losing text since
+    before this - to trace next.
   - **N5b. Headers, footers, page numbers** - journal headers, logos,
     page-number graphics and coloured bands out of the body (17 pages, 8
     files); page numbers present and right (7 pages, 4 files).

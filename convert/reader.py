@@ -20,6 +20,7 @@ from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, I
 from convert.arabic import repair_lam_alef
 from convert.pdftext import apply_fixes, fix_map
 from convert.footnotes import MARK_OPEN, MARK_CLOSE, marker_numbers
+from convert.glyphs import shown_digits
 
 # Structure labels that mean "a block starts here".
 BLOCK_TAGS = {
@@ -38,7 +39,13 @@ def _clean(s):
     # Every route's text passes through here, which makes it the one place the
     # lam-alef repair has to go - see convert/arabic.py.
     s = repair_lam_alef(s)
-    return WS.sub(" ", (s or "").replace("\r", " ").replace("\n", " ")).strip()
+    s = WS.sub(" ", (s or "").replace("\r", " ").replace("\n", " ")).strip()
+    # A sign read from its own label is set apart by spaces (_sign_reader);
+    # the punctuation after it belongs against it, as in the original.
+    return SIGN_GAP.sub(r"\1", s)
+
+
+SIGN_GAP = re.compile("([" + chr(0xFDFA) + chr(0xFD47) + r"]) (?=[،؛,.:)])")
 
 
 SENT_SPLIT = re.compile(r"[.؟!؛:\n]+|،")
@@ -262,9 +269,74 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         pending.append(str(actual))
     elif node.get("/Alt") is not None:
         pending.append(_Alt(str(node.get("/Alt"))))
+    elif "signs" in state:
+        pending.extend(state["signs"](state["page"], _mcids(node.get("/K"))))
     kids = node.get("/K")
     if kids is not None:
         _walk(kids, doc, pages, pending, depth + 1, ctx, state)
+
+
+def _mcids(kids):
+    """The marked-content numbers a label points at directly."""
+    if isinstance(kids, pikepdf.Array):
+        return [n for k in kids for n in _mcids(k)]
+    if isinstance(kids, int):
+        return [int(kids)]
+    if isinstance(kids, pikepdf.Dictionary) and kids.get("/Type") == "/MCR":
+        return [int(kids.get("/MCID"))] if kids.get("/MCID") is not None else []
+    return []
+
+
+def _sign_reader(pdf):
+    """page, [mcid] -> the signs drawn there in a font of signs.
+
+    Moaz's theses draw every word as a picture labelled with its text, and
+    only ﷺ and رضي الله عنه as real text - AGA Arabesque, under a label of its
+    own with no text. The tags route reads labels, so every sign was dropped
+    (N4: "the honorific lost"). Only text in a font of signs is taken, so
+    labels on any other file read exactly as before.
+    """
+    from convert.glyphs import SYMBOL_FONTS, _key, read_tounicode
+    cache = {}
+
+    def read_page(i):
+        out, mcid, table = {}, None, None
+        page = pdf.pages[i]
+        fonts = page.obj.get("/Resources", {}).get("/Font", {})
+        tables = {}
+        for name, f in fonts.items():
+            tu = f.get("/ToUnicode")
+            if _key(str(f.get("/BaseFont", ""))) in SYMBOL_FONTS and tu is not None:
+                tables[name] = read_tounicode(tu.read_bytes())
+        if not tables:
+            return out
+        for operands, op in pikepdf.parse_content_stream(page):
+            op = str(op)
+            if op == "BDC" and len(operands) > 1                     and isinstance(operands[1], pikepdf.Dictionary):
+                m = operands[1].get("/MCID")
+                mcid = int(m) if m is not None else mcid
+            elif op == "EMC":
+                mcid = None
+            elif op == "Tf":
+                table = tables.get(str(operands[0]))
+            elif op in ("Tj", "TJ") and table is not None and mcid is not None:
+                parts = operands[0] if op == "TJ" else [operands[0]]
+                for part in parts:
+                    if isinstance(part, pikepdf.String):
+                        b = bytes(part)
+                        out[mcid] = out.get(mcid, "") + "".join(
+                            table.get(int.from_bytes(b[k:k + 2], "big"), "")
+                            for k in range(0, len(b) - 1, 2))
+        return out
+
+    def signs(page, mcids):
+        if page not in cache:
+            try:
+                cache[page] = read_page(page)
+            except Exception:
+                cache[page] = {}
+        return [" " + cache[page][m] + " " for m in mcids if m in cache[page]]
+    return signs
 
 
 class _Alt(str):
@@ -292,7 +364,7 @@ def read_tags(path):
             raise RuntimeError("not tagged")
         pages = _page_index(pdf)
         doc.pages = len(pdf.pages)
-        pending, state = [], {"page": 0}
+        pending, state = [], {"page": 0, "signs": _sign_reader(pdf)}
         _walk(pdf.Root["/StructTreeRoot"].get("/K"), doc, pages, pending, state=state)
         _flush(doc, pending, state["page"])
     return doc
@@ -841,6 +913,7 @@ def measure_layout(path, doc):
                         if t and SANE_PT[0] <= sp["size"] <= SANE_PT[1]:
                             spans.extend([sp["size"]] * len(t))
     doc.font = _dominant_font(path)
+    doc.digits = shown_digits(path)
     if lefts:
         doc.margin_left = max(18.0, statistics.median(lefts))
         doc.margin_right = max(18.0, w - statistics.median(rights))
@@ -864,28 +937,54 @@ def measure_layout(path, doc):
 
 
 SUBSET = re.compile(r"^[A-Z]{6}\+")
-GENERIC = ("arial", "calibri", "times", "helvetica", "cambria", "wingdings", "symbol")
+# Fonts of signs and bullets, never the body's.
+SYMBOLIC = ("wingdings", "webdings", "symbol", "arabesque", "glyphless")
+STYLE = re.compile(r"[-,]?(Bold|Italic|BoldItalic|Regular|Light|MT|PS)$")
 
 
 def _dominant_font(path):
-    """The document's own Arabic font.
+    """The document's own Arabic font: the one that draws the most Arabic.
 
     Setting everything in Arial made our text noticeably wider than the
     original - Arial's Arabic is wide, and fonts like Sakkal Majalla or
     Simplified Arabic are not - which stretched every page.
+
+    It used to count the pages each font appeared on and skip Arial, Calibri
+    and Times as generic. But Arial is the body font of Moaz's theses, and
+    their Arabic is drawn as outlines with the words attached as labels, so
+    no font draws it at all: what was left was a font seen once. Three
+    chapters came out entirely in AGA Arabesque, a font of religious signs,
+    and one in Sakkal Majalla, which drew nothing (N4, 2026-09-22).
+
+    So count the letters each font draws: Arabic ones (and ones that do not
+    decode, as broken Arabic fonts' do not - AL-Mohanad's decode to private
+    codes), or when there are none, any letter or digit. A font of signs
+    never counts, nor one whose name was lost (CIDFont+F4). The name is
+    given the way Word knows the font: TimesNewRomanPSMT is Times New Roman.
     """
+    from convert.glyphs import family
     import collections
-    weight = collections.Counter()
+    arabic, other = collections.Counter(), collections.Counter()
     with pymupdf.open(path) as d:
         for i, page in enumerate(d):
-            for f in page.get_fonts(full=True):
-                name = SUBSET.sub("", str(f[3])).split(",")[0].strip()
-                name = re.sub(r"[-,]?(Bold|Italic|BoldItalic|Regular|Light|MT|PS)$", "", name)
-                if name and not any(g in name.lower() for g in GENERIC):
-                    weight[name] += 1
-            if i >= 9:
+            if i > 9:
                 break
-    return weight.most_common(1)[0][0] if weight else ""
+            for span in page.get_texttrace():
+                name = SUBSET.sub("", str(span["font"])).split(",")[0].strip()
+                name = name.lstrip("+")
+                for _ in range(2):
+                    name = STYLE.sub("", name)
+                if not name or name.startswith("CIDFont")                         or any(g in name.lower() for g in SYMBOLIC):
+                    continue
+                for ch in span["chars"]:
+                    c = ch[0]
+                    if (0x0600 <= c <= 0x06FF or 0xFB50 <= c <= 0xFEFF
+                            or 0xE000 <= c <= 0xF8FF or c in (0, 0xFFFD)):
+                        arabic[name] += 1
+                    elif c < 0xE000 and chr(c).isalnum():
+                        other[name] += 1
+    weight = arabic or other
+    return family(weight.most_common(1)[0][0]) if weight else ""
 
 
 def _ink_rows(page):

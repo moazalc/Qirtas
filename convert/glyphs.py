@@ -46,6 +46,31 @@ _BASIC = re.compile(r"[ء-ي]")
 _LETTER_OR_MARK = re.compile("[" + chr(0x0621) + "-" + chr(0x0652) + "]")
 _ARABIC = re.compile(r"[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
+# Fonts of religious signs drawn as one shape each, whose table names the
+# shape by a private code that means nothing outside the font: the reader
+# gets a box, Word a Latin letter. Named by looking at each shape
+# (Moaz's theses, 2026-09-22). Each is named by ONE character: named by the
+# three words it stands for, the line holding it came out backwards in
+# PyMuPDF (الفصل الثالث page 20) and the gate fell to 97.9%.
+SYMBOL_FONTS = {
+    "agaarabesque": {chr(0xF072): chr(0xFDFA),      # ﷺ
+                     chr(0xF074): chr(0xFD47)},     # رضي الله عنه
+}
+# Signs no font here draws (U+FD47 is Unicode 14): written out, by the writer
+# and by the checker alike.
+SPELLED = {chr(0xFD47): "رضي الله عنه"}
+
+
+def spell_out(text):
+    for sign, words in SPELLED.items():
+        if sign in (text or ""):
+            text = text.replace(sign, words)
+    return text
+
+
+# Bumped when the repair changes, so the cached copies are made again.
+REPAIR_VERSION = "3"
+
 _INDEX = None
 _MAPS = {}
 
@@ -89,6 +114,34 @@ def _index():
             if ps:
                 _INDEX.setdefault(_key(ps), str(f))
     return _INDEX
+
+
+# The PDF standard's built-in fonts, by the Windows font Word would use.
+_BUILT_IN = {"timesroman": "Times New Roman", "times": "Times New Roman",
+             "helvetica": "Arial", "courier": "Courier New"}
+_FAMILIES = {}
+
+
+def family(name):
+    """The name Word knows an installed font by, for a PDF's name of it:
+    TimesNewRomanPSMT -> Times New Roman, SakkalMajalla -> Sakkal Majalla.
+    Word looks fonts up by that name; given the PDF's own it finds nothing
+    and substitutes. A font not installed keeps the name it came with."""
+    k = _key(name)
+    if k in _BUILT_IN:
+        return _BUILT_IN[k]
+    path = _index().get(k)
+    if path is None:
+        return name
+    if path not in _FAMILIES:
+        from fontTools.ttLib import TTFont
+        try:
+            with TTFont(path, lazy=True) as t:
+                n = t["name"]
+                _FAMILIES[path] = n.getDebugName(16) or n.getDebugName(1) or name
+        except Exception:
+            _FAMILIES[path] = name
+    return _FAMILIES[path]
 
 
 def reference(name):
@@ -280,6 +333,83 @@ def write_tounicode(table):
     return "\n".join(lines).encode("latin-1")
 
 
+def _descendant(doc, xref):
+    """The CIDFont under a composite font, or None."""
+    kind, desc = doc.xref_get_key(xref, "DescendantFonts")
+    if kind == "xref":              # the array itself is a separate object
+        desc = doc.xref_object(int(desc.split()[0]))
+    m = re.search(r"(\d+) 0 R", desc)
+    return int(m.group(1)) if m else None
+
+
+DIGIT_SETS = {"arabic": 0x0660, "persian": 0x06F0}
+
+
+def shown_digits(pdf_path):
+    """Which digits the pages SHOW: "arabic" (٠١٢), "persian" (۰۱۲) or "".
+
+    Word stores a typed 121 as 121 and, with its numbers set to Hindi or
+    Context, draws ١٢١ - so the text says one thing and the page another,
+    and our file showed 121 where Moaz's theses show ١٢١ (N4). The font
+    embedded in the PDF knows which shape it drew: in those theses the
+    shape stored as 5 is the embedded Arial's `uni0665`. Only fonts whose
+    codes are shape numbers can be asked, which is what Word embeds for
+    Arabic text.
+    """
+    from fontTools.ttLib import TTFont
+    import io
+    count = {"": 0, **{k: 0 for k in DIGIT_SETS}}
+    with pymupdf.open(pdf_path) as doc:
+        fonts = {f[0] for p in doc for f in p.get_fonts()}
+        for xref in sorted(fonts):
+            try:
+                if doc.xref_get_key(xref, "Subtype")[1] != "/Type0" or \
+                        doc.xref_get_key(xref, "Encoding")[1] != "/Identity-H":
+                    continue
+                kind, tu = doc.xref_get_key(xref, "ToUnicode")
+                desc = _descendant(doc, xref)
+                if kind != "xref" or desc is None:
+                    continue
+                c2g = doc.xref_get_key(desc, "CIDToGIDMap")
+                if c2g[0] == "xref" or c2g[0] == "name" and c2g[1] != "/Identity":
+                    continue
+                fd = doc.xref_get_key(desc, "FontDescriptor")
+                ff = doc.xref_get_key(int(fd[1].split()[0]), "FontFile2")
+                if ff[0] != "xref":
+                    continue
+                digits = {c: t for c, t in read_tounicode(
+                    doc.xref_stream(int(tu.split()[0]))).items()
+                    if len(t) == 1 and "0" <= t <= "9"}
+                if not digits:
+                    continue
+                with TTFont(io.BytesIO(doc.xref_stream(int(ff[1].split()[0]))),
+                            lazy=True) as t:
+                    order = t.getGlyphOrder()
+                    # A shape can stand for several characters: Arial draws
+                    # Arabic ٤ and Persian ۴ alike only for some digits.
+                    back = {}
+                    for u, g in (t.getBestCmap() or {}).items():
+                        back.setdefault(g, set()).add(u)
+            except Exception:
+                continue
+            for gid, typed in digits.items():
+                if gid >= len(order):
+                    continue
+                g = order[gid]
+                us = set(back.get(g, ()))
+                if re.fullmatch(r"uni[0-9A-F]{4}", g):
+                    us.add(int(g[3:], 16))
+                if ord(typed) in us:
+                    count[""] += 1
+                    continue
+                for kind, zero in DIGIT_SETS.items():
+                    if zero + int(typed) in us:
+                        count[kind] += 1
+                        break
+    best = max(count, key=count.get)
+    return best if count[best] else ""
+
+
 def _widths(doc, descendant):
     """cid -> width from a CIDFont's /W array."""
     out = {}
@@ -331,17 +461,20 @@ def diagnose(doc, xref):
     kind, tu = doc.xref_get_key(xref, "ToUnicode")
     if kind != "xref":
         return None, "no table"
-    kind, desc = doc.xref_get_key(xref, "DescendantFonts")
-    if kind == "xref":              # the array itself is a separate object
-        desc = doc.xref_object(int(desc.split()[0]))
-    m = re.search(r"(\d+) 0 R", desc)
-    if not m:
+    name = doc.xref_get_key(xref, "BaseFont")[1].lstrip("/")
+    if _key(name) in SYMBOL_FONTS:
+        stored = read_tounicode(doc.xref_stream(int(tu.split()[0])))
+        signs = SYMBOL_FONTS[_key(name)]
+        fixes = {c: signs[t] for c, t in stored.items() if t in signs}
+        if not fixes:
+            return None, "fine"
+        return {**stored, **fixes}, f"{name}: {len(fixes)} signs named"
+    desc = _descendant(doc, xref)
+    if desc is None:
         return None, "no descendant font"
-    desc = int(m.group(1))
     c2g = doc.xref_get_key(desc, "CIDToGIDMap")
     if c2g[0] not in ("null", "name") or c2g[0] == "name" and c2g[1] != "/Identity":
         return None, "codes are renumbered"
-    name = doc.xref_get_key(xref, "BaseFont")[1].lstrip("/")
     ref = reference(name)
     if ref is None:
         return None, f"{name} not installed"
@@ -433,7 +566,7 @@ def repaired(pdf_path):
     otherwise the file itself. Cached by content, so the converter and the
     checker read the same copy."""
     pdf_path = str(pdf_path)
-    h = hashlib.sha1()
+    h = hashlib.sha1(REPAIR_VERSION.encode())
     with open(pdf_path, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)

@@ -73,6 +73,8 @@ class Doc:
     margin_bottom: float = 72.0
     body_size: float = 12.0
     font: str = ""       # the document's own Arabic font, if we can tell
+    # "arabic" or "persian" when the pages show typed digits in that form
+    digits: str = ""
     line_spacing: float = 1.15
     line_pitch: float = 0.0     # measured distance between lines, in points
     # (path, reason) for every picture the writer could not place. Filled by

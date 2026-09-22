@@ -16,6 +16,8 @@ file before it was a rule:
   - a hamza drawn as a mark of its own, inserted into a blank, lands before
     its letter (z21760107: ا became ٕا)
   - ﷲ and ﷴ are typed as letters
+  - AGA Arabesque stores its signs as private codes: ﷺ and رضي الله عنه
+    reached Word as a box (Moaz's theses)
 
 The table round trip and the name matching are tested too, since a table read
 wrongly would "repair" a correct file.
@@ -25,8 +27,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from convert.glyphs import (_key, _plain, _same, _trust, read_tounicode,
-                            write_tounicode)
+import pymupdf
+
+from convert.glyphs import (_key, _plain, _same, _trust, diagnose, family,
+                            read_tounicode, spell_out, write_tounicode)
 
 FAILED = []
 L = lambda *cps: "".join(map(chr, cps))
@@ -35,6 +39,20 @@ ALEF, BA, TA, JIM, HA, SIN, FA, LAM, MIM, NUN, WAW, YA = (
     L(0x627), L(0x628), L(0x62A), L(0x62C), L(0x62D), L(0x633), L(0x641),
     L(0x644), L(0x645), L(0x646), L(0x648), L(0x64A))
 TATWEEL, SHADDA, HAMZA_BELOW = L(0x640), L(0x651), L(0x655)
+
+
+def _sign_font():
+    """A document holding one font the way Word embeds AGA Arabesque."""
+    doc = pymupdf.open()
+    tu = doc.get_new_xref()
+    doc.update_object(tu, "<<>>")
+    doc.update_stream(tu, write_tounicode({0x55: L(0xF072), 0x57: L(0xF074),
+                                           0x20: " "}))
+    font = doc.get_new_xref()
+    doc.update_object(font, "<</Type/Font/Subtype/Type0/BaseFont"
+                      "/ABCDEE+AGA#20Arabesque/Encoding/Identity-H"
+                      f"/ToUnicode {tu} 0 R>>")
+    return doc, font
 
 
 def check(name, got, want):
@@ -94,6 +112,32 @@ def main():
     check("a vowel mark over a real letter", _trust(NUN, SHADDA), False)
     check("a joined pair over junk", _trust(TA + L(0x661), LAM + MIM), True)
     check("a joined pair over letters", _trust(YA + WAW, YA + HA), False)
+
+    print("signs")
+    table, _ = diagnose(*_sign_font())
+    check("the prophet's honorific", table and table[0x55], L(0xFDFA))
+    check("may God be pleased with him, as one character",
+          table and table[0x57], chr(0xFD47))
+    check("... written out for Word", spell_out("عثمان " + chr(0xFD47)),
+          "عثمان رضي الله عنه")
+    check("an ordinary code left alone", table and table[0x20], " ")
+    thesis = Path("corpus") / "الفصل الثالث قراءات انفرادات.pdf"
+    if thesis.exists():
+        # Every word a labelled picture, only the signs real text, under a
+        # label with no text: the tags route dropped all of them.
+        from convert.glyphs import repaired
+        from convert.reader import read_tags
+        text = " ".join(b.text for b in read_tags(repaired(thesis)).blocks)
+        check("a thesis' unlabelled signs are read",
+              (text.count(L(0xFD47)), text.count(L(0xFDFA))), (13, 2))
+        check("... in their place", "أبي بكر " + L(0xFD47) + "؛" in text, True)
+
+    print("the name Word knows a font by")
+    check("the standard Times", family("Times-Roman"), "Times New Roman")
+    check("a font not installed keeps its name", family("AL-Mohanad"),
+          "AL-Mohanad")
+    if family("ArialMT") != "ArialMT":      # only where Arial is installed
+        check("Arial's PostScript name", family("ArialMT"), "Arial")
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

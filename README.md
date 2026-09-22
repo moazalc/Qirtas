@@ -179,7 +179,7 @@ PDF's own text layer.
 
 ### tests
 
-Twenty-one suites, all passing as of 2026-09-22. Each is a plain script:
+Twenty-two suites, all passing as of 2026-09-22. Each is a plain script:
 
     export PYTHONUTF8=1
     for t in harness/test_*.py; do .venv/Scripts/python "$t" || echo "FAILED $t"; done
@@ -188,7 +188,7 @@ Twenty-one suites, all passing as of 2026-09-22. Each is a plain script:
 log file raises `UnicodeEncodeError` and four suites fail for reasons that have
 nothing to do with the converter.
 
-    alignment  answerkey  arabic  fit  footnotes  glyphs  heading_style
+    alignment  answerkey  arabic  digits  fit  footnotes  glyphs  heading_style
     headings  image_drop  images  inline  labels  lists  loss_gate  notes
     pagination  scan  spelling  tables  text_score  xml_safe
 
