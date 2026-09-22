@@ -129,8 +129,23 @@ In order:
   twice on its first page.
 - Tables are the largest gap left on the scorecard: 47,132 letters of cells
   come out as paragraphs, and 16,036 are extra - tables written twice.
-- **N3. A spelling check that does not share our extractor.** Word's PDF
-  reading as a word-level second opinion on ordinary files. Unblocks FLAGS 20.
+- **N3. DONE (2026-09-21).** `python -m harness.spelling`. Word's own PDF
+  reading as a word list. On 24 unseen files: 1.2% of words lam-alef
+  misspelled (11 of 13 readable files), two files almost wholly display-form
+  glyphs, backwards files 35% provably backwards - and our output matches
+  the gate's reference on every count, so the gate sees none of it. Write-up
+  in `PLAN.md` ("N3").
+- **N3a. Build the lam-alef repair and judge it with N3** (FLAGS 20): the
+  lam-alef share should fall to ~0 with confirmed rising by the same, gate
+  held. Start with `z22110258`, where the old attempt lost 20%. Also look
+  at `z22246498`: an unrecorded older output of it had ~290 more words
+  backwards than the reference (`PLAN.md` "N3").
+- **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
+  way: the 11 backwards files' 35% backwards / 14% confirmed should swap
+  (same Word cache, or the lexicon differs).
+- **N3c. Display-form glyphs** (`z21508463`, `z21761968`): fold to ordinary
+  letters (Unicode NFKC does it) - a scope question for Moaz only if the
+  fold breaks something.
 - **N4. Look at 50 random pages**, log every defect by kind, count them. That
   count sets the fix order.
 - **N5. Fix from the top of that count.** Known first candidate: a list

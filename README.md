@@ -131,6 +131,13 @@ structure labels Word saved into the PDF - the answer key, see `PLAN.md`:
     .venv/Scripts/python -m harness.answerkey --set dev          # ~5 minutes
     .venv/Scripts/python -m harness.answerkey --set regression
 
+Check spelling against Word's own reading of each PDF, which does not share
+our extractor (lam-alef, display-form glyphs, backwards words). Run after an
+eval; it checks the .docx the eval left in `out/work/eval/docx`. Windows and
+Word only; Word's reading is cached in `out/work/wordread/`:
+
+    .venv/Scripts/python -m harness.spelling --set dev -v
+
 A full 102-file run takes roughly 25–35 minutes. It schedules longest-file-first,
 so **the long files finish last** — progress through the file count is not
 progress through the work, and estimating from early completions will be wrong.

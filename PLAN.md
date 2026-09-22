@@ -1180,6 +1180,75 @@ Left: a note that does not start with its own number (`z21760107` p.5);
 endnotes numbered "9 - ... 10 - ..." at full size (`z21764080`); and
 `z21762915` spills every page onto two, before N2b as after.
 
+## N3: a spelling check that does not read the PDF our way, 2026-09-21
+
+`python -m harness.spelling`. Every other score reads the PDF with PyMuPDF,
+as the converter does, so a misspelling in extraction is on both sides and
+invisible (FLAGS 22). This one asks Word: it opens the PDF itself (Reflow),
+and its reading is used as a VOCABULARY only - never its order, which its
+floating text boxes wreck. Each word we wrote is confirmed (Word saw it),
+lam-alef (Word saw it with a stored "ال" as "لا"), display form
+(presentation glyphs), backwards (Word saw it reversed), or unconfirmed.
+Files Word draws as pictures are checked against a lexicon of everything
+Word read in the other files instead, and reported apart.
+
+On the 24 unseen files of the standard sample, our latest output
+(`out/runs/2026-09-21-dev-spelling-n2b`, the outputs of the N2b eval):
+
+    13 files Word could read       confirmed  lam-alef  display  backwards  unconfirmed
+      ours                           58.8%      1.2%     31.0%     1.0%       8.0%
+      the checker's reference        59.2%      1.2%     31.2%     0.6%       7.8%
+    11 files Word drew as pictures (lexicon only, 33,333 words)
+      ours                           13.7%      0.1%      0.0%    34.5%      51.7%
+
+    23 of 24 files have over 1% of their words in a named fault.
+
+**What it says.** The converter copies every extraction fault faithfully -
+ours and the reference match to a tenth of a point - and the gate, reading
+the reference, scores all of it 100%. Lam-alef is 0.7-3.1% of the words on 11
+of the 13 readable files: about one word in forty, typically خالل, داللة,
+معدالت. Two files are almost wholly display-form glyphs (`z21508463` 93%,
+`z21761968` 62%): they look right in Word and cannot be searched. The 11
+backwards files are 35% provably backwards against 14% confirmed; a working
+reorder (FLAGS 1) should swap those two numbers, so this is its test. The
+lexicon grows with every file Word reads, so those two rows compare only
+between runs over the same cache (each row records its lexicon size).
+
+**How it was checked, and what was wrong on the way.**
+
+- Word's own reading has no lam-alef fault: on 13 readings, no word is a
+  lam-alef swap of another word Word read, apart from the pair لا / ال, both
+  real. So Word cannot confirm our misspelling by sharing it.
+- Two outputs left in the work folder by earlier runs got into a first
+  baseline and halved its lam-alef count. The check now takes its files from
+  one eval record and leaves out any .docx over an hour older than the rest.
+  One (`z20496510`) is from the run with the old lam-alef repair on. The
+  other, `z22246498`, is in no eval record, so the code that made it is not
+  known - but its output had 632 lam-alef words against the reference's
+  2,570, and ~290 more backwards words. A lead for FLAGS 20, not a finding.
+- Word reads `z21508463` partly backwards itself (3.0% of its words against
+  0.0-0.6% on the rest), and its "يف" put backwards words into the lexicon:
+  backwards files read 16% confirmed. Readings over 1% backwards are now left
+  out of the lexicon, and a word whose reversal is commoner cannot vouch.
+- Three-letter fragments reverse into words ("الإ" -> "إلا"), so short words
+  count as backwards only against the 50 commonest. هللا (the Allah
+  ligature) is the lam-alef fault, not a backwards word.
+- **Tried and not kept:** "some two or three letters swapped" as a general
+  ligature rule. It finds real faults on `z20763272` (اجملتمع for المجتمع,
+  اليت for التي - lam-meem stored backwards), but Word swaps "را" itself
+  (رأس -> أرس), so on `z21760107` it blamed us for العراق and الزراعة, which
+  we spell right. It cannot tell whose mistake it is. Those faults stay in
+  "unconfirmed", which is why that share is the check's blind spot.
+
+**Not covered.** The theses: Word gives nothing (their text is only in the
+labels), and their text is Word's own /ActualText, already independent of
+PyMuPDF. The paused holdout. Word's reading takes 5-50s a file and is cached
+in `out/work/wordread/`.
+
+**Next, now unblocked:** the lam-alef repair (FLAGS 20) judged by this - the
+lam-alef share should fall to ~0 and confirmed rise by the same, with the
+gate reading the same repair on both sides.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

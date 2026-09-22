@@ -548,6 +548,10 @@ attempt (`PLAN.md`). Start with `z22110258`. Runs:
 The repair was also ~100x slower than it needed to be (a regex per fragment,
 recompiled per paragraph); fixed, verified byte-identical.
 
+**Now judgeable (2026-09-21):** `harness/spelling.py` counts lam-alef
+misspellings against Word's reading, which does not share our extractor.
+A working repair shows as that share falling to ~0 (TASKS N3a).
+
 **Closes when:** the loss is traced and the fix passes the gate on unseen
 files, or it is dropped.
 
@@ -604,6 +608,15 @@ misspelled reference, which the gate reads as lost words.
 The line in `CLAUDE.md`, "Do not rebuild Arabic text extraction. It works", is
 true for recovering the words and false for spelling them right. It should be
 reworded once Moaz agrees.
+
+**Measured 2026-09-21 (TASKS N3, `harness/spelling.py`).** Against Word's own
+reading of the same files: 1.2% of our words are lam-alef misspelled, on 11 of
+13 readable unseen files; two files are almost wholly display-form glyphs; and
+our output matches the gate's reference on every count to a tenth of a point.
+The check has its own blind spot: ligatures other than lam-alef (lam-meem,
+اجملتمع for المجتمع) cannot be told from Word's own swaps (رأس -> أرس), and
+stay "unconfirmed". What is left open is the repair (FLAGS 20), not the
+measuring.
 
 **Closes when:** the checker has a reference that does not share our
 extractor - Word's PDF reading as a word-level second opinion, or original
