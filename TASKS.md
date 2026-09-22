@@ -184,19 +184,28 @@ In order:
 - **N4. DONE (2026-09-22).** 49 random pages looked at: 110 defects, every
   page has one. Count and method in `PLAN.md` ("N4"); log in
   `out/work/n4/defects.json`.
-- **N5. Fix from the top of that count**, cheapest first where it is close:
-  1. **Wrong body font** - `_dominant_font` skips Arial as generic and
-     picks a font seen once. One line; every page of 3 thesis chapters.
-  2. **Running headers, page-number graphics, coloured bands in the body**
-     - 16 pages, 7 files. The largest cause.
-  3. **Punctuation, numbers, brackets in RTL lines** - 15 pages, 9 files.
-     Careful: the last attempt moved punctuation and broke DVB-S (N3a).
-  4. **Footnotes and endnotes** - 12 pages: notes as body text, the list
-     inside a note escaping (Moaz's `الفصل الثالث`), Roman numerals.
-  5. **Tables** - 7 pages, but the worst files: written twice, false tables
-     from a reference list, squeezed columns, shaded boxes as grids.
-  6. **Whole pages written twice** (`z21762915`) - severity 3.
-  7. Then headings/lists merged, formatting, digits, letters.
+- **N5. Fix from the top of the N4 count.** Order agreed with Moaz
+  2026-09-22. Each step: fix, tests, small-file eval + theses, gate 100%,
+  and look at the N4 pages it touched.
+  - **N5a. Look of the theses** - `_dominant_font` skips Arial as generic
+    and picks a font seen once (3 chapters in AGA Arabesque). With it: the
+    honorific ﷺ (a private-use character in AGA Arabesque) written as ﷺ;
+    Arabic-Indic digits shown where the original shows them - Moaz:
+    "whatever is used must stay the same", the typed digits unchanged.
+  - **N5b. Headers, footers, page numbers** - journal headers, logos,
+    page-number graphics and coloured bands out of the body (17 pages, 8
+    files); page numbers present and right (7 pages, 4 files).
+  - **N5c. Punctuation and full stops** - order them by where they are
+    drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
+    last attempt broke DVB-S (N3a) - tests first.
+  - **N5d. Footnotes and endnotes** - notes as body text, the list inside a
+    note escaping (`الفصل الثالث`). Endnotes: Moaz chose **real Word
+    endnotes, numbered 1, 2, 3 like the original** (not xxv, xxvi).
+  - **N5e. Tables** - written twice, columns not mirrored, invented tables
+    from a reference list, squeezed columns, shaded boxes as grids.
+  - **N5f. Pages written twice** (`z21762915`, 23 -> 39 pages).
+  - Then: headings/lists merged, bold/italic/underline, overlaid pictures
+    (the `الفصل الثالث` box: the box alone, at its size), letters.
 - **N6. Try PyMuPDF-Layout** on the label-stripped copies only; keep it only
   if it beats our rules on the N2 scorecard.
 
