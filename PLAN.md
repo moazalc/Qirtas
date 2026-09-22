@@ -1519,8 +1519,8 @@ The scores cannot see most of what is wrong - the box drawn twice, a whole
 page written twice, gibberish all scored "nothing lost 100%". So: 49 random
 pages, looked at against the original, every defect logged by cause and
 severity (3 can't use it / 2 fix by hand / 1 cosmetic). Sample fixed by seed
-2026 (`out/work/n4/sample.json`): 15 of Moaz's thesis pages (7 chapters,
-`عن بعد` has one page, hence 49) and 34 from 15 small wild files, at most 3
+2026 (`out/work/n4/sample.json`): 14 of Moaz's thesis pages (7 chapters,
+`عن بعد` has one page, hence 49) and 35 from 15 small wild files, at most 3
 per file. Log: `out/work/n4/defects.json`. Each suspected defect was checked
 against the original first - the box on `الفصل الثالث` turned out to be
 PICTURES in the original too, not text we duplicated.
@@ -1547,7 +1547,7 @@ PICTURES in the original too, not text we duplicated.
 
     weight = severity summed over defects
 
-**On Moaz's theses** (15 pages) the text is right almost everywhere; what is
+**On Moaz's theses** (14 pages) the text is right almost everywhere; what is
 wrong is how it looks: digits (10 pages), the wrong font (8), bold lost (6),
 three footnote faults, the honorific ﷺ lost twice.
 
