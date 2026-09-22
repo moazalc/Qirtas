@@ -135,7 +135,8 @@ without them there is no measuring the thing this project was built for.
 
 ## 6. We may be shrinking text to fix overflow that does not exist
 
-**Status: unverifiable without Word. Could be actively harming output.**
+**Status: Word is the renderer now (2026-09-21); how much it still shrinks
+is not recorded yet.**
 
 `convert/fit.py` detects page overflow by rendering through LibreOffice, which
 lacks the fonts these documents ask for and substitutes wider ones. Real Word
@@ -195,8 +196,7 @@ footer's PAGE field. Only groups found by position get that rule - applied to
 source-object groups it stopped a running-header picture of `الفصل الخامس
 المبحث الثالث` being drawn at all.
 
-**Status: confirmed bug, ours, found by looking. Every page of every file that
-boxes its page number.**
+**Status: CLOSED 2026-09-21 (see above). Kept for the history below.**
 
 Found by putting our page next to the original with Word doing the rendering.
 `z21358439.pdf` prints its page number inside a thin rectangle at the foot of
@@ -302,7 +302,7 @@ it - not overflow. Probably flag 9: `fit.py` cannot see a page with no words.
 
 ## 11. Every page of the regression files carries a solid black bar
 
-**Status: confirmed bug, ours, found by looking. Not visible to any score.**
+**Status: CLOSED 2026-09-20 (see the end of this entry).**
 
 The running header on `الفصل الثالث` renders as two solid black rectangles at
 the top of **every page**. It is not a LibreOffice artifact: `word/media/
@@ -340,7 +340,7 @@ to the source object. See `PLAN.md`.
 
 ## 12. Table cells come out backwards, and the score cannot see it
 
-**Status: confirmed bug, ours, visible in the .docx. General, not one file.**
+**Status: CLOSED 2026-09-20 (see the end of this entry).**
 
 `z21011460.pdf`, read straight out of our own output:
 
@@ -413,7 +413,7 @@ same lesson as the spelling repair (FLAGS 20, 22).
 
 ## 14. Running headers and page numbers land in the body text
 
-**Status: confirmed on every wild file looked at. Moaz raised this.**
+**Status: CLOSED 2026-09-20 (see the end of this entry).**
 
 The original puts the journal line at the top of the page and the page number
 at the bottom. We emit both as ordinary paragraphs in the body:
@@ -494,7 +494,10 @@ refuse.
 
 *(Numbered 16 until 2026-09-21, which was already taken.)*
 
-**Status: needs Moaz's decision. A trade, not a bug.**
+**Status: probably gone, 2026-09-22 - confirm in N4 before closing.** With
+the fonts installed, Word as the renderer and the fit loop seeing every
+spill (N2c), `z19851706` comes out 12 pages of 12 at right page 0.84 - the
+13-page cost below no longer shows. Was: needs Moaz's decision.
 
 Lists are now detected and kept apart, and the rendered page matches the
 original's structure. The score went the other way:
@@ -523,7 +526,7 @@ of a score that cannot see lists - or the question is settled in real Word.
 
 ## 17. The left-to-right control file has been deleted
 
-**Status: the regression baseline has moved and nothing said so.**
+**Status: CLOSED 2026-09-20 - the file was restored (see below).**
 
 `corpus/ödev.pdf` is gone. The regression set is 7 files, not 8.
 
@@ -627,8 +630,10 @@ editable.
 
 ## 22. Our checker cannot see misspelled Arabic, because it reads the same text we do
 
-**Status: DECIDED 2026-09-21 - fix the spelling (Moaz). Found at checkpoint A
-(`PLAN.md`). Changes what "nothing lost" means.**
+**Status: CLOSED 2026-09-22.** Measured against Word's own reading (N3),
+repaired (N3a, other ligatures, N3c). One blind spot left, and it is
+FLAGS 23's: where the font's table is wrong, Word's reading is wrong the
+same way. Was: decided 2026-09-21 - fix the spelling (Moaz).
 
 Every score compares our Word file against text extracted from the PDF by the
 same library the converter uses. A fault in that extraction appears on both
