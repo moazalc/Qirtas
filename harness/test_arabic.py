@@ -69,6 +69,11 @@ def main():
 
     print("\nand text that is already correct must come through unchanged")
     check("correct lam-alef", repair_lam_alef("لا يمكن"), "لا يمكن")
+    # في stored يف (z20763272, 231 times). Only standing alone: كيف and
+    # السيف end in the same two letters and are right as stored.
+    check("standalone ya-fa is fi", repair_lam_alef("وهذا يف البيت"), "وهذا في البيت")
+    check("kayfa is left alone", repair_lam_alef("كيف حالك"), "كيف حالك")
+    check("as-sayf is left alone", repair_lam_alef("السيف القاطع"), "السيف القاطع")
     check("empty", repair_lam_alef(""), "")
     check("none", repair_lam_alef(None), None)
     check("latin text", repair_lam_alef("hello world"), "hello world")
@@ -188,6 +193,27 @@ def main():
     items = [("غ", 440, 446), ("ز", 434, 440), ("ا", 434, 437), ("ل", 428, 434)]
     got = "".join(t[0] for t in repair_ligatures(items))
     check("a kerned real alef is left alone", got, "غزال")
+
+    # Other ligatures, the same way (z20763272, Traditional Arabic): every
+    # letter but the last has no width, at the glyph's right edge.
+    # في stored يف: the ya zero width, the fa carrying the glyph.
+    items = [("ي", 307.4, 307.4), ("ف", 299.9, 307.4)]
+    check("fa-ya stored backwards", "".join(t[0] for t in repair_ligatures(items)), "في")
+    # المجتمع stored اجملتمع: jeem and meem zero width, then the lam.
+    items = [("ا", 522.4, 524.4), ("ج", 522.4, 522.4), ("م", 522.4, 522.4),
+             ("ل", 515.6, 522.4), ("ت", 513.0, 515.6), ("م", 507.7, 513.0),
+             ("ع", 502.3, 507.7)]
+    check("a three-letter glyph", "".join(t[0] for t in repair_ligatures(items)),
+          "المجتمع")
+    # كتابًا: the tanween is zero width because marks always are, and it
+    # belongs to the ba before it. Not a glyph group.
+    items = [("ب", 110, 116), ("ً", 110, 110), ("ا", 107, 110)]
+    check("a vowel mark is not a glyph group",
+          "".join(t[0] for t in repair_ligatures(items)), "بًا")
+    # A digit glued to a letter fits the geometry; neither order is a word.
+    items = [("١", 200, 200), ("ت", 194, 200)]
+    check("a digit is not part of a glyph group",
+          "".join(t[0] for t in repair_ligatures(items)), "١ت")
 
     print("\nand neutrals go where the page says they go")
     # `مقدمة:` is stored `:مقدمة`, colon first, and the first line of a

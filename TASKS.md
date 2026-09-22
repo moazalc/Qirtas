@@ -149,6 +149,11 @@ In order:
   three notes merged into note 1; the running header sits in the body on
   every page; "في" comes out "يف" and "المعلومات" as "املعلومات" (other
   ligatures stored backwards - lam-meem, and ya-fa), visible on every line.
+- **N3a+. DONE (2026-09-22): other backwards ligatures** (في, المجتمع,
+  التي). Confirmed words 81.6% -> 84.1% on the small readable files, one
+  file 77.7% -> 88.5%, gate 100%. Write-up in `PLAN.md` ("Other ligatures").
+  Next: right page compares with the original's words as stored, so fixing
+  spelling reads as a loss there - repair the original's side too.
 - **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).

@@ -1307,6 +1307,59 @@ by the spelling check, as ligatures inside reversed words were put right -
 consistent with, not a substitute for, the reorder (N3b). Other broken
 ligatures, like lam-meem (اجملتمع for المجتمع), are untouched.
 
+## Other ligatures stored backwards, 2026-09-22
+
+Looking at `z22110258` p.38 showed the lam-alef repair was not the biggest
+visible fault: في printed "يف", المعلومات printed "املعلومات", on almost
+every line. Same fault, other ligatures: a glyph standing for several
+letters, listed backwards in the font. Same trace on the page - every letter
+but the last has no width, at the glyph's right edge, and the last ends at
+the same edge (يف, the lam-meem-jeem of اجملتمع, the ta-ya of اليت).
+
+**Checked before building**, against Word's reading of ten small files: for
+every word holding such a group, reversing the group gave the word Word read
+2,597 times, keeping it once (مال / ملا). In EVERY font of every file the
+lam-alef glyphs came out backwards, never once correct - this looks like how
+Word writes PDFs, not a quirk of some fonts.
+
+**The trap:** for lam-alef the page settles the order, because alef never
+joins the next letter, so "alef, lam" cannot be one glyph. Ya and fa join
+both ways. كيف was flagged 22 times as a backwards ya-fa glyph; reversed it
+is كفي, wrong. It was spared only because one copy was not flagged and the
+map requires every copy to agree. So that rule stays strict - a majority
+vote would have let كيف through at 22 to 1 - and after the change, of the
+words the map rewrote in our output, 2,545 are the spelling Word read, 332
+neither, and **none** where Word read the stored spelling.
+
+What was built:
+
+- `arabic.repair_ligatures` reverses any such group of LETTERS (a vowel mark
+  is zero width by nature and belongs to the letter before; "١ت", a digit
+  glued to a letter, fits the geometry but neither order is a word).
+- A spelling rule: يف standing alone -> في. Two-letter words stay out of the
+  map (رب, a real word, would go to بر), but يف alone is not Arabic and في is
+  the commonest word. Word never read it as a word in 13 files.
+
+Small files of the standard sample (`--max-pages 30`, 23 files) and the
+theses, against the lam-alef-only code (`2026-09-22-dev-spelling-n3a-v3`
+vs `-dev-spelling-ligatures-fi`):
+
+    nothing lost            100% / theses 100%
+    confirmed words         81.6% -> 84.1%   (12 files Word could read)
+      z20763272             77.7% -> 88.5%   backwards words 3.2% -> 0.3%
+      z21095413             88.2% -> 95.0%
+      z20393612             63.6% -> 66.6%
+    words in order          67.6% -> 67.5%   right page 30.7% -> 30.6%
+
+The 0.1 of words in order is the يف rule at the edges of a block: like the
+ال rule it needs a real character on both sides, and the reader repairs a
+block at a time while the checker reads the whole document, so a few are
+fixed on one side only. The gate does not see it (it skips two-letter
+words). Right page dips on the files that gained most - `z21095413` 0.335 ->
+0.318 - because it compares our pages with the original's words AS STORED,
+misspellings and all, so every word put right stops matching. An instrument
+fault, next to fix.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

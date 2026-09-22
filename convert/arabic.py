@@ -62,12 +62,24 @@ _STANDALONE_AL = re.compile(
 # (HAMZA_ALEFS is defined above, where the standalone rule needs it.)
 _AL_HAMZA = re.compile(rf"{ALEF}([{HAMZA_ALEFS}]){LAM}")
 
+# في stored يف, 2026-09-22: its two letters are one glyph and the font lists
+# them backwards, like لا. The glyph repair cannot take it: a two-letter word
+# is too short to substitute safely in general - رب, a real word, would go
+# too - and ya-fa is a real ligature as well (كيف), so the glyph alone does
+# not say which way round it was. But يف standing ALONE is not Arabic, and
+# في is the commonest word in the language. Word's readings of 13 files never
+# had it, apart from one file it read partly backwards, against 2,777 في;
+# our output had 231, all on z20763272. Same boundaries as the standalone ال.
+YA, FA = "ي", "ف"
+_STANDALONE_YF = re.compile(rf"(?<=[{_BOUND}]){YA}{FA}(?=[{_BOUND}])")
+
 
 def repair_lam_alef(text):
     """Put reversed lam-alef ligatures back in their written order.
 
-    Two cases, both unambiguous:
+    Three cases, all unambiguous:
       ال standing alone     -> لا    (the definite article cannot stand alone)
+      يف standing alone     -> في    (not a word; the commonest word, reversed)
       ا + أإآ + ل           -> ا ل + أإآ  (two alef forms cannot sit together)
 
     Prefixed forms (وال, بال, فال) are deliberately left alone: some are real
@@ -78,6 +90,7 @@ def repair_lam_alef(text):
     if not text:
         return text
     text = _STANDALONE_AL.sub(LAM + ALEF, text)
+    text = _STANDALONE_YF.sub(FA + YA, text)
     return _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)
 
 
@@ -118,7 +131,11 @@ _SAME_EDGE = 0.3
 
 
 def repair_ligatures(chars):
-    """[(c, x0, x1)] -> the same list with reversed lam-alef put back.
+    """[(c, x0, x1)] -> the same list with reversed ligatures put back.
+
+    Measured 2026-09-22 against Word's own reading of ten files (TASKS N3):
+    reversing a group gave the word Word read 2,597 times, keeping it as
+    stored once (مال / ملا). Lam-alef is the commonest case, not the only one.
 
     A zero-width alef form immediately before a LAM is the two halves of one
     ligature glyph, handed back in the wrong order. All four of لا لأ لإ لآ
@@ -126,9 +143,9 @@ def repair_ligatures(chars):
     here - where the orthographic rules above need two separate patterns and
     still cannot reach the word-final case at all.
 
-    Nothing else is touched: the test is the glyph's own width, so a genuine
+    Nothing else is touched: the test is the glyph's own box, so a genuine
     alef beside a genuine lam, which is two glyphs with two boxes, is left
-    exactly as stored.
+    exactly as stored - and so is a vowel mark, zero width by nature.
 
     Items are swapped intact, never rebuilt, so anything a caller carries after
     (char, x0, x1) rides along with its character.
@@ -157,9 +174,34 @@ def repair_ligatures(chars):
         if a in HAMZA_ALEFS and b == LAM and one_glyph:
             out[i], out[i + 1] = out[i + 1], out[i]
             i += 2
+            continue
+        # Any other glyph that stands for several letters fails the same way
+        # (2026-09-22): في stored يف, the lam-meem-jeem of المجتمع stored
+        # اجملتمع, التي stored اليت. Every letter but the last comes back with
+        # no width, at the glyph's right edge; the last carries the glyph and
+        # ends at the same edge. The whole group is reversed.
+        j = i
+        while (j < len(out) and _is_letter(out[j][0])
+               and (out[j][2] - out[j][1]) < _ZERO_W):
+            j += 1
+        if (j > i and j < len(out) and _is_letter(out[j][0])
+                and abs(out[j][2] - out[i][2]) < _SAME_EDGE):
+            out[i:j + 1] = out[i:j + 1][::-1]
+            i = j + 1
         else:
-            i += 1
+            i = max(j, i + 1)
     return out
+
+
+# Letters only. A vowel mark is zero width by nature and belongs to the
+# letter BEFORE it, so a mark followed by a letter is not a glyph group. And a
+# digit glued to a letter ("١ت", 279 times on z20763272) fits the geometry but
+# neither order is a word Word read - something else, left alone.
+def _is_letter(c):
+    o = ord(c)
+    # 0621-064A base letters (the marks at 064B+ are outside), 0671-06D3 the
+    # extended ones - Persian yeh and keheh turn up in this corpus.
+    return 0x0621 <= o <= 0x064A or 0x0671 <= o <= 0x06D3
 
 
 # Unicode's own bidi classes, rather than a hand-written punctuation list.

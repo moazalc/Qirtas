@@ -628,7 +628,9 @@ reading of the same files: 1.2% of our words are lam-alef misspelled, on 11 of
 our output matches the gate's reference on every count to a tenth of a point.
 The check has its own blind spot: ligatures other than lam-alef (lam-meem,
 اجملتمع for المجتمع) cannot be told from Word's own swaps (رأس -> أرس), and
-stay "unconfirmed". What is left open is the repair (FLAGS 20), not the
+stay "unconfirmed". (2026-09-22: those ligatures are now repaired by their
+trace on the page, not by this check - `PLAN.md` "Other ligatures". Ya-fa
+is ambiguous there too: كيف and في leave the same trace.) What is left open is the repair (FLAGS 20), not the
 measuring.
 
 **Closes when:** the checker has a reference that does not share our
