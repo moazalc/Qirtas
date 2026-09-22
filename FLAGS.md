@@ -9,8 +9,31 @@ Each entry says what it is, why it matters, and what would close it.
 
 ## 1. A third of the corpus produces unreadable output, and the score says 99%
 
-**Status: DECIDED 2026-09-21 - reorder, not refuse (Moaz). Not built yet;
-waits for a check that does not share our extractor (FLAGS 22, TASKS N3).**
+**Status: CLOSED 2026-09-22 (TASKS N3b).** Premise was wrong: the files are
+mostly SCANS, now refused (Moaz: "refuse scans, fix the few"). Of digital
+files, one is really backwards - `z21889411`, LaTeX, reversed line by line,
+130 pages - parked until a short example exists. Details in `PLAN.md` "N3b".
+
+**2026-09-22, starting N3b.** Counting function words against their
+reversals on the first pages of every corpus file with Arabic text (156):
+52 are stored backwards, and **46 of those 52 are scanned pages** - a photo
+of a newspaper clipping with machine-read (OCRmyPDF) text laid invisibly on
+top. Only 6 are digital (Word, one InDesign) - and looked at, none of the
+6 is really backwards (below). "Typically LaTeX
+output" below was never checked and is wrong for this corpus.
+
+Scans are recognisable from the file alone, with nothing in between on the
+files checked: every character invisible, over a picture covering 97-100% of
+the page; digital files have no invisible text and pictures under 3%.
+
+Scanned PDFs are out of scope ("detect and refuse", `CLAUDE.md`, and the
+Scope in `PLAN.md`), and their machine-read text is noisy even read in the
+right direction. So the decision "reorder" was taken about files that are
+mostly ones the project already refuses. Moaz, 2026-09-22: refuse the scans,
+fix the few digital ones. Looked at, the "few" were not backwards at all:
+`z21763864`, `z21764410`, `z21750616`, `z20752227` read forward - "يف", the
+broken في ligature, is its own reversal of في and fooled the count - and
+`z21764814`, `z21760325` are garbled fonts (FLAGS 23).
 
 Some Arabic PDFs — typically LaTeX output — store their character stream
 already reversed. The page displays perfectly; the text underneath runs
@@ -638,3 +661,20 @@ extractor - Word's PDF reading as a word-level second opinion, or original
 .docx files - and the spelling rate is measured by it. (Word's structure
 labels on tagged files are independent for STRUCTURE only; their text usually
 comes from the same glyphs.)
+
+---
+
+## 23. Fonts that map letters to the wrong characters
+
+**Status: found 2026-09-22, not counted, no decision.**
+
+Some digital files decode to gibberish because the font's table from glyphs
+to letters is wrong, not reversed: `z21764814` from page 2 (رحلة reads
+رحيي, و reads هن), `z21760325`, and part of `z20375390`. There is no right
+text inside the file to recover. The checker reads the same gibberish, so
+the gate scores it 100%, as it did the scans. Only a picture of the page,
+or character recognition, could get the words back.
+
+**Closes when:** such files are detected, and Moaz chooses: warn, refuse, or
+convert those pages as pictures.
+

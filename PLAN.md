@@ -1360,6 +1360,44 @@ words). Right page dips on the files that gained most - `z21095413` 0.335 ->
 misspellings and all, so every word put right stops matching. An instrument
 fault, next to fix.
 
+## N3b: the backwards files were scans, now refused, 2026-09-22
+
+FLAGS 1 said a third of the corpus stores its text backwards, "typically
+LaTeX output", and Moaz decided to reorder it. Starting the reorder, the
+files turned out to be something else. Of 156 corpus files with Arabic text,
+52 read backwards by function words (في, من, على... against their
+reversals), and **46 of the 52 are scans**: a photo of a newspaper clipping
+with OCRmyPDF text laid invisibly on top, noisy even read the right way.
+The 6 digital ones were not backwards when looked at - four read forward
+and were counted backwards through "يف" (the broken في), two are garbled
+fonts (FLAGS 23). The one real digital case is `z21889411`, the named
+example: LaTeX, reversed line by line, 130 pages. Parked until a short one.
+
+Scans are out of scope. Moaz, 2026-09-22: refuse them. `convert/scan.py`,
+called first thing in `v1.convert`: a page is a scan if it shows under 20
+visible characters and either carries invisible text or is one picture
+covering 85% of the page; a file is refused when 80% of up to 12 sampled
+pages are. So a thesis with a photographed title page still converts
+(`test_scan.py`). Over the whole corpus (233 files) it refuses all 46 OCR
+scans, 29 Canva designs exported as one picture per page with no text, 2
+Konica scanner files, and 2 other single-photo PDFs; no Word-made file and
+none of the theses. The eval counts refused files apart and averages the
+rest.
+
+Small files of the sample (`--max-pages 30`) and the theses
+(`2026-09-22-dev-refuse-scans`, `-regression-refuse-scans`):
+
+    11 of 23 refused, all scans; the other 12 identical to before
+    nothing lost      100% / theses 100%
+    words in order    67.5% -> 99.5%   \  NOT the converter improving: the
+    right page        35.2% -> 49.1%    > unreadable scans left the average
+    page inflation    1.75x -> 1.12x   /
+    theses            unchanged, right page 73.1%
+
+**Every dev-set average before this includes about a third scans** and is
+not comparable with one after. The spelling check's "backwards" rows for
+those files go away with them.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

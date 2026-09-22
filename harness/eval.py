@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness.roundtrip import run_one
 from harness.compare import text_of, text_of_docx
+from convert.scan import Refused
 from harness.loss import coverage
 from harness.env import fingerprint, describe
 
@@ -97,7 +98,9 @@ def main():
     # sit alone on the critical path with everything else already idle.
     files.sort(key=_pages_of, reverse=True)
 
-    rows, losses = [], []
+    # Files the converter refuses (scans, FLAGS.md 1) are not failures and
+    # not scores: counted apart, so an average is over files we convert.
+    rows, losses, refused = [], [], []
     done = 0
     if a.jobs > 1:
         with ProcessPoolExecutor(max_workers=a.jobs) as pool:
@@ -109,6 +112,8 @@ def main():
                     r = fut.result()
                     rows.append(r)
                     losses.append(r["kept"])
+                except Refused as e:
+                    refused.append({"file": Path(f).name, "why": str(e)})
                 except Exception as e:
                     print(f"  {RED}FAIL{OFF} {Path(f).name}: {type(e).__name__}: {e}"[:130])
                 if done % 10 == 0:
@@ -120,6 +125,8 @@ def main():
                 r = score_one((f, a.work))
                 rows.append(r)
                 losses.append(r["kept"])
+            except Refused as e:
+                refused.append({"file": Path(f).name, "why": str(e)})
             except Exception as e:
                 print(f"  {RED}FAIL{OFF} {Path(f).name}: {type(e).__name__}: {e}"[:130])
             if done % 10 == 0:
@@ -137,7 +144,9 @@ def main():
     pg = statistics.mean(r["page_score"] for r in rows)
     infl = statistics.median(r["pages_out"] / max(1, r["pages_orig"]) for r in rows)
 
-    head = f"{a.set} set — {len(rows)} files" + (f"  [{a.label}]" if a.label else "")
+    head = (f"{a.set} set — {len(rows)} files"
+            + (f"  [{a.label}]" if a.label else "")
+            + (f", {len(refused)} refused as scans" if refused else ""))
     summary = "\n".join([
         head,
         f"  nothing lost   {kept:>7.1%}  (worst file {worst:.1%})",
@@ -161,6 +170,7 @@ def main():
     # matters is the one nobody saved.
     payload = {"env": env, "set": a.set, "label": a.label,
                "n": len(rows), "files_requested": len(files),
+               "refused": refused,
                "sample": {"n": a.n, "seed": a.seed} if a.n else None,
                "scores": {"kept": round(kept, 4), "worst_kept": round(worst, 4),
                           "text": round(txt, 4), "page": round(pg, 4),
@@ -182,9 +192,9 @@ def main():
 
     # A run that reports fewer files than it asked for is a story in itself -
     # a crash removes a file from the average instead of failing the run.
-    if len(rows) < len(files):
-        print(f"{RED}  {len(files) - len(rows)} file(s) crashed and are NOT in "
-              f"these numbers{OFF}")
+    if len(rows) + len(refused) < len(files):
+        print(f"{RED}  {len(files) - len(rows) - len(refused)} file(s) crashed "
+              f"and are NOT in these numbers{OFF}")
 
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)

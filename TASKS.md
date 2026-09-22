@@ -156,7 +156,12 @@ In order:
   misspellings on the original's; both are now repaired (`PLAN.md`
   caveat 0). Same output re-scored: small unseen 30.6% -> 35.2%, theses
   68.2% -> 73.1%. Older right-page numbers are not comparable.
-- **N3b. Build the reorder of backwards files** (FLAGS 1), judged the same
+- **N3b. DONE (2026-09-22), not as planned.** The backwards files were
+  scans (46 of 52); refused now, Moaz's call (`convert/scan.py`). No other
+  digital file is backwards except `z21889411` (LaTeX, 130 pages), parked.
+  Averages jump because scans left them - not comparable with before.
+  Write-up in `PLAN.md` ("N3b"). New: garbled fonts, FLAGS 23.
+- ~~N3b. Build the reorder of backwards files~~ (FLAGS 1), judged the same
   way: the 11 backwards files' 35% backwards / 14% confirmed should swap
   (same Word cache, or the lexicon differs).
 - **N3c. Display-form glyphs** (`z21508463`, `z21761968`): fold to ordinary

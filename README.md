@@ -22,20 +22,14 @@ on the development set. It generalises.
 known broken, and ten measurement caveats — every one of which made the numbers
 lie before it was found. `RESEARCH.md` carries the evidence behind them.
 
-### the one decision waiting on you
+### settled: text stored backwards
 
 **Text layers stored in visual order.** Some Arabic PDFs — typically LaTeX
-output — store the character stream already reversed. We reproduce it
-faithfully, Word reverses it again, and the output is unreadable. 56 of 172
-usable corpus files (32.6%) are like this.
-
-The scorer is structurally blind to it, because our reversed output is compared
-against the same reversed source: `z21889411.pdf` scores 99.9% on text and
-nobody can read a word of it. Detection is cheap and already prototyped. What to
-*do* about it is the open question — reorder the text and risk mangling files
-that are partly correct, or refuse them outright the way `z22244578.pdf` is
-refused. Both change what this converter promises. See `PLAN.md`, "Known
-unfinished".
+output — store the character stream already reversed. **Settled
+2026-09-22:** 46 of the 52 corpus files that read backwards were scans with
+machine-read text laid invisibly over a photo. Scans are now refused with a
+plain message (`convert/scan.py`). Of digital files one is really backwards,
+`z21889411.pdf` (LaTeX, line by line), parked. See `FLAGS.md` 1.
 
 ## setup
 
