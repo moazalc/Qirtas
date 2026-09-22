@@ -168,6 +168,9 @@ In order:
   touched, `z20763272` 3,371 words recovered, gate 100%, theses unchanged
   but for an instrument change. Write-up in `PLAN.md` ("FLAGS 23"). Left:
   fonts not installed (FLAGS 23), and no check but looking.
+- **Warn when a font is not installed** (Moaz, 2026-09-22): name the font,
+  say to install it and convert again. Warn only where the text looks wrong,
+  not for every missing font - see FLAGS 23.
 - **N3c. DONE (2026-09-22).** Display shapes folded to letters: four small
   files from 3-34% confirmed words to 80-91%, gate 100%, theses unchanged.
   Write-up in `PLAN.md` ("N3c"). Found: `z19740548` (20 pages) is partly

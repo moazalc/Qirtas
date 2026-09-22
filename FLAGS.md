@@ -701,7 +701,12 @@ marks as blanks in our rebuilt PDFs - so the checker repairs both sides.
   both sides. Only looking at the page verifies it; it was looked at on
   `z20393612`, `z20763272` and `z20375390`.
 
-**Closes when:** files whose fonts cannot be named are detected and Moaz
-chooses warn, refuse, or pages as pictures; and something other than Word's
+**Decided 2026-09-22 (Moaz): warn.** When a file uses a font that is not
+installed, tell the user which font, and to install it and convert again.
+Not built yet (TASKS). The hard part is knowing WHEN to warn: without the
+font there is nothing to compare the table against, so a missing font alone
+is not a fault - most files with one read fine.
+
+**Closes when:** that warning is built, and something other than Word's
 reading checks the repair.
 
