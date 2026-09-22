@@ -268,11 +268,16 @@ scope in writing and excluded from the headline.
 
 **Status: known limitation, worked around.**
 
-`_spilled()` matches output pages to original pages by shared words, and skips
-originals that have none. A page of nothing but pictures is invisible to the
-correction loop, so its fill factor has to be right on the first pass — which
-is why `IMAGE_PAGE_FILL` is measured (0.95 spilled, 0.88 fitted) rather than
-chosen.
+`_spilled()` matches output pages to original pages by shared words. A page
+of nothing but pictures has none, so when it spills the extra wordless page is
+blamed on the page before it, and the wrong page shrinks. Its fill factor has
+to be right on the first pass — which is why `IMAGE_PAGE_FILL` is measured
+(0.95 spilled, 0.88 fitted) rather than chosen.
+
+2026-09-22 (N2c): the loop used to skip every wordless OUTPUT page too, so a
+text page spilling only a footer picture onto the next page went unseen. That
+part is fixed - see `PLAN.md` ("N2c"). Only picture-only ORIGINAL pages are
+left.
 
 **Closes when:** `_spilled()` can match pages by something other than words.
 

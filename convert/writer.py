@@ -52,8 +52,9 @@ ENDNOTE_PAGE_SCRAP = 60
 # picture sits in and for a header taller than the top margin.
 #
 # This has to be right first time. fit.py cannot rescue it: _spilled() matches
-# rendered pages to original ones by shared words and skips any original page
-# that has none, so a page of nothing but pictures is invisible to it.
+# rendered pages to original ones by shared words, and a page of nothing but
+# pictures has none - when it spills, the extra wordless page is blamed on the
+# page before it.
 IMAGE_PAGE_FILL = 0.85
 HEADING_PT = {1: 16, 2: 14}
 

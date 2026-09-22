@@ -1427,6 +1427,38 @@ shapes those words were unreadable too. It is the short digital backwards
 file N3b lacked (FLAGS 1) - 20 pages, the one to build a line reorder on.
 z21761968 also has words in reverse order within some lines.
 
+## N2c: the shrinking loop sees wordless spills, 2026-09-22
+
+`fit.py` shrinks the original pages that took more than one page in Word.
+It decided which by giving each rendered page to the original page it shared
+most words with, and skipped rendered pages with no words. On `z21760107`
+(19 pages) nearly every page ended in two footer pictures - the journal logo
+and a page-number box - that did not fit and went onto a page of their own.
+Those pages have no words, so the loop saw 2 of 16 spills: 35 pages out.
+TASKS had "29 pages one run, 32 the next"; two runs today gave the same 35
+each, so the swing was not the loop being random - most likely other changes
+landing between those runs.
+
+`fit._owners` now uses what the writer guarantees: a page break before every
+original page, so rendered pages fall into one unbroken run per original page,
+in order. It finds the split that shares the most words; a wordless page joins
+the run before it. `ROUNDS` 4 -> 6: z21760107 still had two pages over after
+four. Tests: `harness/test_fit.py`.
+
+    small files of the sample   right page 52.0% -> 54.4%   pages 1.12x -> 1.10x
+    (2026-09-22-dev-n2c-spill)  z21760107 35 -> 21 pages, z20276145 32 -> 28,
+                                z20375390 24 -> 22 (right page 0.33 -> 0.47),
+                                z20763272 27 -> 26 (0.76 -> 0.83)
+    theses                      unchanged, 73.1%, 1.00x
+    gate                        100% both
+
+z21760107 still scores only 0.17 right page: its title page takes two, so
+every page after is one late. The abstract table there has a column squeezed
+to a few words wide - a table-layout fault shrinking cannot fix (tables).
+
+Left: a picture-only ORIGINAL page that spills is still blamed on the page
+before it (FLAGS 9).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

@@ -120,10 +120,12 @@ In order:
   Write-up in `PLAN.md` ("N2b"). Left: notes not starting with their number,
   full-size "9 - ... 10 -" numbering, and the (34)/(35) notes becoming real
   Word footnotes though the page never cites them.
-- **N2c. The shrinking loop misreads which pages spilled.** `fit._spilled`
-  attributes each rendered page to the one original page it overlaps most, so
-  a page holding the end of one and the start of the next hides a spill.
-  `z21760107`: 29 pages out one run, 32 the next, same content.
+- **N2c. DONE (2026-09-22).** The shrinking loop now sees a page that spills
+  only pictures onto a wordless page. `z21760107` 35 -> 21 pages (of 19),
+  small files' right page 52.0% -> 54.4%, theses unchanged, gate 100%.
+  Write-up in `PLAN.md` ("N2c"). Left on `z21760107`: its title-page table
+  has a column a few words wide, so the title takes two pages and every page
+  after is one late - a tables item.
 - Seen on the way, not yet counted: table cell text stored backwards on
   `z21760107` (FLAGS 12 was closed for another file), the journal logo drawn
   twice on its first page.

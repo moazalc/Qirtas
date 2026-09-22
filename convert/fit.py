@@ -21,7 +21,7 @@ from harness.compare import _page_words
 
 STEP = 0.94          # how much to shrink a page that spilled
 FLOOR = 0.70         # never shrink further than this
-ROUNDS = 4
+ROUNDS = 6
 
 
 def _spilled(orig_pdf, rebuilt_pdf):
@@ -29,21 +29,64 @@ def _spilled(orig_pdf, rebuilt_pdf):
     with pymupdf.open(orig_pdf) as A, pymupdf.open(rebuilt_pdf) as B:
         orig = [set(_page_words(p)) for p in A]
         ours = [set(_page_words(p)) for p in B]
-    spread = collections.Counter()
-    for j, page in enumerate(ours):
-        if not page:
-            continue
-        # which original page does this rendered page mostly belong to?
-        best, score = None, 0
-        for i, o in enumerate(orig):
-            if not o:
-                continue
-            hit = len(page & o)
-            if hit > score:
-                best, score = i, hit
-        if best is not None and score:
-            spread[best] += 1
-    return {i for i, n in spread.items() if n > 1}
+    return {i for i, n in collections.Counter(_owners(orig, ours)).items()
+            if n > 1}
+
+
+def _owners(orig, ours):
+    """Which original page each rendered page belongs to.
+
+    The writer breaks the page before every original page, so the rendered
+    pages fall into one unbroken run per original page, in order. This finds
+    the split into runs that shares the most words.
+
+    It used to give each rendered page to whichever original page it shared
+    most words with, one at a time, and skip pages with no words. On
+    z21760107 nearly every page pushed its last line - a footer picture - onto
+    a page of its own, and all of those wordless pages were skipped: 19 pages
+    came out as 35 and the loop saw 2 of the 16 spills.
+
+    A page with no words is given to the run before it: the page after it
+    starts with a break, so a wordless page in between is overflow.
+    """
+    n, m = len(orig), len(ours)
+    if not n or not m:
+        return []
+    # Every original page gets at least one rendered page, since each is
+    # written even when empty. When there are fewer rendered pages than that,
+    # something was lost and an original page may get none.
+    every = m >= n
+    hit = [[len(r & o) for o in orig] for r in ours]
+    NONE = float("-inf")
+    # best[j][i]: most shared words with rendered pages 0..j, page j in run i.
+    best = [[NONE] * n for _ in range(m)]
+    back = [[0] * n for _ in range(m)]
+    for i in range(n):
+        if i == 0 or not every:
+            best[0][i] = hit[0][i]
+    for j in range(1, m):
+        # best of the runs before i, for when a run may be skipped
+        before, before_at = NONE, 0
+        for i in range(n):
+            stay = best[j - 1][i]
+            if every:
+                came, came_at = (best[j - 1][i - 1], i - 1) if i else (NONE, 0)
+            else:
+                came, came_at = before, before_at
+            # Ties go to moving on, so that tracing back starts each run as
+            # late as it can and a wordless page joins the run before it.
+            if came > NONE and came >= stay:
+                best[j][i], back[j][i] = came + hit[j][i], came_at
+            elif stay > NONE:
+                best[j][i], back[j][i] = stay + hit[j][i], i
+            if best[j - 1][i] > before:
+                before, before_at = best[j - 1][i], i
+    i = n - 1 if every else max(range(n), key=lambda k: best[m - 1][k])
+    owners = [0] * m
+    for j in range(m - 1, -1, -1):
+        owners[j] = i
+        i = back[j][i]
+    return owners
 
 
 def convert(pdf_path, out_path, render=None):
