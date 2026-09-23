@@ -55,8 +55,7 @@ drawn (see the timeline); a full run will say how much is left. Then, smaller:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** two commits to push (the note on why spaces were
-left, and the fix). Two fonts are
+**Waiting on Moaz:** nothing to push. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 
