@@ -11,22 +11,23 @@ must match the printed page before any work on looks.
 
 | Measure | Now | When "text first" started (22 Sept) |
 |---|---|---|
-| Our words that are **not** on the printed page (48 test files) | **9.3%**‡ | 17.1% (old way of counting) |
+| Our words that are **not** on the printed page (48 test files) | **7.8%**‡ | 17.1% (old way of counting) |
 | Same, on Moaz's theses - the measuring floor | 2.8%‡ | 3.5% (old way) |
-| **How far above the floor we are** | **6.5 points** | 13.6 points (old way) |
-| Words on the printed page that we have | **90.7%** | 87.2% |
-| Nothing lost (the hard gate), test files | 99.8%, worst file 89.7%* | 100%* |
+| **How far above the floor we are** | **5.0 points** | 13.6 points (old way) |
+| Words on the printed page that we have | **91.9%** | 87.2% |
+| Nothing lost (the hard gate), test files | 99.8%, worst file 90.0%* | 100%* |
 | Nothing lost, theses and hard files | 100% | 100% |
-| Pages land on the right page (test files) | 64.6% | 60.0% |
-| Pages land on the right page (theses) | 83.5% | 80.6% |
+| Pages land on the right page (test files) | 65.4% | 60.0% |
+| Pages land on the right page (theses) | 83.6% | 80.6% |
 
 ‡ The page check was counting numbers in running headers against us
 (23 Sept, fixed). Counted the old way the same files give 11.8%, theses
 3.5%. The "how far above the floor" row is the fair comparison.
 
-Full run of 23 Sept evening (`2026-09-23-{dev,regression}-newbase`), the
-first with Moaz's fonts installed: 22 files better than the run before
-today's fixes, none worse.
+Full run of 24 Sept (`2026-09-24-{dev,regression}-textfixes4`), with the
+fixes for spaces inside words, split words and punctuation beside numbers:
+against the run of 23 Sept evening, 36 of 48 files better, none worse;
+theses unchanged.
 
 \* The worst file (`z21763864`) draws its text as shapes and its hidden text
 is misspelled throughout; the gate now asks the printed page when the hidden
@@ -207,7 +208,10 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   labels each English word and number separately, so the converter and the
   checker saw those lines differently. Fixed: such a line is changed only
   where both see it whole. Those 8 files: nothing lost 100% again, and they
-  kept their gains. Full run started again to confirm.
+  kept their gains.
+- **Full run, 24 Sept**: wrong words 9.3% -> **7.8%**, 36 files better,
+  none worse; distance above the measuring floor 6.5 -> 5.0 points;
+  nothing lost 100% on every file but the parked one.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

@@ -2218,6 +2218,12 @@ stray Word process in that run and failed to save): gate 100%, wrong words
 kept their gain (`z20252126` 4.2 -> 2.9%, `z20276145` 5.0 -> 3.7%,
 `z22658522` 10.2 -> 9.0%); quick set unchanged at 5.2%
 (`2026-09-23-quick-gatefix`, `2026-09-24-quick-all-on-4`).
+
+Full run (`2026-09-24-{dev,regression}-textfixes4`, with the space's place
+above): dev page-truth wrong 9.3 -> 7.8%, found 90.7 -> 91.9%, 36 files
+better, none worse; theses 2.8% unchanged; gate 99.8%, only `z21763864`
+under 100% (89.7 -> 90.0%); words in order 96.5 -> 96.4%, right page 64.6
+-> 65.4%; regression unchanged, gate 100%.
 `QIRTAS_PUNCT_MIXED=0` turns it off. A moved space or bracket joins the
 span before it, like a moved mark.
 
