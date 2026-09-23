@@ -1799,7 +1799,7 @@ stored as text), words split where the font changes (FLAGS 24 cause 2:
 
 ### The gate asks the page; split words, 2026-09-23
 
-**The gate** (`harness.loss.judge`; recommended to Moaz 2026-09-23, awaiting his confirmation): a sentence coverage()
+**The gate** (`harness.loss.judge`; confirmed by Moaz 2026-09-23): a sentence coverage()
 flags is taken to its page and read by OCR. If the page shows any word the
 reference says we lack, the loss is real. If it shows none - while plainly
 reading the rest of the sentence - the reference was wrong there, and the
@@ -1833,6 +1833,22 @@ the theses' 3.5%, and one file (`z20397518`) holds 23% of it.
   signal - the letters' own joining forms are the candidate.
 
 Runs: `2026-09-23-{dev,regression}-splitwords` (kept), `-respace` (reverted).
+
+**The title that went missing** (found in the before/after of `z21762915`
+page 1). The article title and author were absent from the body, and it was
+not N5b lifting them into the header, as first thought. `reader.
+_drop_text_inside_tables` removed any paragraph whose text a table on the same
+page carried, wherever on the page either sat. The header band repeats title
+and author, and once the band's font was repaired (witness) the words matched,
+so the title 40pt below the band went as its copy. Now a paragraph with a
+position must also sit inside the table's height; without one (tags route)
+text alone decides, as before. Four more paragraphs came back on dev, all real:
+two more article titles under a repeating band (`z21094872`, `z21095413`), and
+two lines belonging to one table but matched against ANOTHER on the page - a
+row of years the table-finder left above its table (`z20252151`), and a survey
+heading the first table holds only in pieces (`z20589058`). Nothing lost,
+pages and every other file unchanged; `z21095413` words in order 98.9 -> 99.6%,
+right page 37.3 -> 38.4%. Runs: `2026-09-23-{dev,regression}-titlekept`.
 
 ## Known unfinished
 

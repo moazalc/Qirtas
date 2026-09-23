@@ -1648,23 +1648,38 @@ def _drop_text_inside_tables(doc, tables):
 
     The table's words are also picked up as ordinary text, so without this the
     document says everything twice.
+
+    Where the paragraph has a position, it must also sit inside the table.
+    `z21762915`'s header band repeats the article's title and author, and once
+    its font was repaired the words matched: the title printed 40pt below the
+    band was dropped as the band's copy, and page 1 lost its title.
     """
     if not tables:
         return
     by_page = {}
     for t in tables:
         joined = WS.sub("", " ".join(c for row in t.rows for c in row))
-        by_page.setdefault(t.page, []).append(joined)
+        by_page.setdefault(t.page, []).append((joined, t))
     keep = []
     for b in doc.blocks:
         if b.kind in (TABLE, IMAGE) or not b.text:
             keep.append(b)
             continue
         flat = WS.sub("", b.text)
-        if len(flat) >= 6 and any(flat in joined for joined in by_page.get(b.page, [])):
+        if len(flat) >= 6 and any(flat in joined and _inside(b, t)
+                                  for joined, t in by_page.get(b.page, [])):
             continue
         keep.append(b)
     doc.blocks = keep
+
+
+def _inside(b, table):
+    """Does this paragraph sit within the table's height? Unknown counts as yes:
+    the tags route carries no positions, and there text is all there is."""
+    if not (b.y or b.y1) or not (table.y or table.y1):
+        return True
+    mid = (b.y + b.y1) / 2
+    return table.y - 2 <= mid <= table.y1 + 2
 
 
 def read(path, image_dir=None):

@@ -821,7 +821,7 @@ better, 0 worse, theses unchanged.
 Checked sentence by sentence: in each, our words are nearer the page than
 the gate's reference (`الإ` against its `الٕ` with no alef; `كبير ا` against
 its `كبيرر ا`), or only the note numbers differ (FLAGS 24). The misspelled
-second copy had been matching the reference's mistakes. **Adopted 2026-09-23 as recommended, Moaz to confirm:** the gate asks the page
+second copy had been matching the reference's mistakes. **Adopted 2026-09-23, confirmed by Moaz:** the gate asks the page
 (`harness.loss.judge`) - a sentence is excused only when the page shows none
 of the words the reference says we lack, and every excused sentence is
 listed in the run.

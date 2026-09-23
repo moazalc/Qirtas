@@ -19,8 +19,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE
-from convert.reader import _label_kind, _join_same_line, _backfill, _glued
+from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, TABLE
+from convert.reader import (_label_kind, _join_same_line, _backfill, _glued,
+                            _drop_text_inside_tables)
 
 FAILED = []
 
@@ -122,6 +123,23 @@ def main():
                  collections.Counter({"قامyazdanian": 1})), False)
     check("a word the document never prints whole: not joined",
           _glued(piece("مها", 400, 420), piece("العبد", 360, 400), vocab), False)
+
+    print("\na table's words printed again outside it")
+    # z21762915: the header band repeats the title; the title below it stays.
+    title = "زاوية الهامل ودورها في حفظ التراث الجزائري"
+    band = Block(kind=TABLE, text="", page=0, y=29.0, y1=55.0,
+                 rows=[["", ".د بن بوزيد لخضر " + title]])
+    d = Doc(pages=1)
+    d.add(Block(kind=PARAGRAPH, text=".د بن بوزيد لخضر " + title, page=0,
+                y=33.0, y1=50.0))
+    d.add(Block(kind=PARAGRAPH, text=title, page=0, y=68.0, y1=93.0))
+    _drop_text_inside_tables(d, [band])
+    check("the band's own copy dropped, the title kept",
+          [b.y for b in d.blocks], [68.0])
+    d = Doc(pages=1)
+    d.add(Block(kind=PARAGRAPH, text=title, page=0))
+    _drop_text_inside_tables(d, [band])
+    check("no position: text alone decides, as before", len(d.blocks), 0)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

@@ -213,7 +213,8 @@ In order:
     pieces joined (12 better, 0 worse). Left, by size: spaces Word stores
     inside words (most split words - one repair tried and reverted, PLAN),
     letters in the wrong order (22% of wrong words), `z20397518` alone
-    (23% of them), files with no installed font (`z21751977`).
+    (23% of them), files with no installed font (`z21751977`). DONE
+    2026-09-23: the article title dropped as a header band's copy (PLAN).
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.
