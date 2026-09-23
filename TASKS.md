@@ -209,9 +209,11 @@ In order:
     before the look (FLAGS 25). DONE 2026-09-23: page-truth score
     (`harness/truth.py`), OCR settles disputed font shapes
     (`convert/witness.py`), duplicate copies stopped (N5f's cause on
-    `z21762915`). Next: Moaz's call on the gate (FLAGS 25), then the words
-    split where the font changes (FLAGS 24 cause 2), then the files with no
-    installed font (`z21751977`).
+    `z21762915`). 2026-09-23: the gate asks the page (FLAGS 25); split
+    pieces joined (12 better, 0 worse). Left, by size: spaces Word stores
+    inside words (most split words - one repair tried and reverted, PLAN),
+    letters in the wrong order (22% of wrong words), `z20397518` alone
+    (23% of them), files with no installed font (`z21751977`).
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.

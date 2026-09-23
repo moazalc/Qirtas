@@ -101,6 +101,67 @@ def coverage(orig, out, marks=True):
     return 1 - len(gone) / len(pairs), gone
 
 
+# A flagged sentence is judged by the page only where the OCR plainly read
+# that part of it: at least this share of the sentence's other words.
+PAGE_READ = 0.5
+
+
+def judge(pdf, out, marks=True):
+    """Nothing lost, with the original's page as the tie-breaker (FLAGS 25).
+
+    The reference is the PDF's hidden text, and where that text is wrong a
+    sentence we wrote right reads as lost: `z21763864` has الٕ with no alef
+    where the page shows الإ, and fell to 81.5% the day we stopped writing a
+    misspelled second copy that matched it. So each sentence coverage()
+    flags is taken to its page, read by OCR, and the words it says we lack
+    are looked for there. If the page shows any of them, the loss is real.
+    If it shows none - while plainly reading the rest of the sentence - the
+    reference was wrong there: the sentence is excused, and listed.
+
+    -> (kept, kept before the page was asked, [excused sentence])
+    """
+    import hashlib
+    import pymupdf
+    from convert.witness import _norm, _ocr
+    from harness.compare import text_of
+    pages = text_of(pdf, pages=True)
+    orig = "\n".join(pages)
+    cov, gone = coverage(orig, out, marks)
+    if not gone:
+        return cov, cov, []
+    pairs = sentence_pairs(orig)
+    raw_of = dict(pairs)
+    by_page = [norm(t, marks) for t in pages]
+    with open(pdf, "rb") as f:
+        key = hashlib.sha1(f.read()).hexdigest()[:16]
+    doc = pymupdf.open(pdf)
+    ours = {_norm(w) for w in out.split()}
+    excused = []
+    for s in gone:
+        page = next((i for i, t in enumerate(by_page) if s[5:45] in t), None)
+        if page is None:
+            continue
+        seen = _ocr(doc, [page], Path("out/work/truth/cache") / key).get(page)
+        if not seen:
+            continue
+        shown = {w for w, _ in seen}
+        joined = "".join(w for w, _ in seen)
+        words = [w for w in (_norm(x) for x in raw_of.get(s, "").split())
+                 if len(w) >= MIN_WORD]
+        lacking = [w for w in words if w not in ours]
+        present = [w for w in words if w in ours]
+        if not lacking or not present:
+            continue
+        read = sum(1 for w in present if w in shown or w in joined)
+        if read < PAGE_READ * len(present):
+            continue                  # the OCR did not read this part well
+        if any(w in shown or w in joined for w in lacking):
+            continue                  # the page shows what we lack: a loss
+        excused.append(s)
+    kept = 1 - (len(gone) - len(excused)) / max(1, len(pairs))
+    return kept, cov, excused
+
+
 def missing_chunks(orig, out, marks=True, limit=8):
     """The actual runs of text that were dropped, so we can see WHAT is gone."""
     a, b = norm(orig, marks), norm(out, marks)

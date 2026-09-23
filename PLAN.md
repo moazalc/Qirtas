@@ -1797,6 +1797,43 @@ is nothing to choose between), `z21763864` (34% - its words are drawn, not
 stored as text), words split where the font changes (FLAGS 24 cause 2:
 بمجالات, بين read بني).
 
+### The gate asks the page; split words, 2026-09-23
+
+**The gate** (`harness.loss.judge`; recommended to Moaz 2026-09-23, awaiting his confirmation): a sentence coverage()
+flags is taken to its page and read by OCR. If the page shows any word the
+reference says we lack, the loss is real. If it shows none - while plainly
+reading the rest of the sentence - the reference was wrong there, and the
+sentence is excused and listed in the run. Checked both ways: five real
+sentences deleted from a clean file are still caught; on `z21763864` the
+sentences still flagged are ones where our text is wrong too (املس يحية).
+Eval reports `kept` (judged), `kept_strict`, and every excused sentence.
+
+**Split words** (FLAGS 24 cause 2). Our wrong words, sorted by cause across
+the sampled pages: one or two letters differ 37%, letters in the wrong order
+22%, a word cut in two 21%, not on the page 19%. Half of the missing side is
+OCR noise (the theses miss 8.5%); the gap is the WRONG side, 15.5% against
+the theses' 3.5%, and one file (`z20397518`) holds 23% of it.
+
+- A PDF writes one line as several pieces and can cut a word between them
+  (`z19773087`: "سورية، ي" | "حتفظ المؤلفون", touching at x=503). FLAGS 24
+  joined every touching pair and glued real words. Now `reader._glued`
+  joins only when they touch on one line, an Arabic letter meets an Arabic
+  letter with no space from either side, and the joined word is one the
+  document prints whole inside a single piece elsewhere
+  (`reader.vocabulary`; the page's plain text already glues touching pieces
+  and would vouch for قامYazdanian). 12 files better on the page, 0 worse;
+  wrong 15.5 -> 15.1%; theses unchanged.
+- **Most splits are not at pieces at all** (350 of 453 left): Word stores a
+  real space character inside the word - الواحد as "الواح د", the space
+  drawn on top of the د; إيجاد as "إ يجاد", the space drawn after the last
+  letter. Moving each space to where it is drawn was tried and REVERTED:
+  wrong 14.8 -> 14.6%, but 8 files worse on the page, 10 files lost real
+  sentences (`z21764410` 95.4%), right page 62.4 -> 60.6%. Two letters that
+  touch round a space also happen at real word boundaries. Needs a better
+  signal - the letters' own joining forms are the candidate.
+
+Runs: `2026-09-23-{dev,regression}-splitwords` (kept), `-respace` (reverted).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

@@ -11,6 +11,7 @@ Three ways of looking, because no single one works everywhere:
 We run all three and keep whichever recovered more Arabic, preferring the
 labelled ones when they come close — measure, don't predict.
 """
+import collections
 import re
 from pathlib import Path
 import pikepdf
@@ -406,8 +407,9 @@ def read_geometry(path):
     doc = Doc(source_route="geometry")
     with pymupdf.open(path) as d:
         doc.pages = len(d)
+        vocab = vocabulary(d)
         for i, page in enumerate(d):
-            rich = _page_rich(page, i)
+            rich = _page_rich(page, i, vocab)
             plain_len = len(ARABIC.findall(page.get_text("text")))
             rich_len = sum(len(ARABIC.findall(b.text)) for b in rich)
             if plain_len and rich_len < plain_len * 0.5:
@@ -420,32 +422,109 @@ def read_geometry(path):
     return doc
 
 
-def _rich_block(text_blocks, i, kind=PARAGRAPH):
+# Two pieces of one line "touch" within this share of the font size.
+GLUE_GAP = 0.25
+EDGE_PUNCT = ".,،:؛()[]«»\"'-–—"
+
+
+def vocabulary(doc):
+    """Every word the document prints whole, with how often - to tell a word
+    split in two from two words that happen to touch.
+
+    Only words wholly inside one piece of text, with a space or the piece's
+    end on each side. The page's plain text glues touching pieces, so it
+    would count the very joins in question as words (قامYazdanian)."""
+    words = collections.Counter()
+    for page in doc:
+        for b in page.get_text("dict")["blocks"]:
+            for line in b.get("lines", []):
+                for sp in line["spans"]:
+                    t = sp["text"]
+                    toks = t.split()
+                    if not toks:
+                        continue
+                    inner = toks[1:-1]
+                    if len(toks) > 1 and t[0].isspace():
+                        inner.insert(0, toks[0])
+                    if len(toks) > 1 and t[-1].isspace():
+                        inner.append(toks[-1])
+                    if len(toks) == 1 and t[0].isspace() and t[-1].isspace():
+                        inner = toks
+                    words.update(_bare(w).strip(EDGE_PUNCT) for w in inner)
+    return words
+
+
+ARABIC_LETTER = re.compile("[ء-يٱ-ۓﭐ-﷿ﹰ-ﻼ]")
+
+
+def _glued(prev, sp, vocab):
+    """Is `sp` the rest of the word `prev` ends with?
+
+    A PDF can write one line as several pieces, and cut a word between them:
+    `z19773087` writes يحتفظ as "سورية، ي" and "حتفظ المؤلفون", touching at
+    x=503. Joining every pair of touching pieces glued real words too - a
+    justified line's words can touch (شملت دراستنا, FLAGS 24). So they are
+    joined only when they touch on one line, an Arabic letter meets an Arabic
+    letter at the seam with no space brought by either, and the joined word
+    is one the document prints whole elsewhere.
+    """
+    if not vocab or not prev or not prev["text"] or not sp["text"]:
+        return False
+    a, b = prev["text"], sp["text"]
+    if a[-1].isspace() or b[0].isspace():
+        return False
+    # Only a letter against a letter: punctuation and a change of script are
+    # where words end (مثل|PCI, قام|Yazdanian).
+    tail_ch, head_ch = MARKS.sub("", a)[-1:], MARKS.sub("", b)[:1]
+    if not (ARABIC_LETTER.match(tail_ch or " ") and ARABIC_LETTER.match(head_ch or " ")):
+        return False
+    size = max(prev["size"], sp["size"], 1.0)
+    pa, pb = prev["bbox"], sp["bbox"]
+    if abs(pa[3] - pb[3]) > 0.3 * size:
+        return False                        # not on one line
+    gap = min(abs(pa[0] - pb[2]), abs(pb[0] - pa[2]))
+    if gap > GLUE_GAP * size:
+        return False
+    tail, head = a.split()[-1], b.split()[0]
+    whole = _bare(tail + head).strip(EDGE_PUNCT)
+    return len(whole) >= 3 and vocab.get(whole, 0) > 0
+
+
+def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     """One Block from one or more PyMuPDF text blocks, with size, boldness and
-    runs of like formatting. None if they hold no text."""
-    text, size, bold, spans = [], 0.0, False, []
+    runs of like formatting. None if they hold no text.
+
+    `vocab` (vocabulary()): a word cut between two pieces is put back
+    together - see _glued. Without it every piece is joined with a space."""
+    text, size, bold, spans = "", 0.0, False, []
+    prev = None
     for b in text_blocks:
         for line in b["lines"]:
             for sp in line["spans"]:
                 run = sp["text"]
                 if not run.strip():
                     continue
-                text.append(run)
+                glue = _glued(prev, sp, vocab)
+                prev = sp
+                text += ("" if glue or not text else " ") + run
                 size = max(size, sp["size"])
                 it = bool(sp["flags"] & ITALIC_FLAG)
                 bo = bool(sp["flags"] & BOLD_FLAG)
                 bold = bold or bo
                 # Merge with the previous span when it reads the same. A line
                 # often arrives as a dozen spans of identical formatting, and
-                # one Word run each would bloat the file for no effect.
-                if spans and spans[-1][1] == bo and spans[-1][2] == it:
-                    spans[-1] = (spans[-1][0] + " " + run, bo, it)
+                # one Word run each would bloat the file for no effect. A word
+                # put back together stays in one run whatever its formatting:
+                # the writer puts a space between runs.
+                if spans and (glue or (spans[-1][1] == bo and spans[-1][2] == it)):
+                    spans[-1] = (spans[-1][0] + ("" if glue else " ") + run,
+                                 spans[-1][1], spans[-1][2])
                 else:
                     spans.append((run, bo, it))
     if not spans:
         return None
     boxes = [b["bbox"] for b in text_blocks]
-    return Block(kind=kind, text=_clean(" ".join(text)),
+    return Block(kind=kind, text=_clean(text),
                  page=i, size=round(size, 1), bold=bold,
                  spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
                  y=round(min(r[1] for r in boxes), 1),
@@ -454,12 +533,12 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH):
                  x1=round(max(r[2] for r in boxes), 1))
 
 
-def _page_rich(page, i):
+def _page_rich(page, i, vocab=None):
     out = []
     for b in sorted(page.get_text("dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
         if b.get("type") != 0:
             continue
-        blk = _rich_block([b], i)
+        blk = _rich_block([b], i, vocab=vocab)
         if blk:
             out.append(blk)
     return _join_lines(out)
@@ -520,6 +599,7 @@ def read_labels(path):
         if "/StructTreeRoot" not in d.xref_object(d.pdf_catalog(), compressed=True):
             raise RuntimeError("not tagged")
         doc.pages = len(d)
+        vocab = vocabulary(d)
         for i, page in enumerate(d):
             tree = page.get_text("dict", flags=pymupdf.TEXTFLAGS_DICT
                                  | pymupdf.TEXT_COLLECT_STRUCTURE)
@@ -553,7 +633,7 @@ def read_labels(path):
                 # "1", which was taken for a reference and vanished into it.
                 if kind != HEADING:
                     _mark_note_numbers(blocks)
-                blk = _rich_block(blocks, i, kind)
+                blk = _rich_block(blocks, i, kind, vocab)
                 if blk:
                     blk.level = level
                     page_blocks.extend(_split_notes(blk) if kind == FOOTNOTE

@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE
-from convert.reader import _label_kind, _join_same_line, _backfill
+from convert.reader import _label_kind, _join_same_line, _backfill, _glued
 
 FAILED = []
 
@@ -96,6 +96,32 @@ def main():
     chosen, results = docs("نص آخر لا علاقة له بما في الصفحة من كلام طويل هنا")
     check("text really missing is still put back",
           len(_backfill(chosen, results, None, fix).blocks), 2)
+
+    print("\na word the PDF cut between two pieces")
+    import collections
+
+    def piece(text, x0, x1, y1=407.0, size=12.0):
+        return {"text": text, "bbox": (x0, y1 - 20, x1, y1), "size": size,
+                "flags": 0}
+    vocab = collections.Counter({"يحتفظ": 2, "الخزان": 3, "شملت": 1,
+                                 "دراستنا": 1})
+    # z19773087: "سورية، ي" | "حتفظ المؤلفون", touching at x=503
+    check("cut inside a word: joined",
+          _glued(piece("سورية، ي", 503, 538), piece("حتفظ المؤلفون", 415, 503),
+                 vocab), True)
+    check("two real words that touch: not joined (FLAGS 24)",
+          _glued(piece("شملت", 300, 330), piece("دراستنا", 250, 300), vocab),
+          False)
+    check("a space at the seam: not joined",
+          _glued(piece("سورية، ي ", 503, 538), piece("حتفظ", 415, 503), vocab),
+          False)
+    check("apart on the line: not joined",
+          _glued(piece("ال", 533, 538), piece("خزان", 480, 520), vocab), False)
+    check("Arabic against English: not joined",
+          _glued(piece("قام", 400, 430), piece("Yazdanian", 330, 400),
+                 collections.Counter({"قامyazdanian": 1})), False)
+    check("a word the document never prints whole: not joined",
+          _glued(piece("مها", 400, 420), piece("العبد", 360, 400), vocab), False)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

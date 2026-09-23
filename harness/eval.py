@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness.roundtrip import run_one
 from harness.compare import text_of, text_of_docx
 from convert.scan import Refused
-from harness.loss import coverage
+from harness.loss import coverage, judge
 from harness.env import fingerprint, describe
 
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
@@ -43,8 +43,13 @@ def score_one(args):
     """One file, start to finish. Top level so it can be sent to a worker."""
     f, work = args
     r = run_one(f, work)
-    cov, _ = coverage(text_of(f), text_of_docx(r["docx"]))
-    r["kept"] = round(cov, 4)
+    # Nothing lost, with the page as the tie-breaker where the PDF's hidden
+    # text is itself wrong (harness.loss.judge, FLAGS 25). The strict number
+    # and every excused sentence are kept beside it.
+    kept, strict, excused = judge(f, text_of_docx(r["docx"]))
+    r["kept"] = round(kept, 4)
+    r["kept_strict"] = round(strict, 4)
+    r["excused"] = excused
     return r
 
 
@@ -144,12 +149,16 @@ def main():
     pg = statistics.mean(r["page_score"] for r in rows)
     infl = statistics.median(r["pages_out"] / max(1, r["pages_orig"]) for r in rows)
 
+    n_ex = sum(len(r.get("excused", [])) for r in rows)
+    f_ex = sum(1 for r in rows if r.get("excused"))
     head = (f"{a.set} set — {len(rows)} files"
             + (f"  [{a.label}]" if a.label else "")
             + (f", {len(refused)} refused as scans" if refused else ""))
     summary = "\n".join([
         head,
         f"  nothing lost   {kept:>7.1%}  (worst file {worst:.1%})",
+        f"                 {n_ex} sentence(s) the reference had wrong, excused "
+        f"by the page, in {f_ex} file(s)",
         f"  words in order {txt:>7.1%}",
         f"  right page     {pg:>7.1%}   (unrelated docs ~13%)",
         f"  page inflation {infl:>7.2f}x",
@@ -157,6 +166,8 @@ def main():
     print(f"\n{BOLD}{head}{OFF}")
     print(f"  nothing lost   {GRN if worst >= 0.999 else RED}{kept:>7.1%}{OFF}  "
           f"(worst file {GRN if worst >= 0.999 else RED}{worst:.1%}{OFF})")
+    print(f"  {DIM}{n_ex} sentence(s) the reference had wrong, excused by the "
+          f"page, in {f_ex} file(s){OFF}")
     print(f"  words in order {txt:>7.1%}")
     print(f"  right page     {pg:>7.1%}   {DIM}(unrelated docs ~13%){OFF}")
     print(f"  page inflation {infl:>7.2f}x")

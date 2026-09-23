@@ -30,7 +30,7 @@ def words(text, strip_marks=False):
     return WORD.findall(t)
 
 
-def text_of(pdf_path):
+def text_of(pdf_path, pages=False):
     # Repaired here as well as in the reader, and it must be both. The repair
     # fixes text the SOURCE pdf hands over backwards, so if only our output
     # were corrected it would stop matching the still-mangled original it is
@@ -50,7 +50,12 @@ def text_of(pdf_path):
     except Exception:
         fixes = {}
     with pymupdf.open(pdf_path) as d:
-        raw = "\n".join(pg.get_text("text") for pg in d)
+        texts = [pg.get_text("text") for pg in d]
+    if pages:
+        # One string per page, for finding which page a sentence is on.
+        return [spell_out(apply_fixes(repair_lam_alef(t), fixes)).translate(WESTERN)
+                for t in texts]
+    raw = "\n".join(texts)
     # Spelling repair FIRST, then the map - the reader's order (`_clean` as it
     # reads, the map at the end). The spelling repair is not safe to run
     # twice, so the two orders differ on some words: on z20375390 the map's

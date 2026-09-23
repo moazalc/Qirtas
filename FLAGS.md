@@ -762,6 +762,13 @@ is the correct one.
 **Closes when:** cause 2 is repaired without costing other files, and the
 gate either reads note numbers or states that it cannot.
 
+**2026-09-23:** cause 2 partly repaired - pieces are joined when the joined
+word is one the document prints whole (PLAN "The gate asks the page"), 12
+files better, 0 worse. Most split words turned out to be a different thing:
+a real space Word stores inside the word, drawn on a letter or at the word's
+end. Moving those spaces was tried and reverted (10 files lost sentences).
+Causes 1 and 3 are now excused by the page when it shows them (FLAGS 25).
+
 ---
 
 ## 25. Every score checks us against the PDF's hidden text, and on many files that text is wrong
@@ -814,8 +821,10 @@ better, 0 worse, theses unchanged.
 Checked sentence by sentence: in each, our words are nearer the page than
 the gate's reference (`الإ` against its `الٕ` with no alef; `كبير ا` against
 its `كبيرر ا`), or only the note numbers differ (FLAGS 24). The misspelled
-second copy had been matching the reference's mistakes. **Moaz to decide**
-whether this ships with the gate below 100% on these three.
+second copy had been matching the reference's mistakes. **Adopted 2026-09-23 as recommended, Moaz to confirm:** the gate asks the page
+(`harness.loss.judge`) - a sentence is excused only when the page shows none
+of the words the reference says we lack, and every excused sentence is
+listed in the run.
 
 Still open: `z21751977` (3% found - its font is not installed, so there is
 no second name to choose), `z21763864` (its words are not text in the PDF),
