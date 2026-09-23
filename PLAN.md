@@ -1976,6 +1976,38 @@ comma had parted, until the gap rule.
 
 Left: marks beside digits or Latin (`الإ8 ،براهيمي`, `:العدد05`), brackets.
 
+### امل for الم: the lam pairs by their shared edge, 2026-09-23
+
+Full run first (`2026-09-23-{dev,regression}-newbase`, fonts installed,
+stretching stroke + table cells + punctuation): page truth on dev wrong
+14.1 -> 11.9%, found 89.4 -> 90.7%, 22 files better, 0 worse; theses
+unchanged (3.5 / 91.5%); nothing lost unchanged; right page 62.5 -> 64.6%;
+words in order 97.0 -> 96.5% (the cells and the marks, above).
+
+`z21095413` keeps املهاجرين, املغاربة, الأملاني in its body although the
+geometric repair turns each round there. Its running header, in Sakkal
+Majalla at a larger size, stores the same word with a meem that is NOT zero
+width (6.4 pt) - but it ends at the lam's edge, the lam running on past it,
+the signature the alef-lam case already reads. The header copy went
+unrepaired, so the map's safety rule dropped the word everywhere.
+`repair_ligatures` now reads the shared edge for لم لح لج لخ and في too.
+Only these: the same test on any two letters changed 293 words on dev, 195
+of them from a spelling seen elsewhere to one never seen (مركز -> مكرز,
+الصراع -> الصرعا - a ra's tail and an alef end where their neighbour ends).
+Restricted, it changes 21, and 19 become a spelling seen elsewhere (the
+other two, المقاولاتية and والخاسر, are plainly right). جم/مج is left out:
+جملة is a word.
+
+And `join_map` joined "امل حددات" to املحددات: it built the joined word
+from the stored letters. It now builds it from the pair repair's reading,
+whose spaces sit where the stored ones do.
+
+Page truth on 7 files against the full run: `z21095413` wrong 9.8 -> 6.4%,
+found 94.8 -> 98.2%; `z20763272` 9.5 -> 9.3%; `z21418248` 9.3 -> 9.1%;
+the rest and the thesis unchanged; nothing lost 100%. Run:
+`2026-09-23-quick-lampairs`. Left: `z21763864`, whose widths are not
+trusted, so no pair repair runs there.
+
 ### What the remaining wrong words are; the stretching stroke, 2026-09-23
 
 **Breakdown** of the 3,390 words on dev pages that OCR does not read

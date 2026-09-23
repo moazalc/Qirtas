@@ -157,6 +157,9 @@ _ZERO_W = 0.15
 # Two boxes ending within this of each other end at the same edge: halves of
 # one glyph. Measured at exactly equal on every case seen.
 _SAME_EDGE = 0.3
+# Letters a lam joins onto in one shape, stored first when the shape is
+# reversed: لم لح لج لخ.
+_LAM_PAIRS = "مجحخ"
 
 
 def repair_ligatures(chars):
@@ -201,6 +204,18 @@ def repair_ligatures(chars):
         one_glyph = ((ax1 - ax0) < _ZERO_W
                      or (abs(ax1 - bx1) < _SAME_EDGE and bx0 < ax0 - _SAME_EDGE))
         if a in HAMZA_ALEFS and b == LAM and one_glyph:
+            out[i], out[i + 1] = out[i + 1], out[i]
+            i += 2
+            continue
+        # The shared edge for the lam joined onto meem, hah, jeem, khah, and
+        # for fa-ya, where the first half has a width of its own
+        # (z21095413's header in Sakkal Majalla: املهاجرين, 2026-09-23).
+        # Only these pairs: the same test on any two letters turned 195
+        # correct words wrong on dev - a ra's tail ends where a kaf ends
+        # (مركز read مكرز), and so does an alef after a ra (الصراع).
+        if ((a in _LAM_PAIRS and b == LAM) or (a == YA and b == FA)) \
+                and (ax1 - ax0) >= _ZERO_W and abs(ax1 - bx1) < _SAME_EDGE \
+                and bx0 < ax0 - _SAME_EDGE:
             out[i], out[i + 1] = out[i + 1], out[i]
             i += 2
             continue

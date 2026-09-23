@@ -223,9 +223,9 @@ In order:
     wrong words are"). Left, by that breakdown (about 10 points ours, 3.6
     the OCR's): words not near any page word, pieces and run-together words
     (punctuation inside words, N5c), letters in another order (whole words
-    reversed were table cells - FIXED 2026-09-23, 300 cells; left: امل for
-    الم in `z21763864`, `z21095413`, `z21094872`, `z21418248`, and 81 short
-    cells), numbers (mostly the OCR - check first).
+    reversed were table cells - FIXED 2026-09-23, 300 cells; امل for الم
+    FIXED 2026-09-23 by the shared edge (PLAN); left: `z21763864`, whose
+    widths are not trusted, and 81 short cells), numbers (mostly the OCR - check first).
   - **Ask the user to install a missing font (Moaz, 2026-09-23).** Before
     converting, name the fonts the PDF uses that are not installed and
     offer to wait while the user installs them: several repairs read the

@@ -223,6 +223,23 @@ def main():
     check("a digit is not part of a glyph group",
           "".join(t[0] for t in repair_ligatures(items)), "١ت")
 
+    # A lam joined onto meem/hah/jeem/khah whose first half has a width of
+    # its own (z21095413's header, Sakkal Majalla): ends where the lam ends,
+    # the lam running on past it.
+    items = [("ا", 141.1, 150.85), ("م", 141.2, 147.6), ("ل", 136.2, 147.55),
+             ("ه", 131.5, 142.6)]
+    check("lam-meem with a wide meem, by its shared edge",
+          "".join(t[0] for t in repair_ligatures(items)), "المه")
+    items = [("ح", 300.0, 306.0), ("ل", 294.0, 306.1), ("ر", 290.0, 294.0)]
+    check("lam-hah the same way",
+          "".join(t[0] for t in repair_ligatures(items)), "لحر")
+    # مركز: the ra's tail ends where the kaf ends - two real glyphs. Other
+    # pairs sharing an edge are left alone: the same test on any two letters
+    # turned 195 correct words wrong (مكرز, الصرعا) on dev.
+    items = [("م", 320, 326), ("ر", 316, 320), ("ك", 309, 320.1), ("ز", 305, 309)]
+    check("a ra sharing the kaf's edge is left alone",
+          "".join(t[0] for t in repair_ligatures(items)), "مركز")
+
     print("\nand neutrals go where the page says they go")
     # `مقدمة:` is stored `:مقدمة`, colon first, and the first line of a
     # paragraph stores its TRAILING space second - so `تبدأ` arrives as `ت بدأ`,

@@ -11,17 +11,17 @@ must match the printed page before any work on looks.
 
 | Measure | Now | When "text first" started (22 Sept) |
 |---|---|---|
-| Our words that are **not** on the printed page (48 test files) | **about 12.9%**† | 17.1% |
-| Words on the printed page that we have | **about 90.5%**† | 87.2% |
+| Our words that are **not** on the printed page (48 test files) | **11.9%** | 17.1% |
+| Words on the printed page that we have | **90.7%** | 87.2% |
 | Same, on Moaz's theses (the clean reference) | 3.5% wrong, 91.5% found | same |
 | Nothing lost (the hard gate), test files | 99.8%, worst file 89.7%* | 100%* |
 | Nothing lost, theses and hard files | 100% | 100% |
-| Pages land on the right page (test files) | 62.5% | 60.0% |
-| Pages land on the right page (theses) | 80.6% | 80.6% |
+| Pages land on the right page (test files) | 64.6% | 60.0% |
+| Pages land on the right page (theses) | 83.5% | 80.6% |
 
-† Estimated: the last full run said 14.1% / 89.4%; the stretching-stroke
-fix was measured on 7 short files only (Moaz: no long runs for now). It
-will be confirmed at the next full run.
+Full run of 23 Sept evening (`2026-09-23-{dev,regression}-newbase`), the
+first with Moaz's fonts installed: 22 files better than the run before
+today's fixes, none worse.
 
 \* The worst file (`z21763864`) draws its text as shapes and its hidden text
 is misspelled throughout; the gate now asks the printed page when the hidden
@@ -38,8 +38,8 @@ page (measured on the theses, whose text is right). The rest is ours:
 
 1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
    Arabic-only lines are fixed (see the timeline); these are not yet.
-2. **`امل` written for `الم`** (املسلمون) in four files. (Whole words
-   written backwards in tables are fixed - see the timeline.)
+2. **`امل` for `الم` in `z21763864`** — the file whose text is drawn as
+   shapes; the others are fixed (see the timeline).
 3. **Words not on the page at all** — to be looked at file by file.
 4. **Numbers** — mostly the OCR misreading small numbers; check before fixing.
 5. **Text drawn as shapes** (`z21763864`).
@@ -47,10 +47,9 @@ page (measured on the theses, whose text is right). The rest is ours:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** push the commits made since `b87e139`. Two fonts are
+**Waiting on Moaz:** push the commits made since `211f5b1`. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
-is a different font) and **Muna**. A full run is needed at some point to
-confirm the estimates above and set a new baseline with the fonts.
+is a different font) and **Muna**. 
 
 Arabic fonts the test files use that this PC does not have, most text first:
 Adobe Arabic (`z20538636`), Boutros News H1 (`z20276275`), Arslan Wessam B
@@ -131,6 +130,14 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   that it changes nothing else. On 9 files: nothing lost 100%, wrong
   words down on 4 (`z21762915` 8.2% → 7.1%), none worse, theses
   unchanged. Not yet: marks beside numbers or English words.
+- **Full run with everything so far**: wrong words 14.1% → **11.9%**
+  (better than the 12.9% estimate), 22 files better, none worse; theses
+  unchanged; nothing lost unchanged.
+- **`امل` written for `الم`** (`املهاجرين`, `املحددات`): the running header
+  in a bigger font hid the evidence, so the fix was dropped for the whole
+  file; and words split by a space were joined back in the stored order.
+  Both fixed. `z21095413` wrong words 9.8% → 6.4%, two more files a little
+  better, none worse, nothing lost 100%.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

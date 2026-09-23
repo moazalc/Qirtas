@@ -474,7 +474,13 @@ def join_map(path):
                         if (before and before <= _JOINS_NEXT) \
                                 or (after and after <= _JOINS_PREVIOUS):
                             drop.add(i)
-                    for stored, whole in _split_at(text, drop):
+                    # The word joined as the letter-pair repair reads it:
+                    # "امل حددات" is المحددات, not املحددات. The repair only
+                    # swaps letters, so its spaces are where the stored ones are.
+                    fixed = [c[0] for c in repair_ligatures(
+                        [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars])]
+                    for (stored, _), (_, whole) in zip(_split_at(text, drop),
+                                                       _split_at(fixed, drop)):
                         found[stored] = found.get(stored, 0) + 1
                         joined[stored] = whole
     everything = "\n".join(plain)

@@ -183,6 +183,12 @@ def main():
         # and apart on the page; their joins are to other letters.
         check("م في كان is left alone", "م في كان" in joins, False)
 
+    split = Path("corpus/wild/z21095413.pdf")
+    if split.exists():
+        joins = join_map(str(repaired(str(split))))
+        check("a split word is joined as the pair repair reads it",
+              joins.get("امل حددات"), "المحددات")
+
     print("what a font says plainly is not a letter")
     stretched = Path("corpus/wild/z20397518.pdf")
     if stretched.exists():
