@@ -215,10 +215,16 @@ In order:
     2026-09-23, 24 files better, 0 worse; spaces after ا د ذ ر ز و left),
     letters in the wrong order (22% of wrong words), `z20397518` alone
     (23% of them), files with no installed font (`z21751977`). DONE
-    2026-09-23: the article title dropped as a header band's copy (PLAN).
+    2026-09-23: the article title dropped as a header band's copy (PLAN);
+    wrong-order pairs keyed with a neighbour (6 better, 0 worse); footer
+    issue printed once.
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.
+    Second attempt 2026-09-23 (text map, Arabic lines only) REVERTED: the
+    gate fell on two files, words in order on `عن بعد` 100 -> 66% (PLAN).
+    Needs a fix that stays inside one word, or one applied to the
+    characters before either side extracts.
   - **N5d. Footnotes and endnotes** - notes as body text, the list inside a
     note escaping (`الفصل الثالث`). Endnotes: Moaz chose **real Word
     endnotes, numbered 1, 2, 3 like the original** (not xxv, xxvi).

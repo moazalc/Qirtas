@@ -1908,6 +1908,21 @@ band prints (`Furniture.shown`), keeping the page number, whose position in
 the line is recounted. Measured with the neighbour keys above: no score
 moved on any other file. Runs: `2026-09-23-{dev,regression}-neighbours`.
 
+**Punctuation where it is drawn: tried a second time and REVERTED.** Word
+stores some marks away from where it draws them: the full stop ending a
+line at its start or inside a word (اله.امل), the colon after المفتاحية at
+the start of the line. `pdftext.punct_map` moved each mark to its drawn
+place on lines of Arabic only (no Latin, never beside a digit, only across
+a stretch that runs cleanly right to left) and carried it as a text map
+like the others. Nothing lost fell on two files (`z20397518` 98.5%,
+`z22658522` 99.3%), words in order on `عن بعد` 100 -> 66%, page truth 4
+files better and 5 worse. The cause is the one `line_items` records from
+the first attempt: a moved mark crosses words - a line-final stop stored
+at the start makes the whole line the key - and a key several words long
+fires only where the reader and the checker split and spaced the text
+alike. A fix has to stay inside one word, or be applied to the characters
+before either side extracts. Run: `2026-09-23-{dev,regression}-punct`.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
