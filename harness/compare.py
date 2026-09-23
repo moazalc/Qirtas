@@ -60,7 +60,7 @@ def text_of(pdf_path):
     return spell_out(apply_fixes(repair_lam_alef(raw), fixes)).translate(WESTERN)
 
 
-def text_of_docx(docx_path):
+def text_of_docx(docx_path, pages=False):
     """Read the Word file's own text.
 
     The text score must never go through LibreOffice: a render round-trip adds
@@ -74,6 +74,10 @@ def text_of_docx(docx_path):
     ToUnicode entry lists its two letters backwards, and the .docx carries the
     reversed pair before LibreOffice is ever invoked. Repaired now in
     convert/arabic.py.
+
+    pages=True: a list, one string per original page (the writer breaks the
+    page before each one), endnotes with the last - for comparing a page with
+    what the original's page shows (harness/truth.py).
     """
     with zipfile.ZipFile(docx_path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
@@ -82,6 +86,7 @@ def text_of_docx(docx_path):
         furniture = _furniture_texts(z)
     out, buf, pending = [], [], []
     page = [0]
+    bounds = []
 
     def end_para():
         if buf:
@@ -108,6 +113,7 @@ def text_of_docx(docx_path):
         pending.clear()
         out.extend(furniture("footer", page[0]))
         page[0] += 1
+        bounds.append(len(out))
 
     start_page()
     for m in re.finditer(r"<w:p[ >]|<w:t[^>]*>([^<]*)</w:t>"
@@ -128,6 +134,10 @@ def text_of_docx(docx_path):
     # Endnotes are printed after the last page, as the original printed them.
     # Unread, every one of them would count as lost text.
     out.extend(endnotes[k] for k in sorted(endnotes, key=int))
+    if pages:
+        cuts = [0] + bounds[:-1] + [len(out)]
+        return [html.unescape("\n".join(out[a:b])).translate(WESTERN)
+                for a, b in zip(cuts, cuts[1:])]
     # Word stores text XML-escaped: "A & B" is "A &amp; B" on disk. Without
     # unescaping, every ampersand looked like lost text.
     return html.unescape("\n".join(out)).translate(WESTERN)

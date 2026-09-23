@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from convert.model import Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE
-from convert.reader import _label_kind, _join_same_line
+from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE
+from convert.reader import _label_kind, _join_same_line, _backfill
 
 FAILED = []
 
@@ -67,6 +67,35 @@ def main():
     notes = _join_same_line([field("(1) انظر", 300, 560, kind=FOOTNOTE),
                              field("(2) انظر", 60, 280, kind=FOOTNOTE)])
     check("footnotes side by side stay apart", len(notes), 2)
+
+    print("\ntext another reading found, put back only if really missing")
+    right = ("وقد لعبت منذ نشأتها دورا كبيرا في حفظ التراث الإسلامي "
+             "والحفاظ على الهوية الوطنية")
+    wrong = ("وقد لعبت منذ نشأهتا ًدورا ًكبريا في حفظ الرتاث الإسالمي "
+             "واحلفاظ على اهلوية الوطنية")
+    spell = {"نشأهتا": "نشأتها", "ًدورا": "دورا", "ًكبريا": "كبيرا",
+             "الرتاث": "التراث", "الإسالمي": "الإسلامي", "واحلفاظ": "والحفاظ",
+             "اهلوية": "الهوية"}
+
+    def fix(t):
+        for a, b in spell.items():
+            t = t.replace(a, b)
+        return t
+
+    def docs(have):
+        chosen, other = Doc(pages=1), Doc(pages=1)
+        chosen.add(Block(kind=PARAGRAPH, text=have, page=0))
+        other.add(Block(kind=PARAGRAPH, text=wrong, page=0))
+        return chosen, [(0, chosen), (0, other)]
+    # The z21762915 case: without the chosen reading's spelling repair, the
+    # other reading's misspelled copy looked missing and was added again -
+    # a third of that file was a second copy (FLAGS 25).
+    chosen, results = docs(right)
+    check("a misspelled copy is not added again",
+          len(_backfill(chosen, results, None, fix).blocks), 1)
+    chosen, results = docs("نص آخر لا علاقة له بما في الصفحة من كلام طويل هنا")
+    check("text really missing is still put back",
+          len(_backfill(chosen, results, None, fix).blocks), 2)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

@@ -761,3 +761,77 @@ is the correct one.
 
 **Closes when:** cause 2 is repaired without costing other files, and the
 gate either reads note numbers or states that it cannot.
+
+---
+
+## 25. Every score checks us against the PDF's hidden text, and on many files that text is wrong
+
+**Status: OPEN, raised by Moaz 2026-09-22** from page 1 of `z21762915`: the
+page prints 1315, 1897, 1098, محمد, المؤرخين; our Word file says 3133, 3675,
+3976, زلمد, الدؤرخين. We did not introduce them - the PDF's hidden text says
+exactly that, and we copy it. The gate says 100% because it reads the same
+hidden text. FLAGS 22 was closed against Word's reading of the PDF, which
+shares the fault; RESEARCH's "88/88 work" measured that Arabic came out, not
+that it was the right Arabic.
+
+**First independent check** (Windows OCR, ar-SA, installed; 3 pages per file
+at 200 dpi, `out/work/truth/truth.txt`). Share of the Arabic words OCR reads
+on the page that appear anywhere in our Word file - lenient, a word counts
+wherever it is:
+
+    Moaz's theses (text known right)   91-97%   <- OCR's own noise
+    most small dev files               91-100%
+    below that                         z21751977 3%, z21763864 52%,
+                                       z20397518 75%, z20763272 85%,
+                                       z21762458 86%, z21762915 87%,
+                                       z21764410 87%, z20393612 87%,
+                                       z20266552 88%, z20578729 89%
+
+About 10 of 46 Arabic small files. Numbers are worse and noisier (Word
+draws footnote numbers itself; OCR misreads some digits): `z21762915` 26%,
+`z21490618` 0 of 12. OCR is poor on English and Turkish - those words are
+not counted. The theses are fine because their hidden text is the
+/ActualText labels, which are right.
+
+**Why it matters:** the gate cannot see this, by construction. A file can
+score 100% nothing lost and be unreadable (`z21751977`).
+
+**Closes when:** the reference for "is the text right" is what the page
+shows, not what the PDF says - and Moaz has decided what to do about files
+whose hidden text is wrong (warn, repair from the picture, or refuse).
+
+**2026-09-23: measured, and a first repair** (PLAN "The page as the
+reference"). `harness/truth.py` is now the score for it: found / wrong
+against the page, theses 91.5% / 3.5% as the floor. Small files were 87.2% /
+17.1%. Two causes found and fixed: the font repair refused the installed
+font's name for digits and joined pairs (`convert/witness.py` - OCR settles
+each disputed shape), and a third of `z21762915` was a second, misspelled
+copy of its own text (`reader._backfill`). Now 88.1% / 15.5%, 16 files
+better, 0 worse, theses unchanged.
+
+**The gate turned out to depend on the duplicates.** With them gone,
+`z21763864` reads 81.5% nothing lost, `z21764254` 98.8%, `z21762458` 98.3%.
+Checked sentence by sentence: in each, our words are nearer the page than
+the gate's reference (`الإ` against its `الٕ` with no alef; `كبير ا` against
+its `كبيرر ا`), or only the note numbers differ (FLAGS 24). The misspelled
+second copy had been matching the reference's mistakes. **Moaz to decide**
+whether this ships with the gate below 100% on these three.
+
+Still open: `z21751977` (3% found - its font is not installed, so there is
+no second name to choose), `z21763864` (its words are not text in the PDF),
+words split where the font changes (FLAGS 24 cause 2), and fonts whose
+shapes the installed font cannot name.
+
+---
+
+## 26. The converter only runs on Windows with Microsoft Word installed
+
+**Status: OPEN, for a later decision (raised 2026-09-22).** Moaz asked how
+OCR would work in a web app. The larger problem is older: `fit.py` renders
+every file through Microsoft Word to see which pages spilled, and the
+decoder uses Windows' own OCR. Microsoft does not support running Word on a
+server. A web app needs a renderer and an OCR engine that run anywhere
+(Tesseract, PaddleOCR), measured against these before switching. Sending
+documents to a cloud OCR is ruled out for unpublished work like the theses.
+
+**Closes when:** Moaz decides where Qirtas runs (desktop, server, both).

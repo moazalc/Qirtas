@@ -69,7 +69,7 @@ def spell_out(text):
 
 
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "3"
+REPAIR_VERSION = "4"
 
 _INDEX = None
 _MAPS = {}
@@ -547,10 +547,17 @@ def repair(pdf_path, out_path):
     """Write a copy with every broken font's table corrected.
     Returns [(font, why)] for the fonts repaired; [] writes nothing."""
     done = []
+    # Where the page itself can be read, it settles the shapes the file and
+    # the installed font disagree on (convert/witness.py, FLAGS 25).
+    try:
+        from convert.witness import settle
+        settled = settle(pdf_path)
+    except Exception:
+        settled = {}
     with pymupdf.open(pdf_path) as doc:
         fonts = {f[0] for p in doc for f in p.get_fonts()}
         for xref in sorted(fonts):
-            table, why = diagnose(doc, xref)
+            table, why = settled[xref] if xref in settled                 else diagnose(doc, xref)
             if table is None:
                 continue
             tu = int(doc.xref_get_key(xref, "ToUnicode")[1].split()[0])

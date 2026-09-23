@@ -1726,6 +1726,77 @@ Looked at (`out/work/n5b/look`): `z21762915` p10, `z20276275` p12,
 `z21761968` p4, `z22051439` p5, `z21763864` p3 header and footer. Also seen,
 not this step: `z21762915` still writes each page's text twice (N5f).
 
+## The page as the reference, 2026-09-22/23 (FLAGS 25)
+
+Moaz, from page 1 of `z21762915`: numbers wrong, words wrong - "our main
+concern is 100% text accuracy". He was right, and no score could see it.
+The page prints 1315, 1897, محمد; the PDF's hidden text says 3133, 3675,
+زلمد; we copied it, and every score compares with that hidden text. The
+project's "extraction works, 88/88" measured that Arabic came out, not that
+it was the right Arabic. His theses are fine because their text comes from
+/ActualText labels, which are right.
+
+**The instrument** (`harness/truth.py`): Windows' own Arabic OCR
+(Windows.Media.Ocr, installed; `convert/ocr_windows.ps1`) reads three pages
+of each original; each is compared with our page of the same number, both
+ways - found (page words we have) and wrong (our words the page does not
+show). Built three times before it could be trusted:
+- vowel marks cut words in two until they were removed before splitting
+- numbers are cut differently on each side (1831 against 18 31): compared as
+  runs of digits
+- leaving out words inside pictures left out ALL of the theses - each of
+  their words is a picture labelled with its text. Running headers are left
+  out instead: words at the top or bottom of more than one page read
+Calibrated on the theses, whose text is known right: found 91.5%, wrong
+3.5% - OCR misreadings (انغظر, الوقودد) and note numbers Word draws itself.
+English and Turkish are not counted: this OCR reads them badly.
+
+**Cause 1: the font repair would not believe the installed font where it
+mattered** (`convert/witness.py`). `z21762915`'s body font stores the
+shape of 1 as "3" and the joined pair محـ as "لز"; the installed Traditional
+Arabic names both right. FLAGS 23's rules refused: never change a stored
+digit (because Word shows 2 as ٢ - but here 3 is not 1 in any script), and
+a joined pair only over junk (one shape can be named several ways). And the
+installed names can be nonsense - the embedded Times New Roman Bold is
+numbered differently (ئإ, ڡ) - yet were used where the stored looked like
+junk. Now, for every shape where the file and the installed font disagree,
+up to four pages are read by OCR and each word compared with the same spot
+read both ways; a match on one side only votes for every disputed shape in
+it. Shapes not seen follow their font's lean (5+ settled, 4:1). OCR never
+writes text: it only chooses between two names, so a misreading matches
+neither and votes for nothing. `z21762915` page 1: 22 wrong words -> 2.
+
+**Cause 2: a third of `z21762915` was a second copy of itself.** `_backfill`
+puts back text another reading found and the chosen one lacks. It compared
+the chosen reading, spelling-repaired, with the others, unrepaired: الهوية
+did not match اهلوية, looked missing, and 3,482 of 9,629 words were added
+again, misspelled. Now the others are repaired the same way and compared
+without vowel marks; table cells count as present. 3,482 -> 0.
+
+**Results** (`2026-09-23-{dev,regression}-decoded`, the three files Word
+held locked re-run apart):
+
+    page truth, 48 small     found 87.2 -> 88.1%, wrong 17.1 -> 15.5%
+                             16 files better, 0 worse
+    z21762915                found 80 -> 96%, wrong 54 -> 12%, 26 -> 24 pages
+    z20763272                found 84 -> 95%
+    theses                   unchanged: 91.5% / 3.5%, gate 100%,
+                             right page 80.4 -> 80.6%
+    dev right page           60.0 -> 62.7%, words in order 97.6 -> 96.9%
+
+**The gate fell on three files, and each time the gate's reference is the
+one that is wrong:** `z21763864` 98.9 -> 81.5%, `z21764254` 100 -> 98.8%,
+`z21762458` 98.7 -> 98.3%. Checked sentence by sentence: we write الإ where
+the reference has الٕ with no alef, كبير ا where it has كبيرر ا; on
+`z21762458` only note numbers differ (FLAGS 24). The misspelled duplicate
+had been matching the reference's own mistakes. Words in order falls for
+the same reason. The page-truth score did not fall on any of the three.
+
+**Not helped:** `z21751977` (3% found - its font is not installed, so there
+is nothing to choose between), `z21763864` (34% - its words are drawn, not
+stored as text), words split where the font changes (FLAGS 24 cause 2:
+بمجالات, بين read بني).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

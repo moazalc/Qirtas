@@ -18,6 +18,8 @@ file before it was a rule:
   - ﷲ and ﷴ are typed as letters
   - AGA Arabesque stores its signs as private codes: ﷺ and رضي الله عنه
     reached Word as a box (Moaz's theses)
+  - a digit or a joined pair the installed font names differently from the
+    file: the page decides, read by OCR (convert/witness.py, FLAGS 25)
 
 The table round trip and the name matching are tested too, since a table read
 wrongly would "repair" a correct file.
@@ -131,6 +133,19 @@ def main():
         check("a thesis' unlabelled signs are read",
               (text.count(L(0xFD47)), text.count(L(0xFDFA))), (13, 2))
         check("... in their place", "أبي بكر " + L(0xFD47) + "؛" in text, True)
+
+    print("the page settles what the file and the installed font dispute")
+    journal = Path("corpus/wild/z21762915.pdf")
+    from convert.witness import PS, settle
+    if journal.exists() and PS.exists():
+        # The page prints 1315 and محمد; the file stores 3133 and زلمد. The
+        # installed font names both right, and the old rules would not use it:
+        # never a digit, a joined pair only over junk (FLAGS 25).
+        tables = settle(journal)
+        body = tables.get(33, ({}, ""))[0]
+        check("a 1 stored as 3 is a 1", body.get(20), "1")
+        check("a 5 stored as 3 is a 5", body.get(24), "5")
+        check("the pair محـ stored as لز", body.get(368), "مح")
 
     print("the name Word knows a font by")
     check("the standard Times", family("Times-Roman"), "Times New Roman")

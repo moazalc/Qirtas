@@ -205,6 +205,13 @@ In order:
     Left: text that is not text in the PDF (`z21763864`), page numbers in a
     broken font (`z19799068`), header banners photographed with their text
     (not drawn), alternating footer pictures drawn on every page.
+  - **TEXT FIRST (Moaz, 2026-09-22).** Accuracy against the page comes
+    before the look (FLAGS 25). DONE 2026-09-23: page-truth score
+    (`harness/truth.py`), OCR settles disputed font shapes
+    (`convert/witness.py`), duplicate copies stopped (N5f's cause on
+    `z21762915`). Next: Moaz's call on the gate (FLAGS 25), then the words
+    split where the font changes (FLAGS 24 cause 2), then the files with no
+    installed font (`z21751977`).
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.
@@ -213,7 +220,9 @@ In order:
     endnotes, numbered 1, 2, 3 like the original** (not xxv, xxvi).
   - **N5e. Tables** - written twice, columns not mirrored, invented tables
     from a reference list, squeezed columns, shaded boxes as grids.
-  - **N5f. Pages written twice** (`z21762915`, 23 -> 39 pages).
+  - **N5f. Pages written twice** (`z21762915`, 23 -> 39 pages). Cause
+    found 2026-09-23: the backfill compared repaired text with unrepaired
+    (PLAN "The page as the reference"); `z21762915` now 24 pages.
   - Then: headings/lists merged, bold/italic/underline, overlaid pictures
     (the `الفصل الثالث` box: the box alone, at its size), letters.
 - **N6. Try PyMuPDF-Layout** on the label-stripped copies only; keep it only

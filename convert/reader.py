@@ -80,11 +80,20 @@ def _present(sent, have):
 
 
 def _sentences(t):
-    return [x for x in (WS.sub("", s or "") for s in SENT_SPLIT.split(t or ""))
+    return [x for x in (_bare(s) for s in SENT_SPLIT.split(t or ""))
             if len(x) >= MIN_SENT]
 
 
-def _backfill(chosen, results, path):
+# Vowel marks and the stretching stroke: two readings of one line place them
+# differently (ًدورا against دوراً), and the backfill below compares readings.
+MARKS = re.compile("[ً-ْٰـ]")
+
+
+def _bare(t):
+    return MARKS.sub("", WS.sub("", t or ""))
+
+
+def _backfill(chosen, results, path, fix=None):
     """Recover anything the chosen reader missed but another reader found.
 
     Preferring the labelled reader for its structure cost one Quranic verse on
@@ -95,8 +104,18 @@ def _backfill(chosen, results, path):
 
     Recovered text is placed on the page it actually appears on, so page
     alignment is not disturbed.
+
+    `fix`: the spelling repair the chosen reading has had (read()). The other
+    readings are compared, and taken, repaired the same way. Unrepaired, a
+    sentence the chosen reading spells right - الهوية - did not match its
+    other reading's اهلوية, looked missing, and was added again: 3,482 of
+    `z21762915`'s 9,629 words were a second, misspelled copy (FLAGS 25).
     """
-    have = "".join(WS.sub("", b.text) for b in chosen.blocks)
+    fix = fix or (lambda t: t)
+    # Table cells too: a header band read as a table holds its line there.
+    have = "".join(_bare(b.text) + "".join(_bare(c) for row in (b.rows or [])
+                                            for c in row)
+                   for b in chosen.blocks)
     added = False
     for _, other in results:
         if other is chosen:
@@ -108,7 +127,8 @@ def _backfill(chosen, results, path):
             # in `z21095413` and put every later page one out of step.
             if b.from_alt:
                 continue
-            sents = _sentences(b.text)
+            text = fix(b.text)
+            sents = _sentences(text)
             if not sents:
                 continue
             missing = [x for x in sents if not _present(x, have)]
@@ -117,8 +137,8 @@ def _backfill(chosen, results, path):
             # word counts above the original.
             if len(missing) < len(sents) * 0.6:
                 continue
-            chosen.add(Block(kind=PARAGRAPH, text=b.text, page=b.page))
-            have += WS.sub("", b.text)
+            chosen.add(Block(kind=PARAGRAPH, text=text, page=b.page))
+            have += _bare(text)
             added = True
     if added:
         chosen.blocks.sort(key=lambda b: b.page)
@@ -1672,7 +1692,8 @@ def read(path, image_dir=None):
             if b.rows:
                 b.rows = [[fix(c) for c in row] for row in b.rows]
 
-    best = _backfill(best, results, path)
+    best = _backfill(best, results, path,
+                     (lambda t: apply_fixes(t, fixes)) if fixes else None)
     _page_numbers(best, path)
     best = detect_headings(best)
     # Word's labels already say which paragraphs are list items. Guessing on
