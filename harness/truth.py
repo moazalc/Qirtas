@@ -91,10 +91,21 @@ def score(pdf, docx):
         f = sum(1 for w in page if w in b)
         x = sum(1 for w in mine if w not in a)
         # numbers: each side's runs of digits looked for in the other's
-        o_runs = [w for w, _ in shown if w.isdigit()]
+        # Every run of digits the page shows, also inside a word the OCR
+        # did not split from its number (بحوالي6000).
+        o_runs = [d for w, _ in shown for d in re.findall(r"[0-9]+", w)]
         m_all, o_all = digits(ours[p]), "".join(o_runs)
         m_runs = re.findall(r"[0-9]+", ours[p].translate(
             str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")))
+        # A header's or footer's numbers are left out of ours as they are
+        # out of the page's: only the page's were, so a running header's
+        # volume and year (المجلد36 العدد6 2014) read as wrong on every
+        # page of ours (2026-09-23).
+        # The OCR reads a header's "pp. 106-116" as one number, 106116: ours
+        # is left out where the header's digits hold it.
+        head = " ".join(re.findall(r"[0-9]+", " ".join(furniture)))
+        m_runs = [m for m in m_runs if m not in furniture
+                  and not (len(m) >= 2 and m in head)]
         f += _numbers_match(o_runs, m_all)
         x += len(m_runs) - _numbers_match(m_runs, o_all)
         page += o_runs

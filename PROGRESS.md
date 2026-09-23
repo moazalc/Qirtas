@@ -11,13 +11,18 @@ must match the printed page before any work on looks.
 
 | Measure | Now | When "text first" started (22 Sept) |
 |---|---|---|
-| Our words that are **not** on the printed page (48 test files) | **11.9%** | 17.1% |
+| Our words that are **not** on the printed page (48 test files) | **9.3%**‡ | 17.1% (old way of counting) |
+| Same, on Moaz's theses - the measuring floor | 2.8%‡ | 3.5% (old way) |
+| **How far above the floor we are** | **6.5 points** | 13.6 points (old way) |
 | Words on the printed page that we have | **90.7%** | 87.2% |
-| Same, on Moaz's theses (the clean reference) | 3.5% wrong, 91.5% found | same |
 | Nothing lost (the hard gate), test files | 99.8%, worst file 89.7%* | 100%* |
 | Nothing lost, theses and hard files | 100% | 100% |
 | Pages land on the right page (test files) | 64.6% | 60.0% |
 | Pages land on the right page (theses) | 83.5% | 80.6% |
+
+‡ The page check was counting numbers in running headers against us
+(23 Sept, fixed). Counted the old way the same files give 11.8%, theses
+3.5%. The "how far above the floor" row is the fair comparison.
 
 Full run of 23 Sept evening (`2026-09-23-{dev,regression}-newbase`), the
 first with Moaz's fonts installed: 22 files better than the run before
@@ -33,8 +38,11 @@ mistakes — that is the realistic floor.
 
 ## What is left, biggest first
 
-Of the remaining wrong words, about 3.6 points are the OCR misreading the
-page (measured on the theses, whose text is right). The rest is ours:
+Of the remaining wrong words, about 2.8 points are the OCR misreading the
+page (measured on the theses, whose text is right). The rest is ours. The
+biggest piece of it: **spaces Word stored inside words** (`م رجعية`,
+`للعلا قات`) where our shape check finds no evidence - about 2 points.
+Then, smaller:
 
 1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
    Arabic-only lines are fixed (see the timeline); these are not yet.
@@ -138,6 +146,12 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   file; and words split by a space were joined back in the stored order.
   Both fixed. `z21095413` wrong words 9.8% → 6.4%, two more files a little
   better, none worse, nothing lost 100%.
+- **Fixed the page check itself**: it counted the numbers in running
+  headers (volume, year, page range) against us on every page. Recounted:
+  9.3% wrong, and the theses' floor 2.8%. Nothing in the Word files
+  changed - only the counting.
+- **New breakdown**: the biggest remaining cause is spaces stored inside
+  words in the PDF itself (380 of 400 word pieces).
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

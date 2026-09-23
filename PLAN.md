@@ -1976,6 +1976,31 @@ comma had parted, until the gap rule.
 
 Left: marks beside digits or Latin (`الإ8 ،براهيمي`, `:العدد05`), brackets.
 
+### Page truth counted header numbers against us; the breakdown redone, 2026-09-23
+
+Two faults in `harness/truth.py`, found by breaking down the wrong words
+on the full run. (1) Running headers and footers are left out of both
+sides - but numbers only out of the page's side, so a header's volume and
+year (المجلد36 العدد6 2014, "2(2) 2024, pp. 1-17") read as wrong on every
+page of ours; and the OCR reads "pp. 106-116" as one number, 106116, which
+matched none of ours. (2) Only OCR words made wholly of digits counted as
+the page's numbers, so بحوالي6000 hid the 6000 we wrote. Now header numbers
+leave ours too (exact, or two digits or more held in the header's digits),
+and every run of digits in an OCR word counts. Rescored on the same Word
+files (the newbase run): dev wrong 11.8 -> 9.3%, found 90.8 -> 90.7%, no
+file worse; theses 3.5 -> 2.8% wrong, 91.5 -> 91.2% found. Numbers before
+this are not comparable: compare the gap above the theses instead - 8.3
+points under the old score, 6.5 under the new, on the same files.
+
+Breakdown under it (dev, word-weighted 8.4%; theses 3.1%), each group
+against the theses' share: pieces of words 2.43 vs 0.47%, two words glued
+1.28 vs 0.29, letters in another order 0.77 vs 0 (mostly `z21763864`),
+numbers 1.43 vs 0.69, not near any page word 1.55 vs 1.09, another page
+0.37 vs 0.11, one letter off 0.60 vs 0.44. Of the pieces, 380 of 400 are
+in the PDF's own text as stored: spaces Word stores inside words
+(م رجعية, للعلا قات, الا ستنتا) where `join_map` found no evidence. The
+other 20 are ours, most of them one figure's labels (`z19798743`).
+
 ### امل for الم: the lam pairs by their shared edge, 2026-09-23
 
 Full run first (`2026-09-23-{dev,regression}-newbase`, fonts installed,
