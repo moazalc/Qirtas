@@ -38,9 +38,8 @@ page (measured on the theses, whose text is right). The rest is ours:
 
 1. **Punctuation and spaces inside words** (`اله .امل`, `ا،لجزائر`) — the
    biggest group we cause. Tried twice, both reverted. Needs a new approach.
-2. **Whole words written backwards** (`دوك` for كود, `بعوتسي` for يستوعب) in
-   a handful of files (`z21763864`, `z21764080`, `z19799524`, `z22639353`),
-   and `امل` for `الم` in `z21095413`.
+2. **`امل` written for `الم`** (املسلمون) in four files. (Whole words
+   written backwards in tables are fixed - see the timeline.)
 3. **Words not on the page at all** — to be looked at file by file.
 4. **Numbers** — mostly the OCR misreading small numbers; check before fixing.
 5. **Text drawn as shapes** (`z21763864`).
@@ -48,7 +47,7 @@ page (measured on the theses, whose text is right). The rest is ours:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** push the commits made since `95e0d6b`. Two fonts are
+**Waiting on Moaz:** push the commits made since `e691ea8`. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. A full run is needed at some point to
 confirm the estimates above and set a new baseline with the fonts.
@@ -118,6 +117,11 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   was stored as a letter, and in one file spaces as ا. Fixed: `z20397518`
   54% wrong words → 8%, `z20276145` 18% → 7%. It also exposed a fault in
   the gate's page check, fixed and re-checked on every file.
+- **Backwards words in tables** (`بعوتسي` for يستوعب): the PDF had them
+  right; our table reader fell back to a backwards copy whenever a cell had
+  more than one line. Fixed: 300 cells across the test files now read
+  forward. Wrong words: `z22639353` 9.9% → 5.0%, `z21013208` 21.8% → 17.9%,
+  two more files a little better, none worse; nothing lost still 100%.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

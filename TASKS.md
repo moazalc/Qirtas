@@ -222,9 +222,10 @@ In order:
     the gate's page check asks of whole words (PLAN "What the remaining
     wrong words are"). Left, by that breakdown (about 10 points ours, 3.6
     the OCR's): words not near any page word, pieces and run-together words
-    (punctuation inside words, N5c), letters in another order (`z21763864`,
-    `z21764080`, `z19799524`, `z22639353` - whole words reversed; امل for
-    الم in `z21095413`), numbers (mostly the OCR - check first).
+    (punctuation inside words, N5c), letters in another order (whole words
+    reversed were table cells - FIXED 2026-09-23, 300 cells; left: امل for
+    الم in `z21763864`, `z21095413`, `z21094872`, `z21418248`, and 81 short
+    cells), numbers (mostly the OCR - check first).
   - **Ask the user to install a missing font (Moaz, 2026-09-23).** Before
     converting, name the fonts the PDF uses that are not installed and
     offer to wait while the user installs them: several repairs read the

@@ -117,6 +117,23 @@ def main():
     check("an empty fallback does not blank the cell",
           bool(_cell_text(page, tight, "", flat).strip()), True)
 
+    print("\na cell of several lines the page orders among other text")
+    # The page's text puts a cell's lines among its neighbours' (z22639353):
+    # a probe across the cell's line break is found nowhere, and the cell
+    # was written backwards from the table finder.
+    # Order can only be checked on a real file (see the top of this file).
+    real = Path("corpus/wild/z22639353.pdf")
+    if real.exists():
+        from convert.glyphs import repaired
+        from convert.reader import read_tables
+        cells = " ".join(" ".join(c for row in t.rows for c in row)
+                         for t in read_tables(repaired(str(real)))
+                         if getattr(t, "rows", None)).replace("ـ", "")
+        check("a cell of several lines reads forward (يستوعب)",
+              "يستوعب" in cells, True)
+        check("and not backwards from the table finder (بعوتسي)",
+              "بعوتسي" in cells, False)
+
     d.close()
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

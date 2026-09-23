@@ -1964,6 +1964,31 @@ likely what cost the gate on `z20397518` in the punctuation attempt above.
 Words in order on `z20397518` fell 99.9 -> 96.4% for the same reason: the
 reference is wrong there and we are right.
 
+**Words written backwards were mostly table cells.** Of the words OCR
+reads in another order, most (`z22639353`, `z21013208`, `z20375390`'s
+header band, `z21764080`, `z19799524`, `z21760107`) were never backwards in
+the PDF: they sit in cells, and the table finder returns Arabic in visual
+order. `_cell_text` already re-reads each cell off the page, and trusts that
+reading only if a 14-letter probe from the middle of the cell is found in
+the page's text. In a cell of several lines the probe crosses a line break,
+and the page's text puts the cell's lines among its other text - so the
+probe was found nowhere, and the cell fell back to the table finder's
+backwards text. Now every line of the cell is probed on its own. Across dev
+and regression, 300 cells change from the backwards fallback to the page's
+reading; 81 still fall back (mostly cells a few letters long, where the
+cell's edge cuts a word). Page truth on 7 short files: wrong words
+`z22639353` 9.9 -> 5.0%, `z21013208` 21.8 -> 17.9%, `z22658522` 11.8 ->
+10.6%, `z21067084` 11.9 -> 11.2%, the rest unchanged; gate 100%. Words in
+order on `z22639353` fell 78.9 -> 72.9%, and its words out fell 819 -> 763
+(the original has 722): read backwards, the cells were not recognised as
+the body text's copy, so both were written; now one is, and the table's
+cells come in table order, which that score reads as moved. Run:
+`2026-09-23-quick-cells`. Not yet measured on the longer files it touches.
+
+The rest of that group is a different fault: `امل` for `الم` (املسلمون,
+املحددات - `z21763864`, `z21095413`, `z21094872`, `z21418248`), a joined
+pair stored the wrong way round that the existing pair repairs miss.
+
 **Fonts named differently from the installed file** were read as not
 installed: Word cuts a PostScript name at 24 characters
 (AF_Diwani-NormalTraditio), and some files name a font by its family

@@ -1498,11 +1498,20 @@ def _cell_text(page, box, fallback, page_flat):
     if b and len(a) - len(b) > max(3, 0.25 * len(b)):
         return _unreverse(_clean(fallback or ""), page_flat)   # caught a neighbour
     if len(a) >= 6 and ARABIC.search(a):
-        n = min(14, max(6, len(a) // 2))
-        probe = a[(len(a) - n) // 2:][:n]
-        if probe not in page_flat:
+        # Probed line by line: the page's text orders a cell's lines among
+        # its other text, so a probe across a line break is found nowhere,
+        # and 300 cells of correct text were written backwards from the
+        # table finder instead (z22639353, z20375390's header band).
+        lines = [x for x in (WS.sub("", ln) for ln in clip.split("\n"))
+                 if len(x) >= 6 and ARABIC.search(x)] or [a]
+        if not all(_probe(x) in page_flat for x in lines):
             return _unreverse(_clean(fallback or ""), page_flat)
     return _clean(clip)
+
+
+def _probe(flat):
+    n = min(14, max(6, len(flat) // 2))
+    return flat[(len(flat) - n) // 2:][:n]
 
 
 def read_tables(path):
