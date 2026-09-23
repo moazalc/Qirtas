@@ -40,7 +40,17 @@ mistakes — that is the realistic floor.
 5. **Text drawn as shapes** (`z21763864`).
 6. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** push the local commits made since `dc155b8`.
+**Waiting on Moaz:** install the missing Arabic fonts (list below), then
+the scores are re-measured - installing fonts changes the machine, so the
+numbers after it start a new baseline.
+
+Arabic fonts the test files use that this PC does not have, most text first:
+Adobe Arabic (`z20538636`), Boutros News H1 (`z20276275`), Arslan Wessam B
+(`z22051439`), AF Diwani (`z21764254`, `z21764410`), DecoType Naskh
+(`z21751977`), Muna (`z20538636`), Almarai (`z20538636`), AGA Arabesque
+(3 theses, a few signs), Arabic Transparent (`z21763864`), and a handful
+with under 60 letters each. Not installable: `GlyphLessFont` (text laid over
+a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 
 ## Timeline
 
@@ -90,6 +100,7 @@ mistakes — that is the realistic floor.
   ambiguous alone, by keying the fix with the word beside it. 6 files
   better, 0 worse.
 - **Footer printed twice**: fixed.
+- Pushed everything to GitHub. Listed the Arabic fonts missing on this PC.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
