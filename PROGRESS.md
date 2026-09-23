@@ -44,8 +44,8 @@ biggest piece of it was **spaces Word stored inside words** (`م رجعية`,
 `للعلا قات`) - about 2 points. Most of it is now fixed by where the space is
 drawn (see the timeline); a full run will say how much is left. Then, smaller:
 
-1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
-   Arabic-only lines are fixed (see the timeline); these are not yet.
+1. ~~Punctuation next to numbers or English~~ — done 23 Sept (see the
+   timeline).
 2. **`امل` for `الم` in `z21763864`** — the file whose text is drawn as
    shapes; the others are fixed (see the timeline).
 3. **Words not on the page at all** — to be looked at file by file.
