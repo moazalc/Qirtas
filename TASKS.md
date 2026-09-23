@@ -193,6 +193,11 @@ In order:
     showed them. Left: page numbers stay in the reader's setting (Word
     cannot be told), and FLAGS 24 - four small files losing text since
     before this - to trace next.
+  - **FLAGS 24** - looked at 2026-09-22: none of the four files loses a
+    word. Left: a word split where PyMuPDF cuts a line (real, ours), and
+    two things the gate cannot see (Word's own note numbers, and its own
+    backwards reading). Four fixes tried and reverted - see FLAGS 24 before
+    trying a fifth.
   - **N5b. Headers, footers, page numbers** - journal headers, logos,
     page-number graphics and coloured bands out of the body (17 pages, 8
     files); page numbers present and right (7 pages, 4 files).

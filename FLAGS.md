@@ -715,21 +715,49 @@ is not a fault - most files with one read fine.
 **Closes when:** that warning is built, and something other than Word's
 reading checks the repair.
 
-## 24. Four small files lose text, and the usual sample never ran them
+## 24. Four small files score under 100%, and none of them loses a word
 
-**Status: open, found 2026-09-22 (N5a).**
+**Status: looked at 2026-09-22. No text is lost. The gate cannot see it, and
+three attempts to make it see it were worse than the gap.**
 
-Every eval so far took a 23-file sample of the small dev files. N5a ran all
-48, and four lose text: `z21094872` 99.35%, `z21095073` 98.65%, `z21762458`
-98.67%, `z21763864` 98.89%. **Not caused by N5a** - converted with the code
-before it, all four lose exactly the same sentences. So "nothing lost has
-held at 100%" was true of the sample, not of the dev set.
+Every eval before N5a took a 23-file sample of the small dev files. N5a ran
+all 48 and four scored under 100%: `z21094872` 99.35%, `z21095073` 98.65%,
+`z21762458` 98.67%, `z21763864` 98.89%. Not caused by N5a - the code before
+it loses exactly the same sentences. So "nothing lost has held at 100%" was
+true of the sample, not of the whole small set, which is **99.91%**.
 
-What is missing, by a first look: long runs of words with no spaces
-(`صـــدرللكاتبالمغربي...`), numbered lines ending `(12)`, and on `z21763864`
-a line of jumbled letters (`ونّرصفالنأيوقفاإىل`). Not yet known whether the
-text is truly gone or the checker misreads it.
+Every one of the seven sentences was traced. Three causes, no lost words:
 
-**Closes when:** each is traced, fixed or shown to be the checker, and the
-gate runs on all small dev files, not the sample.
+1. **A note's reference number.** The original prints `باي(12)` or a raised
+   `هيباوي2`; we make it a real Word footnote, and Word draws the number from
+   its own numbering, so it is not text in the .docx at all. The sentence
+   around it can never match. 3 sentences (`z21094872`, `z21762458`,
+   `z21763864`).
+2. **A word split at a piece boundary.** PyMuPDF starts a new piece wherever
+   the font changes, which happens inside a word: `z21095073` draws المجراد
+   as املجر | ا | د and `z21763864` draws بحث as بح | ث. We join pieces with
+   a space, which splits the word - and the lam-alef repair, which works on
+   letters that touch, then cannot mend امل to الم. 2 sentences. **A real
+   defect in our output**, not only in the score.
+3. **The checker's own reading.** For those same pieced words PyMuPDF's plain
+   text returns them backwards - ثحب for بحث, َاي for َيا - so OUR correct word
+   does not match the original's mangled one and counts as lost. 2 sentences
+   (`z21763864`).
 
+**Four fixes tried, all measured over the 48 small files, all reverted:**
+
+| tried | what happened |
+|---|---|
+| join pieces that touch on one baseline | the two split words fixed (`z21095073` 98.65 -> 100%), but whole words glued in justified lines (شملت دراستنا, .د عبد) - 6 files fell off 100%, word order 97.6 -> 97.4% |
+| the same, only when a piece is 3 letters or fewer | still glued names (مها العبد); kept 99.91 -> 99.88% |
+| ask PyMuPDF's own word boxes whether the seam is inside a word | no help where PyMuPDF itself reads the word backwards - which is exactly `z21763864` |
+| in the gate, drop a 1-3 digit marker stuck to a word, on both sides | closed 3 files, but the two sides space digits differently (بتاريخ16 against بتاريخ 16), so it strips one side only and took 6 other files OFF 100% |
+
+**What is left to do:** cause 2 is worth fixing properly - by repairing a word
+the reader has already split rather than by guessing at spacing, since the
+page's own words are unreliable here. Cause 1 needs the checker to read a
+note's number the way Word prints it. Cause 3 is the checker, and our text
+is the correct one.
+
+**Closes when:** cause 2 is repaired without costing other files, and the
+gate either reads note numbers or states that it cannot.
