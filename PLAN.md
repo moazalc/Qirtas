@@ -1850,6 +1850,36 @@ heading the first table holds only in pieces (`z20589058`). Nothing lost,
 pages and every other file unchanged; `z21095413` words in order 98.9 -> 99.6%,
 right page 37.3 -> 38.4%. Runs: `2026-09-23-{dev,regression}-titlekept`.
 
+**Spaces inside words, by the letters' shapes** (`pdftext.join_map`, second
+attempt; Moaz's go 2026-09-23). A letter drawn in a joining form is joined
+across the space on the page, so the space is no word boundary. The form is
+read from the installed font's shaping features (`glyphs.forms`): the shape
+an `init`/`medi` rule makes joins forward, `medi`/`fina` back. Three guards,
+each from a wrong join seen first:
+
+- A shape serving several forms is evidence only if every one joins: Arial
+  draws ب alike at the start and middle of a word, and taking it as `medi`
+  glued names whole (لخضربنبوزيد, جامعةمحمدخيضر on `z21760107`).
+- The two letters must touch on the page. Where letters are stored out of
+  drawing order, neighbours in the text are apart on the page and joined to
+  other letters: "م في كان" became ميفكان, "ي ب ف الطريقة" يبفالطريقة.
+- The installed font must name the shape as the letter the page says, and -
+  as for lam-alef - a stored word that also appears without the evidence is
+  left alone everywhere. A font not installed gives no evidence.
+
+It is a text-to-text map inside `fix_map`, so the reader and the checker
+apply it alike. 1,573 candidate spaces on dev before the guards; typical
+joins الوطن ية, ع ل ى, ف لسطين, املس يحية. Page truth on dev: wrong 14.8 ->
+14.3%, found 88.7 -> 89.1%, 24 files better, 0 worse; theses 91.5/3.5%
+unchanged. Words in order, right page, pages: unchanged on every file.
+Nothing lost: dev and regression unchanged strict; `z21763864` (shapes-drawn,
+reference misspelled) judged 90.0 -> 89.7% because the page tie-breaker
+excuses a slightly different set of its sentences - strict unchanged at
+81.5%, and on the same output the joins raise it (89.0 without, 89.7 with).
+Left alone by design: a space after a letter that never joins forward
+(إ يجاد - ا د ذ ر ز و carry no evidence), fonts not installed.
+Runs: `2026-09-23-{dev,regression}-joinforms`.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

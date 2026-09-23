@@ -168,6 +168,60 @@ def reference(name):
     return _MAPS[path]
 
 
+FORMS = ("init", "medi", "fina", "isol")
+_FORMS = {}
+
+
+def forms(name):
+    """glyph id -> {"init", "medi", "fina", "isol"}: the forms of its letter
+    a shape is drawn for, in an installed font; None when it is not installed.
+
+    As the font's own shaping features say: the shape an `init` or `medi` rule
+    produces joins the letter after it, `medi` or `fina` the letter before. A
+    shape can serve several forms - Arial draws ب the same at the start and
+    in the middle of a word - so all of them are kept, and only a shape whose
+    every form joins is evidence of a join. A shape reached from one of them
+    by a later rule - a contextual alternate - keeps its forms. A shape no
+    such rule produces is absent: the cmap's own shape, or a ligature.
+    """
+    path = _index().get(_key(name))
+    if path is None:
+        return None
+    if path in _FORMS:
+        return _FORMS[path]
+    from fontTools.ttLib import TTFont
+    out = {}
+    with TTFont(path, lazy=True) as t:
+        gid = {g: i for i, g in enumerate(t.getGlyphOrder())}
+        table = t["GSUB"].table if "GSUB" in t else None
+        if table is not None and table.FeatureList and table.LookupList:
+            tags = {}
+            for rec in table.FeatureList.FeatureRecord:
+                for i in rec.Feature.LookupListIndex:
+                    tags.setdefault(i, set()).add(rec.FeatureTag)
+            single = {}
+            for i, lookup in enumerate(table.LookupList.Lookup):
+                for st in lookup.SubTable:
+                    kind = lookup.LookupType
+                    if kind == 7:
+                        kind, st = st.ExtSubTable.LookupType, st.ExtSubTable
+                    if kind == 1:
+                        single.setdefault(i, []).extend(st.mapping.items())
+            for i, pairs in single.items():
+                for tag in sorted(tags.get(i, set()) & set(FORMS)):
+                    for _, b in pairs:
+                        out.setdefault(gid[b], set()).add(tag)
+            for _ in range(3):
+                for i, pairs in single.items():
+                    if tags.get(i, set()) & set(FORMS):
+                        continue
+                    for a, b in pairs:
+                        if gid[a] in out:
+                            out.setdefault(gid[b], set()).update(out[gid[a]])
+    _FORMS[path] = out
+    return out
+
+
 def _rank(s):
     """Which of several names for one shape a writer most likely typed.
     Arabic letters and marks first; then Persian and Urdu letters that share a

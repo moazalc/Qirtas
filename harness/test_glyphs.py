@@ -147,6 +147,42 @@ def main():
         check("a 5 stored as 3 is a 5", body.get(24), "5")
         check("the pair محـ stored as لز", body.get(368), "مح")
 
+    print("a space inside a word, by the shapes round it")
+    from convert.glyphs import forms, _index, _key as fkey
+    from convert.pdftext import _split_at, _touch, join_map
+    check("a font not installed gives no evidence", forms("AL-Mohanad"), None)
+    if fkey("ArialMT") in _index():
+        from fontTools.ttLib import TTFont
+        with TTFont(_index()[fkey("ArialMT")], lazy=True) as t:
+            cmap, order = t.getBestCmap(), t.getGlyphOrder()
+        gid = {g: i for i, g in enumerate(order)}
+        arial = forms("ArialMT")
+        # Arial draws ب alike at the start and in the middle of a word: that
+        # shape joins the letter after it, never surely the one before.
+        check("ب begun: joins forward",
+              "init" in arial.get(gid[cmap[0xFE91]], ()), True)
+        from convert.glyphs import reference
+        ba = {g for g, t in reference("ArialMT")[0].items() if t == BA}
+        check("a ب that ends a word: joins back only",
+              {"fina"} in [arial.get(g) for g in ba], True)
+
+    def ch(c, x0, x1, y=100.0):
+        return {"c": c, "bbox": (x0, y - 12, x1, y), "origin": (x0, y)}
+    check("joined letters touch", _touch(ch(NUN, 300, 306), ch(YA, 294, 300)),
+          True)
+    check("letters apart do not", _touch(ch(NUN, 300, 306), ch(YA, 250, 256)),
+          False)
+    check("the word is joined, the next left",
+          _split_at(list(ALEF + LAM + NUN + " " + YA + " " + FA), {3}),
+          [(ALEF + LAM + NUN + " " + YA, ALEF + LAM + NUN + YA)])
+    if journal.exists():
+        from convert.glyphs import repaired
+        joins = join_map(str(repaired(journal)))
+        check("الوطن ية is one word", joins.get("الوطن ية"), "الوطنية")
+        # Letters stored out of drawing order sit side by side in the text
+        # and apart on the page; their joins are to other letters.
+        check("م في كان is left alone", "م في كان" in joins, False)
+
     print("the name Word knows a font by")
     check("the standard Times", family("Times-Roman"), "Times New Roman")
     check("a font not installed keeps its name", family("AL-Mohanad"),

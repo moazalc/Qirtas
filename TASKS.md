@@ -211,7 +211,8 @@ In order:
     (`convert/witness.py`), duplicate copies stopped (N5f's cause on
     `z21762915`). 2026-09-23: the gate asks the page (FLAGS 25); split
     pieces joined (12 better, 0 worse). Left, by size: spaces Word stores
-    inside words (most split words - one repair tried and reverted, PLAN),
+    inside words (most split words - joined by the letters' shapes
+    2026-09-23, 24 files better, 0 worse; spaces after ا د ذ ر ز و left),
     letters in the wrong order (22% of wrong words), `z20397518` alone
     (23% of them), files with no installed font (`z21751977`). DONE
     2026-09-23: the article title dropped as a header band's copy (PLAN).

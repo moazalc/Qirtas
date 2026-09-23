@@ -32,7 +32,7 @@ import pymupdf
 
 from convert.arabic import _ZERO_W, repair_lam_alef, repair_ligatures
 
-__all__ = ["fix_map", "apply_fixes", "line_items", "enabled"]
+__all__ = ["fix_map", "join_map", "apply_fixes", "line_items", "enabled"]
 
 
 def enabled():
@@ -193,6 +193,20 @@ def _fragments(stored, repaired):
 
 
 def fix_map(path):
+    """-> {broken fragment: repaired fragment} for this PDF: the lam-alef
+    repairs (`_lam_alef_map`) and the words a space cuts in two
+    (`join_map`)."""
+    out = _lam_alef_map(path)
+    try:
+        joins = join_map(path)
+    except Exception:
+        joins = {}
+    for k, v in joins.items():
+        out.setdefault(k, v)
+    return out
+
+
+def _lam_alef_map(path):
     """-> {broken fragment: repaired fragment} for this PDF.
 
     Derived from glyph geometry, so it says only what the page itself shows:
@@ -303,3 +317,140 @@ def apply_fixes(text, fixes):
         if first in text:
             text = pat.sub(lambda _, a=after: a, text)
     return text
+
+
+# -- spaces inside words -------------------------------------------------------
+
+_ARABIC_LETTER = re.compile("[ء-ي]")
+_JOINS_NEXT = {"init", "medi"}
+_JOINS_PREVIOUS = {"medi", "fina"}
+_JOINS = {}
+
+
+# How far apart, as a share of the letter's height, two joined letters may be
+# measured: the joining stroke belongs to one of them, and the boxes a font
+# gives do not always meet exactly.
+TOUCH = 0.15
+
+
+def _touch(before, after):
+    """Does `before` end where `after` begins, right to left, on one line?"""
+    a, b = before["bbox"], after["bbox"]
+    h = max(1.0, a[3] - a[1])
+    if abs(before["origin"][1] - after["origin"][1]) > TOUCH * h:
+        return False
+    return abs(a[0] - b[2]) <= TOUCH * h
+
+
+def _split_at(chars, drop):
+    """The words of a line that hold a dropped space: [(as stored, joined)].
+    A word here is a run of letters and marks and the dropped spaces inside
+    it."""
+    out, word, cut = [], [], False
+    for i, c in enumerate(chars + [" "]):
+        if i in drop:
+            word.append(c)
+            cut = True
+        elif _WORD.fullmatch(c):
+            word.append(c)
+        else:
+            if cut:
+                out.append(("".join(word), "".join(w for w in word
+                                                    if w != " ")))
+            word, cut = [], False
+    return out
+
+
+def join_map(path):
+    """-> {word as stored with a space in it: the word} for this PDF.
+
+    Word stores a real space character inside some words - الواحد as
+    "الواح د", على as "ع ل ى" - and draws it where no gap is (FLAGS 24,
+    PLAN "The gate asks the page"). Moving each space to where it is drawn
+    was tried and reverted: two letters that touch round a space also happen
+    at real word boundaries.
+
+    The letters' own shapes settle it. A letter drawn in its joining form -
+    `init` or `medi` before the space, `medi` or `fina` after it - is joined
+    across the space on the page, so the space is not a word boundary. The
+    form comes from the installed font's shaping rules (`glyphs.forms`); a
+    font that is not installed gives no evidence and nothing is joined.
+    Letters that never join forward (ا د ذ ر ز و) give none either, so
+    "إ يجاد" stays as it is.
+
+    The same safety as the lam-alef map: a stored word that also appears
+    somewhere without that evidence is left alone everywhere.
+    """
+    key = (str(path), os.path.getmtime(path), os.path.getsize(path))
+    if key in _JOINS:
+        return _JOINS[key]
+    from convert.glyphs import forms, reference
+    found, joined, plain = {}, {}, []
+    with pymupdf.open(path) as d:
+        for page in d:
+            drawn = {}
+            for span in page.get_texttrace():
+                shape, ref = forms(span["font"]), reference(span["font"])
+                if not shape or not ref:
+                    continue
+                for _, gid, origin, _ in span["chars"]:
+                    drawn[(round(origin[0], 1), round(origin[1], 1))] = \
+                        (shape.get(gid), ref[0].get(gid) or "")
+
+            def form(c):
+                # Only where the installed font names this shape as the letter
+                # the page says it is: a font of another version numbers its
+                # shapes differently, and there the numbers say nothing.
+                got = drawn.get((round(c["origin"][0], 1),
+                                 round(c["origin"][1], 1)))
+                return got[0] if got and c["c"] in got[1] else None
+
+            def letter(text, i, step):
+                """The nearest letter from i in this direction, past vowel
+                marks; -1 if there is none."""
+                while 0 <= i < len(text) and not _ARABIC_LETTER.match(text[i]):
+                    if not _WORD.fullmatch(text[i]):
+                        return -1
+                    i += step
+                return i if 0 <= i < len(text) else -1
+
+            for b in page.get_text("rawdict")["blocks"]:
+                for line in b.get("lines", ()):
+                    chars = [c for s in line["spans"] for c in s["chars"]]
+                    text = [c["c"] for c in chars]
+                    plain.append("".join(text))
+                    drop = set()
+                    for i, c in enumerate(text):
+                        if c != " ":
+                            continue
+                        j, k = letter(text, i - 1, -1), letter(text, i + 1, 1)
+                        if j < 0 or k < 0:
+                            continue
+                        # A joined pair touches: the letter before ends where
+                        # the one after begins, right to left. Where the text
+                        # holds letters out of drawing order, two letters side
+                        # by side in it may be far apart on the page, and
+                        # their shapes are joined to other letters -
+                        # "م في كان" came out as ميفكان.
+                        if not _touch(chars[j], chars[k]):
+                            continue
+                        before, after = form(chars[j]), form(chars[k])
+                        if (before and before <= _JOINS_NEXT) \
+                                or (after and after <= _JOINS_PREVIOUS):
+                            drop.add(i)
+                    for stored, whole in _split_at(text, drop):
+                        found[stored] = found.get(stored, 0) + 1
+                        joined[stored] = whole
+    everything = "\n".join(plain)
+    out = {}
+    for stored, n in found.items():
+        # Every occurrence must carry the evidence.
+        if len(_pattern(stored).findall(everything)) > n:
+            continue
+        whole = repair_lam_alef(" " + joined[stored] + " ").strip()
+        # Both sides spell lam-alef first and apply this map after
+        # (`reader.read`, `compare.text_of`): key on the spelled form too.
+        for k in {stored, repair_lam_alef(" " + stored + " ").strip()}:
+            out.setdefault(k, whole)
+    _JOINS[key] = out
+    return out
