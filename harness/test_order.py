@@ -163,6 +163,19 @@ def main():
         check("no comma inside اجلزائر", "ا،جلزائر" in text, False)
         check("the reader's view agrees", "عشر،" in words, True)
 
+    tagged = Path("corpus/wild/z20252126.pdf")
+    if tagged.exists():
+        # Word labels Benchmark apart, so the tagged reader never sees it on
+        # one line with معين; the plain reading must not move its bracket
+        # either, or the two disagree and the gate loses the sentence.
+        import pymupdf
+        from convert.glyphs import repaired
+        from convert.order import get_text
+        with pymupdf.open(repaired(str(tagged))) as d:
+            text = get_text(d[8], "text")
+        check("a line the labels split is left alone (Benchmark)",
+              "معين (Benchmark" in text, False)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

@@ -270,11 +270,13 @@ def _chars(line):
     return [c for s in line["spans"] for c in s["chars"]]
 
 
-def _fix_raw(line):
-    """Reorder one rawdict line in place; -> (stored, read) or None."""
+def _fix_raw(line, whole=None):
+    """Reorder one rawdict line in place; -> (stored, read) or None.
+    `whole`: see _Whole."""
     chars = _chars(line)
     seq = order([(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars])
-    if seq is None:
+    if seq is None or (whole and not whole.keeps(
+            "".join(c["c"] for c in chars))):
         return None
     new = []
     shifted = {id(chars[i]) for i in _moved(units([c["c"] for c in chars]),
@@ -313,6 +315,44 @@ def _reorder(text, seq, n):
     return "".join(" " if i is None else text[i] for i in _indices(us, seq))
 
 
+class _Whole:
+    """Is a line holding numbers or Latin one line in the structure-tree
+    reading too?
+
+    A tagged PDF's reader (`read_tags`) reads the page by its structure
+    labels, and Word labels an English word or a number apart: there
+    `معين (Benchmark` is two lines, `معين` and `Benchmark`, and no line
+    holds both. Read plainly - as the checker and the geometry reader do -
+    it is one, and _order_mixed moved its bracket; the two readings
+    disagreed and the gate lost the sentence on seven files (2026-09-23).
+    Such a line is reordered only where both readings see it whole.
+    Computed once per page, only when a mixed line asks."""
+
+    def __init__(self, page, flags, clip):
+        self.page, self.clip, self.lines = page, clip, None
+        self.off = bool(flags & pymupdf.TEXT_COLLECT_STRUCTURE)
+
+    def keeps(self, text):
+        if self.off or not (any(ARABIC.match(c) for c in text)
+                            and any(LEFT_TO_RIGHT.match(c) for c in text)):
+            return True
+        if self.lines is None:
+            kw = {"flags": pymupdf.TEXTFLAGS_DICT
+                  | pymupdf.TEXT_COLLECT_STRUCTURE}
+            if self.clip is not None:
+                kw["clip"] = self.clip
+            self.lines = set()
+
+            def walk(node):
+                for b in node.get("blocks", ()):
+                    for line in b.get("lines", ()):
+                        self.lines.add(_bare(
+                            "".join(c["c"] for c in _chars(line))))
+                    walk(b)
+            walk(self.page.get_text("rawdict", **kw))
+        return _bare(text) in self.lines
+
+
 def _line_orders(page, flags, clip):
     """{stored line, vowel marks left out: [(unit order, units)]} for every
     line that changes, in page order."""
@@ -320,6 +360,7 @@ def _line_orders(page, flags, clip):
     if clip is not None:
         kw["clip"] = clip
     out = {}
+    whole = _Whole(page, flags, clip)
 
     def walk(node):
         for b in node.get("blocks", ()):
@@ -328,7 +369,7 @@ def _line_orders(page, flags, clip):
                 text = [c["c"] for c in chars]
                 seq = order([(c["c"], c["bbox"][0], c["bbox"][2])
                              for c in chars])
-                if seq is not None:
+                if seq is not None and whole.keeps("".join(text)):
                     out.setdefault(_bare("".join(text)), []).append(
                         (seq, len(units(text))))
             walk(b)             # a structure tree nests blocks in nodes
@@ -414,9 +455,11 @@ def get_text(page, kind="text", **kw):
     """page.get_text, with each Arabic line's punctuation where it is drawn."""
     if kind == "rawdict":
         raw = page.get_text("rawdict", **kw)
+        whole = _Whole(page, kw.get("flags", pymupdf.TEXTFLAGS_RAWDICT),
+                       kw.get("clip"))
         for b in raw["blocks"]:
             for line in b.get("lines", ()):
-                _fix_raw(line)
+                _fix_raw(line, whole)
         return raw
     if kind == "dict":
         # The dict is MuPDF's own - a structure tree nests its blocks

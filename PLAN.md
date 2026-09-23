@@ -2202,6 +2202,22 @@ the Latin run's, drawn at its right end, and was moved after the Arabic
 word beyond; the checker's plain-text reading moved it and ours did not, so
 a sentence we wrote right read as lost. A mark stored right after a number
 or Latin run and drawn at its right end now stays.
+
+**The full run caught what the quick set could not** (`2026-09-23-dev-textfixes3`):
+the gate fell on 7 files (98.4-99.6%), all tagged PDFs, all at a bracket or
+comma beside English or a number (`معين (Benchmark`, `(Kim`, `[16`).
+Word labels an English word or a number apart, so `read_tags`, reading the
+page by its labels, never sees `معين` and `Benchmark` on one line; the
+checker's plain reading does, and moved the bracket. The two disagreed and a
+sentence we wrote as the file stores it read as lost. The quick set's files
+are mostly untagged, which is why it showed nothing. Now (`order._Whole`) a
+line with numbers or Latin is reordered only where the structure-tree reading
+also has it as one line; where Word split it, both readings leave it as
+before. The 8 files (the 7 and `z20276145`, whose Word file was locked by a
+stray Word process in that run and failed to save): gate 100%, wrong words
+kept their gain (`z20252126` 4.2 -> 2.9%, `z20276145` 5.0 -> 3.7%,
+`z22658522` 10.2 -> 9.0%); quick set unchanged at 5.2%
+(`2026-09-23-quick-gatefix`, `2026-09-24-quick-all-on-4`).
 `QIRTAS_PUNCT_MIXED=0` turns it off. A moved space or bracket joins the
 span before it, like a moved mark.
 
