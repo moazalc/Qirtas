@@ -192,6 +192,31 @@ def _fragments(stored, repaired):
             yield before, after
 
 
+def _with_neighbours(stored, repaired):
+    """(word, (the word and the word after or before it, repaired)) for each
+    word the repair changed. Same positions on both sides, as in
+    `_fragments`, so a stretch is cut from each at the same place."""
+    if len(stored) != len(repaired):
+        return
+    words = list(_WORD.finditer(stored))
+    for i, m in enumerate(words):
+        before, after = m.group(), repaired[m.start():m.end()]
+        if not (before != after and sorted(before) == sorted(after)
+                and len(before) >= MIN_FRAGMENT
+                and not _STRETCHED.search(before)):
+            continue
+        for a, b in ((m, words[i + 1] if i + 1 < len(words) else None),
+                     (words[i - 1] if i else None, m)):
+            if a is None or b is None:
+                continue
+            gap = stored[a.end():b.start()]
+            # One line, one space or a mark and a space: a stretch over
+            # anything longer depends on how each side spaced it.
+            if not gap or len(gap) > 2 or set(gap) - set(" .،,:؛"):
+                continue
+            yield before, (stored[a.start():b.end()], repaired[a.start():b.end()])
+
+
 def fix_map(path):
     """-> {broken fragment: repaired fragment} for this PDF: the lam-alef
     repairs (`_lam_alef_map`) and the words a space cuts in two
@@ -226,6 +251,7 @@ def _lam_alef_map(path):
     if not enabled():
         return {}
     seen, bad = {}, set()
+    near = {}                   # word -> [(stretch with a neighbour, repaired)]
     stored_all, repaired_all = [], []
     with pymupdf.open(path) as d:
         ok, _, _ = trustworthy(d)
@@ -238,6 +264,8 @@ def _lam_alef_map(path):
                     if before in seen and seen[before] != after:
                         bad.add(before)
                     seen[before] = after
+                for before, pair in _with_neighbours(stored, repaired):
+                    near.setdefault(before, []).append(pair)
 
     # Everything the document holds, after the geometric pass. If a fragment
     # survives in there, some occurrence of it was left alone and the
@@ -249,6 +277,13 @@ def _lam_alef_map(path):
         if k in bad:
             continue
         if _pattern(k).search(settled):
+            # Left alone somewhere, so not safe alone - but with the word
+            # beside it, it may be. بني is a word, and z21762915 prints it
+            # unrepaired seven times; ".بني الجزائريين" it holds once, and
+            # that is بين.
+            for stretch, fixed in near.get(k, ()):
+                if stretch not in out and not _pattern(stretch).search(settled):
+                    out[stretch] = fixed
             continue
         out[k] = v
     # The same word as both sides will hold it when the map is applied: the
@@ -453,4 +488,109 @@ def join_map(path):
         for k in {stored, repair_lam_alef(" " + stored + " ").strip()}:
             out.setdefault(k, whole)
     _JOINS[key] = out
+    return out
+
+
+# -- punctuation stored away from where it is drawn ---------------------------
+
+_LATIN = re.compile("[A-Za-z]")
+_DIGIT = re.compile("[0-9٠-٩۰-۹]")
+_PUNCTS = {}
+
+
+def _is_punct(ch):
+    return unicodedata.category(ch).startswith("P")
+
+
+def _centre(c):
+    return (c["bbox"][0] + c["bbox"][2]) / 2
+
+
+def _placed(chars):
+    """The line with each punctuation mark moved to where it is drawn, or
+    None when nothing moves. Right to left: what comes next is further left.
+
+    A mark moves only across a stretch whose other characters run cleanly
+    right to left, and never next to a digit - numbers run left to right
+    inside the line, and a mark beside one is ambiguous."""
+    order = list(range(len(chars)))
+    moved = False
+    for i in range(len(chars)):
+        c = chars[i]
+        if not _is_punct(c["c"]):
+            continue
+        pos = order.index(i)
+        rest = order[:pos] + order[pos + 1:]
+        x = _centre(c)
+        # the first character drawn to its left
+        t = next((k for k, j in enumerate(rest) if _centre(chars[j]) < x),
+                 len(rest))
+        if t == pos:
+            continue
+        lo, hi = min(t, pos), max(t, pos)
+        span = [_centre(chars[j]) for j in rest[max(0, lo - 1):hi + 1]]
+        if any(b > a + 0.5 for a, b in zip(span, span[1:])):
+            continue
+        near = [chars[j]["c"] for j in rest[max(0, t - 1):t + 1]]
+        if any(_DIGIT.match(n) for n in near):
+            continue
+        order = rest[:t] + [i] + rest[t:]
+        moved = True
+    return order if moved else None
+
+
+def punct_map(path):
+    """-> {stretch as stored: stretch with its punctuation where it is drawn}.
+
+    Word sometimes stores a mark away from where it draws it: the full stop
+    ending a line inside الهامل, "اله.امل"; the colon after المفتاحية at the
+    start of the line; the comma after براهيمي before it (`z21762915`).
+    Only lines of Arabic with no Latin letter: the last attempt at ordering
+    by position broke DVB-S (TASKS N5c). A stretch also stored somewhere
+    without the move is left alone everywhere, as for the other maps.
+    """
+    key = (str(path), os.path.getmtime(path), os.path.getsize(path))
+    if key in _PUNCTS:
+        return _PUNCTS[key]
+    import difflib
+    found, fixed, plain = {}, {}, []
+    with pymupdf.open(path) as d:
+        for page in d:
+            for b in page.get_text("rawdict")["blocks"]:
+                for line in b.get("lines", ()):
+                    chars = [c for s in line["spans"] for c in s["chars"]]
+                    text = "".join(c["c"] for c in chars)
+                    plain.append(text)
+                    if _LATIN.search(text) or \
+                            len(_ARABIC_LETTER.findall(text)) < 3:
+                        continue
+                    order = _placed(chars)
+                    if order is None:
+                        continue
+                    new = "".join(chars[j]["c"] for j in order)
+                    sm = difflib.SequenceMatcher(None, text, new, autojunk=False)
+                    ops = [o for o in sm.get_opcodes() if o[0] != "equal"]
+                    if not ops:
+                        continue
+                    a, b2 = ops[0][1], ops[-1][2]
+                    # out to whole words; the stretches outside are equal
+                    while a > 0 and text[a - 1] != " ":
+                        a -= 1
+                    while b2 < len(text) and text[b2] != " ":
+                        b2 += 1
+                    stored = text[a:b2].strip()
+                    shown = new[a:b2].strip()
+                    if stored == shown or len(stored) < 3:
+                        continue
+                    found[stored] = found.get(stored, 0) + 1
+                    fixed[stored] = shown
+    everything = "\n".join(plain)
+    out = {}
+    for stored, n in found.items():
+        if everything.count(stored) > n:
+            continue
+        out.setdefault(stored, fixed[stored])
+        spelled = repair_lam_alef(" " + stored + " ").strip()
+        out.setdefault(spelled, repair_lam_alef(" " + fixed[stored] + " ").strip())
+    _PUNCTS[key] = out
     return out

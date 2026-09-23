@@ -406,11 +406,20 @@ class Furniture:
             printed on page 0)
     silent  lifted out of the body, not drawn: a table whose text is already
             drawn by another piece, or a band with no text at all
+    shown   None, or the text to draw when it is less than the block's: the
+            words a band at the same edge already prints are left out
     """
 
     def __init__(self, blocks, parity=None, run=None):
         self.blocks, self.parity, self.run = blocks, parity, run
         self.silent = False
+        self.shown = None
+
+    @property
+    def text(self):
+        if self.shown is not None:
+            return self.shown
+        return WS_RUN.sub(" ", _furniture_text(self.block).strip())
 
     @property
     def block(self):
@@ -634,6 +643,37 @@ def _running_text(model):
                 for g in cover:
                     g.parity = None
 
+    # A line a band at the same edge already prints, printed again beside it.
+    # `z21762915`'s footer band ends ":العدد05 - أفريل2017", and so does the
+    # line holding its page number: the footer said the issue twice. The
+    # band's words are left out of the line, and the page number stays.
+    for pieces in found.values():
+        bands = [g for g in pieces if g.block.kind == TABLE and not g.silent]
+        if not bands:
+            continue
+        cover = "".join(WS_RUN.sub("", _furniture_text(g.block)) for g in bands)
+        for f in pieces:
+            if f.block.kind == TABLE or f.silent:
+                continue
+            text = f.text
+            words = text.split(" ")
+            number = inside = None
+            if f.run:
+                at = list(DIGITS.finditer(text))[f.run[0]].start()
+                number = text[:at].count(" ")
+                # which number within its word the page number is
+                inside = len(DIGITS.findall(text[text.rfind(" ", 0, at) + 1:at]))
+            keep = [k for k, w in enumerate(words) if k == number or w not in cover]
+            if len(keep) == len(words):
+                continue
+            if not keep:
+                f.silent = True
+                continue
+            f.shown = " ".join(words[k] for k in keep)
+            if f.run:
+                before = " ".join(words[k] for k in keep if k < number)
+                f.run = (len(DIGITS.findall(before)) + inside, f.run[1])
+
     # Pieces sharing a line are drawn as one paragraph, as the original shows
     # them: "- 8 -" and "2016" at the foot of `z21763864`, two blocks on one
     # line, would otherwise take two lines of the footer.
@@ -732,8 +772,7 @@ def _draw_text_furniture(doc, draw, model):
                 p = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
                 if p.text.strip() or p.runs:
                     p = part.add_paragraph()
-                text = " ".join(WS_RUN.sub(" ", _furniture_text(f.block).strip())
-                                for f in shown)
+                text = " ".join(f.text for f in shown)
                 rtl = is_rtl(text)
                 _rtl_paragraph(p, rtl)
                 p.alignment = _furniture_align(model, shown, rtl)
@@ -766,7 +805,7 @@ def _furniture_run(p, text, f, fallback, model, rtl):
 
 
 def _draw_piece(p, f, fallback, model, rtl):
-    text = WS_RUN.sub(" ", _furniture_text(f.block).strip())
+    text = f.text
     if not f.run:
         _furniture_run(p, text, f, fallback, model, rtl)
         return

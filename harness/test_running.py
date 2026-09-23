@@ -202,6 +202,24 @@ def main():
     check("its text in the header", _parts(docx).get("header-default"),
           "د. لخضر بن بوزيد")
 
+    print("\na footer band and the page number line both holding the issue")
+    m = _model()
+    for p in range(PAGES):
+        m.blocks.append(Block(kind=TABLE, page=p, y=604, y1=630, x0=0, x1=402,
+                              text="", rows=[["", "مجلة الإنسان :العدد05 - أفريل2017"]],
+                              col_widths=[100.0, 300.0]))
+        m.blocks.append(Block(kind=PARAGRAPH, page=p, y=640, y1=652, x0=94,
+                              x1=358, text=f":العدد05 - أفريل2017 {209 + p}"))
+        _body(m, p)
+    docx = tmp / "band_twice.docx"
+    write(m, str(docx))
+    foot = _parts(docx).get("footer-default", "")
+    # z21762915: the issue printed twice, once in the band and once beside
+    # the page number.
+    check("the issue once", foot.count("أفريل2017"), 1)
+    check("the page number kept, as a field", "PAGE" in _xml(docx, "word/footer1.xml")
+          and "209" in foot, True)
+
     print("\na logo inside the measured column, in the page's top strip")
     logo = tmp / "logo.png"
     pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 60, 40))

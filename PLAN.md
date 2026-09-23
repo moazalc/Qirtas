@@ -1880,6 +1880,34 @@ Left alone by design: a space after a letter that never joins forward
 (إ يجاد - ا د ذ ر ز و carry no evidence), fonts not installed.
 Runs: `2026-09-23-{dev,regression}-joinforms`.
 
+**Letters in the wrong order: one thing tried and reverted.** Traditional
+Arabic draws لم, في, لج, مح, ين as one shape each, Word names each in reading
+order, and the extractor reverses a right-to-left line letter by letter - a
+shape's own letters with it (بين read بني). Storing every such shape turned
+round in the repaired copy (`glyphs.drawn_order`) was REVERTED: page truth
+did not move on a single file (0 better), while nothing-lost fell 99.8 ->
+95.7% and words-in-order collapsed on the Traditional Arabic files
+(`z21763864` 4.6%). The geometric repair (`arabic.repair_ligatures`, a59436e)
+already turns these pairs back, from the zero-width half each leaves; given
+them the right way round it turned them wrong again, on one side. Runs:
+`2026-09-23-{dev,regression}-drawnorder` (reverted - the regression half of
+that run also carried the footer change below).
+
+What really leaves بني is the map's safety rule: a repaired word that also
+appears unrepaired somewhere is dropped everywhere, and بني is also a word
+(printed unrepaired seven times in `z21762915`). Such a word is now keyed
+with the word beside it - "بني الجزائريين", "العالقة بني", "يف ثالث" - when
+that pair never appears unrepaired (`pdftext._with_neighbours`). Page
+truth on dev: wrong 14.3 -> 14.1%, found 89.1 -> 89.4%, 6 files better, 0
+worse; every other score and the theses unchanged.
+
+**The footer that said the issue twice** (`z21762915`): the footer band
+ends ":العدد05 - أفريل2017" and the line holding the page number repeats it.
+A text piece at the same edge as a drawn band now leaves out the words the
+band prints (`Furniture.shown`), keeping the page number, whose position in
+the line is recounted. Measured with the neighbour keys above: no score
+moved on any other file. Runs: `2026-09-23-{dev,regression}-neighbours`.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
