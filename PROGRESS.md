@@ -78,8 +78,8 @@ Parked: `z21763864`, whose text is drawn as shapes.
 9. Bold, italics, text size. 10. Centring and alignment. 11. Coloured
 bands and headers. 12. Tables that look like the original. 13. Footnotes.
 
-**Waiting on Moaz:** two commits not pushed yet (the plan, and today's
-three text fixes). Two fonts are
+**Waiting on Moaz:** several commits not pushed yet (the plan, and the
+text fixes of 23-24 Sept). Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 
@@ -200,7 +200,14 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 - **Numbers checked**: of the numbers the page check disagrees with, most
   are the OCR misreading references and web addresses. Nothing to fix.
 - On 11 short files these three: wrong words 6.1% -> **5.2%**, 7 files
-  better, none worse, nothing lost 100%. Full run started to confirm.
+  better, none worse, nothing lost 100%.
+- **The full run caught a problem the short files could not**: on 7 longer
+  files the "nothing lost" check fell (to 98.4-99.6%) at a bracket next to
+  an English word or number. In PDFs that carry Word's hidden labels, Word
+  labels each English word and number separately, so the converter and the
+  checker saw those lines differently. Fixed: such a line is changed only
+  where both see it whole. Those 8 files: nothing lost 100% again, and they
+  kept their gains. Full run started again to confirm.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
