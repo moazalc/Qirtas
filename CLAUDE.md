@@ -44,6 +44,7 @@ strips every RTL marker. That last mile is the project.
 | Design, history, why something was done, measurement traps | `PLAN.md` |
 | Work to be done, in priority order | `TASKS.md` |
 | Open risks, things needing a decision, things that could make the work wrong | `FLAGS.md` |
+| Where the project stands, the timeline, what is finished - plain language, updated after every task (Moaz, 2026-09-23) | `PROGRESS.md` |
 
 `README.md` is setup and commands. `RESEARCH.md` is what was established about
 the problem space — read it before investigating anything; do not redo it.
