@@ -217,7 +217,22 @@ In order:
     (23% of them), files with no installed font (`z21751977`). DONE
     2026-09-23: the article title dropped as a header band's copy (PLAN);
     wrong-order pairs keyed with a neighbour (6 better, 0 worse); footer
-    issue printed once.
+    issue printed once. DONE 2026-09-23: the stretching stroke and spaces
+    stored as letters (`z20397518` wrong 54 -> 8%, `z20276145` 18 -> 7%);
+    the gate's page check asks of whole words (PLAN "What the remaining
+    wrong words are"). Left, by that breakdown (about 10 points ours, 3.6
+    the OCR's): words not near any page word, pieces and run-together words
+    (punctuation inside words, N5c), letters in another order (`z21763864`,
+    `z21764080`, `z19799524`, `z22639353` - whole words reversed; امل for
+    الم in `z21095413`), numbers (mostly the OCR - check first).
+  - **Ask the user to install a missing font (Moaz, 2026-09-23).** Before
+    converting, name the fonts the PDF uses that are not installed and
+    offer to wait while the user installs them: several repairs read the
+    installed font, and Word lays out the page with it. The converter must
+    still work without them. Needs: the list of missing fonts per file
+    (`glyphs._path` finds a font by PostScript name, family name, or a name
+    Word cut at 24 characters), a plain message, and where each font can
+    be had.
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.

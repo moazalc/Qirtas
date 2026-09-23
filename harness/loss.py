@@ -144,8 +144,16 @@ def judge(pdf, out, marks=True):
         seen = _ocr(doc, [page], Path("out/work/truth/cache") / key).get(page)
         if not seen:
             continue
-        shown = {w for w, _ in seen}
-        joined = "".join(w for w, _ in seen)
+        seq = [w for w, _ in seen]
+        joined = "".join(seq)
+        # Whether the page shows a word we lack is asked of whole words: a
+        # word the OCR cut in two is there as two or three side by side.
+        # Searching all the page's words run together found الطرقص in الطرق
+        # followed by صيانة, and held a sentence we wrote right as lost
+        # (z20397518). How well the OCR read the rest stays the looser
+        # question - on a page read badly (z21763864) it cuts words anywhere.
+        shown = set(seq) | {"".join(seq[i:i + k]) for k in (2, 3)
+                            for i in range(len(seq) - k + 1)}
         words = [w for w in (_norm(x) for x in raw_of.get(s, "").split())
                  if len(w) >= MIN_WORD]
         lacking = [w for w in words if w not in ours]
@@ -155,7 +163,7 @@ def judge(pdf, out, marks=True):
         read = sum(1 for w in present if w in shown or w in joined)
         if read < PAGE_READ * len(present):
             continue                  # the OCR did not read this part well
-        if any(w in shown or w in joined for w in lacking):
+        if any(w in shown for w in lacking):
             continue                  # the page shows what we lack: a loss
         excused.append(s)
     kept = 1 - (len(gone) - len(excused)) / max(1, len(pairs))

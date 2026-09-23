@@ -36,6 +36,9 @@ import pymupdf
 # A font is repaired only when this share of its shapes have the installed
 # font's width, which is what shows the shape numbers are the same font's.
 SAME_WIDTHS = 0.9
+# The widest shape with no letter of its own that is read as a stretching
+# stroke, in 1/1000 em: Times New Roman's and Arial's are 125.
+KASHIDA = 150
 # Letters stored as a letter of another shape before a font counts as
 # scrambled rather than merely missing some.
 SCRAMBLED = 3
@@ -69,7 +72,7 @@ def spell_out(text):
 
 
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "4"
+REPAIR_VERSION = "5"
 
 _INDEX = None
 _MAPS = {}
@@ -94,12 +97,16 @@ def _key(name):
 
 
 def _index():
-    """Installed fonts by PostScript name. Read once per process."""
+    """Installed fonts by PostScript name. Read once per process.
+
+    Also by family name, for a regular face only: some writers name the
+    font by its family, "(A) Arslan Wessam B" for AArslanWessamB-AArslan...
+    A family name never takes a key a PostScript name holds."""
     global _INDEX
     if _INDEX is not None:
         return _INDEX
     from fontTools.ttLib import TTFont
-    _INDEX = {}
+    _INDEX, family = {}, {}
     for d in _font_dirs():
         if not d.is_dir():
             continue
@@ -108,12 +115,35 @@ def _index():
                 continue
             try:
                 with TTFont(str(f), lazy=True) as t:
-                    ps = t["name"].getDebugName(6)
+                    n = t["name"]
+                    ps, fam, style = (n.getDebugName(6), n.getDebugName(1),
+                                      n.getDebugName(2))
             except Exception:
                 continue
             if ps:
                 _INDEX.setdefault(_key(ps), str(f))
+            if fam and (style or "").lower() == "regular":
+                family.setdefault(_key(fam), str(f))
+    for k, f in family.items():
+        _INDEX.setdefault(k, f)
     return _INDEX
+
+
+def _path(name):
+    """The installed font file for a PDF's name of it, or None.
+
+    Word cuts a long PostScript name at 24 characters -
+    AF_Diwani-NormalTraditio - so a name of that length that begins exactly
+    one installed font's is that font."""
+    k = _key(name)
+    index = _index()
+    if k in index:
+        return index[k]
+    if len(name.split("+", 1)[-1]) >= 24:
+        found = {f for key, f in index.items() if key.startswith(k)}
+        if len(found) == 1:
+            return found.pop()
+    return None
 
 
 # The PDF standard's built-in fonts, by the Windows font Word would use.
@@ -130,7 +160,7 @@ def family(name):
     k = _key(name)
     if k in _BUILT_IN:
         return _BUILT_IN[k]
-    path = _index().get(k)
+    path = _path(name)
     if path is None:
         return name
     if path not in _FAMILIES:
@@ -147,7 +177,7 @@ def family(name):
 def reference(name):
     """(glyph id -> text, glyph id -> advance in 1/1000 em) for an installed
     font, or None when it is not installed."""
-    path = _index().get(_key(name))
+    path = _path(name)
     if path is None:
         return None
     if path in _MAPS:
@@ -184,7 +214,7 @@ def forms(name):
     by a later rule - a contextual alternate - keeps its forms. A shape no
     such rule produces is absent: the cmap's own shape, or a ligature.
     """
-    path = _index().get(_key(name))
+    path = _path(name)
     if path is None:
         return None
     if path in _FORMS:
@@ -546,6 +576,16 @@ def diagnose(doc, xref):
              if c in text and _ARABIC.search(text[c])
              and not _same(stored[c], text[c])
              and _trust(stored[c], text[c], scrambled)}
+    # Two a font can say plainly are not letters, stored as one all the same
+    # (z20397518, z20276145): the stretching stroke Word adds to justify a
+    # line - no letter of its own, an eighth of an em - stored as the letter
+    # it followed, so شبكات reads شبببببكات; and a space stored as ا.
+    for c, s in stored.items():
+        if len(s) == 1 and _BASIC.match(s):
+            if c not in text and advance.get(c, KASHIDA + 1) <= KASHIDA:
+                fixes[c] = TATWEEL
+            elif text.get(c) == " ":
+                fixes[c] = " "
     if not fixes:
         return None, "fine"
     widths = _widths(doc, desc)
@@ -628,6 +668,8 @@ def repaired(pdf_path):
     checker read the same copy."""
     pdf_path = str(pdf_path)
     h = hashlib.sha1(REPAIR_VERSION.encode())
+    # A repair reads the installed fonts: one installed since changes it.
+    h.update("|".join(sorted(_index())).encode())
     with open(pdf_path, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)

@@ -183,12 +183,34 @@ def main():
         # and apart on the page; their joins are to other letters.
         check("م في كان is left alone", "م في كان" in joins, False)
 
+    print("what a font says plainly is not a letter")
+    stretched = Path("corpus/wild/z20397518.pdf")
+    if stretched.exists():
+        import re
+        with pymupdf.open(repaired(str(stretched))) as doc:
+            page = doc[1].get_text()
+        check("the stretching stroke is not a letter (شبببببكات)",
+              len(re.findall("ب{3,}", page)), 0)
+        check("شبكات reads whole", "شبكات" in page.replace("ـ", ""), True)
+        check("a space is not ا (طرابلس تعتمد)",
+              "طرابلس تعتمد" in page.replace("ـ", ""), True)
+
     print("the name Word knows a font by")
     check("the standard Times", family("Times-Roman"), "Times New Roman")
     check("a font not installed keeps its name", family("AL-Mohanad"),
           "AL-Mohanad")
     if family("ArialMT") != "ArialMT":      # only where Arial is installed
         check("Arial's PostScript name", family("ArialMT"), "Arial")
+    # Only where the font is installed (Moaz's PC since 2026-09-23).
+    if family("AF_Diwani-NormalTraditional") != "AF_Diwani-NormalTraditional":
+        check("a name Word cut at 24 characters",
+              family("AF_Diwani-NormalTraditio"), "AF_Diwani")
+    check("a cut name matches nothing shorter than 24",
+          family("AF_Diwani"[:6]), "AF_Diw")
+    if family("(A) Arslan Wessam B") == "(A) Arslan Wessam B":
+        from convert.glyphs import _path
+        check("a font named by its family",
+              _path("(A) Arslan Wessam B") is not None, True)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

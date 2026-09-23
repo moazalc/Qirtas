@@ -64,6 +64,8 @@ def main():
     ap.add_argument("--jobs", type=int, default=6,
                     help="files in parallel; 1 to run serially")
     ap.add_argument("--json", help="extra copy of the results at this exact path")
+    ap.add_argument("--files", nargs="+",
+                    help="just these PDFs, for a quick look - not a set's score")
     ap.add_argument("--label", default="",
                     help="what this run was testing, e.g. 'after-backfill-fix'")
     a = ap.parse_args()
@@ -81,7 +83,9 @@ def main():
               f" the documents' own fonts installed{OFF}")
     print()
 
-    files = files_for(a.set)
+    files = sorted(a.files) if a.files else files_for(a.set)
+    if a.files:
+        a.set = "quick"      # filed apart: a hand-picked few are no set's score
     if a.n and a.n < len(files):
         random.Random(a.seed).shuffle(files)
         files = sorted(files[:a.n])

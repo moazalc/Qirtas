@@ -119,6 +119,8 @@ def main():
     rows = []
     for r in data["results"]:
         pdf = Path(base) / r["file"]
+        if not pdf.exists():        # a quick run mixes the two folders
+            pdf = next(Path("corpus").rglob(r["file"]), pdf)
         try:
             s = score(str(pdf), r["docx"])
         except Exception as e:

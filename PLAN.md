@@ -1923,6 +1923,54 @@ fires only where the reader and the checker split and spaced the text
 alike. A fix has to stay inside one word, or be applied to the characters
 before either side extracts. Run: `2026-09-23-{dev,regression}-punct`.
 
+### What the remaining wrong words are; the stretching stroke, 2026-09-23
+
+**Breakdown** of the 3,390 words on dev pages that OCR does not read
+(`2026-09-23-dev-neighbours`, each word put in the first group it fits):
+not near any word on the page 21%, numbers 20%, a piece of a page word 20%,
+two page words run together 16%, the letters of a page word in another
+order 14%, one letter off 6%, a word from another page of the file 4%. The
+same count on the theses, whose text is right, is the OCR's own share -
+3.6% of words: numbers 1.4 points, runs-together 0.8, pieces 0.5, one letter
+off 0.5, not near 0.4, other order 0. So of dev's 13.9%, about 10 points are
+ours; most of "numbers", "pieces" and "run together" there is the OCR.
+
+**The largest single cause was one fault in two files.** Word justifies a
+line by drawing a stretching stroke between letters: a shape of Times New
+Roman's and Arial's (glyph 1127) with no letter of its own, 125/1000 em
+wide. `z20397518` stores every one as ب (شبببببكات for شبكات), `z20276145`
+as ا or ت (تعاارف), and `z20397518` also stores Simplified Arabic's space
+as ا - whole paragraphs read as one word. The installed font names neither
+as an Arabic letter, so `diagnose` left both. Now a shape the font gives no
+text, at most `KASHIDA` (150/1000 em) wide, stored as a single letter, is
+stored as the stretching stroke, and a shape the font names a space, stored
+as a letter, as a space (REPAIR_VERSION 5). Across all dev and regression
+files only these two files and `z21763864` hold such shapes.
+Page truth: `z20397518` wrong 54.4 -> 7.7%, found 51.1 -> 95.5%;
+`z20276145` wrong 18.4 -> 6.9%, found 82.5 -> 96.5%; five other files
+unchanged. On the 48-file average that is about 14.1 -> 12.9%, an estimate
+until the next full run. Run: `2026-09-23-quick-stretch` (7 files).
+
+**A gate fault it exposed.** With its spaces back, `z20397518`'s reference
+splits into sentences, and five hold ص where the page prints ، (a comma
+the scrambled Simplified Arabic stores as ص, which the page's OCR could
+not settle). The gate's page check should excuse them, but asked whether
+the page shows الطرقص by searching all the page's words run together - and
+found it in الطرق followed by صيانة. Now asked of whole words, or two or
+three side by side (a word the OCR cut in two). The looser search stays for
+"did the OCR read the rest of the sentence", which `z21763864` needs.
+Re-judged every file with excused or lost sentences: no change. This is
+likely what cost the gate on `z20397518` in the punctuation attempt above.
+Words in order on `z20397518` fell 99.9 -> 96.4% for the same reason: the
+reference is wrong there and we are right.
+
+**Fonts named differently from the installed file** were read as not
+installed: Word cuts a PostScript name at 24 characters
+(AF_Diwani-NormalTraditio), and some files name a font by its family
+("(A) Arslan Wessam B"). `glyphs._path` now matches both. The repaired copy
+is also cached against the list of installed fonts, so installing one
+redoes the repair.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

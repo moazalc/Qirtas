@@ -11,13 +11,17 @@ must match the printed page before any work on looks.
 
 | Measure | Now | When "text first" started (22 Sept) |
 |---|---|---|
-| Our words that are **not** on the printed page (48 test files) | **14.1%** | 17.1% |
-| Words on the printed page that we have | **89.4%** | 87.2% |
+| Our words that are **not** on the printed page (48 test files) | **about 12.9%**† | 17.1% |
+| Words on the printed page that we have | **about 90.5%**† | 87.2% |
 | Same, on Moaz's theses (the clean reference) | 3.5% wrong, 91.5% found | same |
 | Nothing lost (the hard gate), test files | 99.8%, worst file 89.7%* | 100%* |
 | Nothing lost, theses and hard files | 100% | 100% |
 | Pages land on the right page (test files) | 62.5% | 60.0% |
 | Pages land on the right page (theses) | 80.6% | 80.6% |
+
+† Estimated: the last full run said 14.1% / 89.4%; the stretching-stroke
+fix was measured on 7 short files only (Moaz: no long runs for now). It
+will be confirmed at the next full run.
 
 \* The worst file (`z21763864`) draws its text as shapes and its hidden text
 is misspelled throughout; the gate now asks the printed page when the hidden
@@ -29,20 +33,25 @@ mistakes — that is the realistic floor.
 
 ## What is left, biggest first
 
-1. **What makes up the remaining 14%** — to be broken down again before
-   choosing the next fix.
-2. **Punctuation inside words** (`اله .امل`, `الإ8 ،براهيمي`) — tried twice,
-   both reverted. Needs a new approach: correct the character order before
-   either side reads the text, not as a find-and-replace.
-3. **One file, `z20397518`**, holds almost a quarter of all wrong words.
-4. **Fonts not installed on this PC** give no evidence for several repairs
-   (`z21751977`).
-5. **Text drawn as shapes** (`z21763864`).
-6. Then the looks: bold, centring, the coloured bands, tables, footnotes.
+Of the remaining wrong words, about 3.6 points are the OCR misreading the
+page (measured on the theses, whose text is right). The rest is ours:
 
-**Waiting on Moaz:** install the missing Arabic fonts (list below), then
-the scores are re-measured - installing fonts changes the machine, so the
-numbers after it start a new baseline.
+1. **Punctuation and spaces inside words** (`اله .امل`, `ا،لجزائر`) — the
+   biggest group we cause. Tried twice, both reverted. Needs a new approach.
+2. **Whole words written backwards** (`دوك` for كود, `بعوتسي` for يستوعب) in
+   a handful of files (`z21763864`, `z21764080`, `z19799524`, `z22639353`),
+   and `امل` for `الم` in `z21095413`.
+3. **Words not on the page at all** — to be looked at file by file.
+4. **Numbers** — mostly the OCR misreading small numbers; check before fixing.
+5. **Text drawn as shapes** (`z21763864`).
+6. **Ask the user to install a missing font** before converting (Moaz's
+   idea, 23 Sept) — in TASKS.
+7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
+
+**Waiting on Moaz:** push the commits made since `95e0d6b`. Two fonts are
+still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
+is a different font) and **Muna**. A full run is needed at some point to
+confirm the estimates above and set a new baseline with the fonts.
 
 Arabic fonts the test files use that this PC does not have, most text first:
 Adobe Arabic (`z20538636`), Boutros News H1 (`z20276275`), Arslan Wessam B
@@ -100,7 +109,15 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   ambiguous alone, by keying the fix with the word beside it. 6 files
   better, 0 worse.
 - **Footer printed twice**: fixed.
-- Pushed everything to GitHub. Listed the Arabic fonts missing on this PC.
+- Pushed everything to GitHub. Listed the Arabic fonts missing on this PC;
+  Moaz installed most of them. Three were still not recognised because the
+  PDF names them differently (cut short, or by family name) - fixed. On 7
+  short files the fonts changed nothing; the files that need them are longer.
+- **Broke down the remaining wrong words** by cause (see "What is left").
+- **Stretched words** (`شبببببكات` for شبكات): Word's justification stroke
+  was stored as a letter, and in one file spaces as ا. Fixed: `z20397518`
+  54% wrong words → 8%, `z20276145` 18% → 7%. It also exposed a fault in
+  the gate's page check, fixed and re-checked on every file.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
