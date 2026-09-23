@@ -60,10 +60,10 @@ drawn (see the timeline); a full run will say how much is left. Then, smaller:
 **Text, about 2 days**
 1. Full run on every test file, to confirm today's fixes and give a new
    breakdown of what is left (about 3 hours, in the background).
-2. Punctuation next to numbers or English (`الإ8 ،براهيمي`), about 0.5
-   points, half a day.
-3. Words glued together, about 1 point, half a day.
-4. Numbers: the few real cases; most are the OCR misreading. Half a day.
+2. Punctuation next to numbers or English - DONE 23 Sept.
+3. Words glued together - partly done by 2 (`الشكل7`); the rest after the
+   full run's breakdown.
+4. Numbers - CHECKED 23 Sept: nearly all the OCR misreading; no fix.
 5. Words not on the page at all, file by file. Half a day.
 6. One file comes out 24 pages against 23. A couple of hours.
 
@@ -78,7 +78,8 @@ Parked: `z21763864`, whose text is drawn as shapes.
 9. Bold, italics, text size. 10. Centring and alignment. 11. Coloured
 bands and headers. 12. Tables that look like the original. 13. Footnotes.
 
-**Waiting on Moaz:** nothing to push. Two fonts are
+**Waiting on Moaz:** two commits not pushed yet (the plan, and today's
+three text fixes). Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 
@@ -184,6 +185,22 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   somewhere else on the line, a real one between the two words. On 11 short
   files: wrong words 7.2% -> 6.1%, 7 files better, none worse, nothing lost
   still 100%. About 500 words joined; one of them wrongly (في منحني).
+- **Words cut between two pieces of text that touch** (`التأ هيلي`,
+  `والخد مي`, found on the random page): joined when the letters either
+  side of the cut touch - between two real words there is always a space's
+  width. 75 more split words caught on the checked pages, none wrongly.
+- **Punctuation and spaces next to numbers or English** (`وبأطوال30` for
+  وبأطوال 30, `:المجلد07`): put where the page draws them. Three mistakes
+  caught on the way and fixed before keeping it: brackets flipped, spaces
+  between Arabic words moved, and English lines with an Arabic word read
+  backwards (the "nothing lost" check caught that one).
+- **List dashes and bullets shown as boxes**: they are typed in the Symbol
+  or Wingdings font; now turned into real dashes and bullets. 96 in 5 test
+  files.
+- **Numbers checked**: of the numbers the page check disagrees with, most
+  are the OCR misreading references and web addresses. Nothing to fix.
+- On 11 short files these three: wrong words 6.1% -> **5.2%**, 7 files
+  better, none worse, nothing lost 100%. Full run started to confirm.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
