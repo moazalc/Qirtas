@@ -36,8 +36,8 @@ mistakes — that is the realistic floor.
 Of the remaining wrong words, about 3.6 points are the OCR misreading the
 page (measured on the theses, whose text is right). The rest is ours:
 
-1. **Punctuation and spaces inside words** (`اله .امل`, `ا،لجزائر`) — the
-   biggest group we cause. Tried twice, both reverted. Needs a new approach.
+1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
+   Arabic-only lines are fixed (see the timeline); these are not yet.
 2. **`امل` written for `الم`** (املسلمون) in four files. (Whole words
    written backwards in tables are fixed - see the timeline.)
 3. **Words not on the page at all** — to be looked at file by file.
@@ -47,7 +47,7 @@ page (measured on the theses, whose text is right). The rest is ours:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** push the commits made since `95e0d6b`. Two fonts are
+**Waiting on Moaz:** push the commits made since `b87e139`. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. A full run is needed at some point to
 confirm the estimates above and set a new baseline with the fonts.
@@ -122,6 +122,15 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   more than one line. Fixed: 300 cells across the test files now read
   forward. Wrong words: `z22639353` 9.9% → 5.0%, `z21013208` 21.8% → 17.9%,
   two more files a little better, none worse; nothing lost still 100%.
+- Pushed everything to GitHub.
+- **Punctuation in the wrong place** (`،عشر`, `ا،جلزائر`, `اهل.امل`) —
+  third attempt, kept. The earlier two fixed the text after it was read,
+  and the converter and the checker disagreed. Now every place that reads
+  a page's text goes through one function that puts each comma and full
+  stop after the word it is drawn beside. Checked on all 1,033 test pages
+  that it changes nothing else. On 9 files: nothing lost 100%, wrong
+  words down on 4 (`z21762915` 8.2% → 7.1%), none worse, theses
+  unchanged. Not yet: marks beside numbers or English words.
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

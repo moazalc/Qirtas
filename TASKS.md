@@ -234,7 +234,11 @@ In order:
     (`glyphs._path` finds a font by PostScript name, family name, or a name
     Word cut at 24 characters), a plain message, and where each font can
     be had.
-  - **N5c. Punctuation and full stops** - order them by where they are
+  - **N5c. Punctuation and full stops** - DONE for Arabic lines
+    2026-09-23, third attempt (`convert/order.py`, PLAN "third attempt"):
+    every reading of the page goes through one function. Left: marks on
+    lines with digits or Latin (الإ8 ،براهيمي, :العدد05), brackets.
+    Earlier notes: order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.
     Second attempt 2026-09-23 (text map, Arabic lines only) REVERTED: the

@@ -1923,6 +1923,59 @@ fires only where the reader and the checker split and spaced the text
 alike. A fix has to stay inside one word, or be applied to the characters
 before either side extracts. Run: `2026-09-23-{dev,regression}-punct`.
 
+### Punctuation where it is drawn, third attempt: kept, 2026-09-23
+
+Why the marks move: Word draws a right-to-left line in runs, each laid out
+left to right; MuPDF turns a run's Arabic letters round into reading order
+but leaves a comma or full stop at the run's left end where it was. So
+`،عشر` for عشر،, `ا،جلزائر`, `اهل.امل`, a line-final full stop first.
+
+Tried first and dropped: changing the order the repaired copy STORES the
+marks in (moving the mark into a text block of its own, or placing each
+character by its own position). MuPDF's line building then broke the line
+(ومع on a line of its own) or lost the word entirely - it depends on
+guesses about the stream that are not ours to rely on.
+
+What is kept: `convert/order.py`. Every one of the 19 places the reader,
+the pair repairs (`pdftext`) and the checker (`compare`) read a page's text
+goes through `order.get_text`. Each line's marks go right after the word
+drawn nearest on their right; letters and spaces never move, so the pair
+repairs see the extractor's letter order as before. The order is worked out
+once per line from the characters' positions (rawdict) and applied to
+every reading of that line - for plain text and the structure tree, by
+looking the line up by its text, a letter and its vowel marks counted as
+one (the plain reading keeps marks the others drop). Left alone: lines with
+digits, %, or Latin (they run left to right inside the line); lines whose
+characters have no place of their own (the theses: every character at x
+310, a label over a drawing); lines stored in drawing order as a whole
+(فدهلا). A vowel mark stored after a moved comma stays on the word
+(مبكراً،), and a mark that was all that parted two words (بإدارة،الرصف,
+2.5 points apart) leaves a space.
+
+Checks: with the move switched off (`QIRTAS_PUNCT_ORDER=0`) every reading
+equals MuPDF's on all 1,033 dev and regression pages; with it on, the
+dict and rawdict readings agree on every page, and 3,321 of 3,326 moved
+lines are found in the plain reading (the 5 left are two-letter pieces in
+the theses). On 9 files, off against on: nothing lost 100% throughout;
+page-truth wrong words `z21762915` 8.2 -> 7.1%, `z20397518` 7.7 -> 7.2%,
+`z22658522` 10.6 -> 10.4%, `z20128978` 10.4 -> 10.2%, none worse; theses'
+words in order unchanged (100, 100, 96.4%). Words in order dips on some
+files (`z20128978` 92.9 -> 91.9%) while finding one sentence MORE - it
+weighs where sentences land, and the moved marks re-cut them. Right page
+rises on most files, the theses too (`مقدمة البحث` 83.5 -> 92.9%) - there
+it is the READING BACK of Word's PDF of our file that improves, not our
+file: that side goes through the same extractor. Runs:
+`2026-09-23-quick-punct3-{off,on}`.
+
+What went wrong on the way: the first version moved a comma to the end of
+the line, collecting every space it passed; the theses' zero-width labels
+sent every full stop to the first word; the structure reading splits lines
+its own way and was left unfixed until its lines were looked up from a
+rawdict read with the same flags; and `z20397518` glued words the moved
+comma had parted, until the gap rule.
+
+Left: marks beside digits or Latin (`الإ8 ،براهيمي`, `:العدد05`), brackets.
+
 ### What the remaining wrong words are; the stretching stroke, 2026-09-23
 
 **Breakdown** of the 3,390 words on dev pages that OCR does not read

@@ -18,6 +18,7 @@ from convert.pdftext import apply_fixes, fix_map
 # shows digits the way the original's pages did (N5a), and the original
 # STORES them typed: without this every number it corrected read as lost.
 from convert.footnotes import WESTERN
+from convert.order import get_text
 
 WORD = re.compile(r"\S+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")   # harakat + tatweel
@@ -50,7 +51,7 @@ def text_of(pdf_path, pages=False):
     except Exception:
         fixes = {}
     with pymupdf.open(pdf_path) as d:
-        texts = [pg.get_text("text") for pg in d]
+        texts = [get_text(pg, "text") for pg in d]
     if pages:
         # One string per page, for finding which page a sentence is on.
         return [spell_out(apply_fixes(repair_lam_alef(t), fixes)).translate(WESTERN)
@@ -382,7 +383,7 @@ def _page_words(page, fixes=None):
     is made by Word, and Word writes its ligatures backwards like everyone
     else, so our correct خلال reads back as خالل. Repairing only the
     original made right page FALL on most files (z19851706 0.824 -> 0.747)."""
-    t = page.get_text("text")
+    t = get_text(page, "text")
     if fixes is not None:
         t = apply_fixes(repair_lam_alef(t), fixes)
     return [w for w in WORD.findall(spell_out(t).translate(WESTERN)) if len(w) >= MIN_WORD]

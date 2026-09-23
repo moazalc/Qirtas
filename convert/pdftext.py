@@ -31,6 +31,7 @@ import unicodedata
 import pymupdf
 
 from convert.arabic import _ZERO_W, repair_lam_alef, repair_ligatures
+from convert.order import get_text
 
 __all__ = ["fix_map", "join_map", "apply_fixes", "line_items", "enabled"]
 
@@ -116,7 +117,7 @@ def trustworthy(doc):
     """
     total = zero = 0
     for page in list(doc)[:8]:
-        for block in page.get_text("rawdict")["blocks"]:
+        for block in get_text(page, "rawdict")["blocks"]:
             if block.get("type") != 0:
                 continue
             for line in block.get("lines", []):
@@ -143,7 +144,7 @@ def _line_pairs(page, all_lines=None):
     what `fix_map` needs to decide whether a substitution is safe.
     """
     out = []
-    for block in page.get_text("rawdict")["blocks"]:
+    for block in get_text(page, "rawdict")["blocks"]:
         if block.get("type") != 0:
             continue
         for line in block.get("lines", []):
@@ -449,7 +450,7 @@ def join_map(path):
                     i += step
                 return i if 0 <= i < len(text) else -1
 
-            for b in page.get_text("rawdict")["blocks"]:
+            for b in get_text(page, "rawdict")["blocks"]:
                 for line in b.get("lines", ()):
                     chars = [c for s in line["spans"] for c in s["chars"]]
                     text = [c["c"] for c in chars]

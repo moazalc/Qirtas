@@ -22,6 +22,7 @@ from convert.arabic import repair_lam_alef
 from convert.pdftext import apply_fixes, fix_map
 from convert.footnotes import MARK_OPEN, MARK_CLOSE, marker_numbers
 from convert.glyphs import shown_digits
+from convert.order import get_text
 
 # Structure labels that mean "a block starts here".
 BLOCK_TAGS = {
@@ -186,7 +187,7 @@ def _page_numbers(doc, path):
         pages = len(d)
         for i, page in enumerate(d):
             H = page.rect.height
-            for x0, y0, x1, y1, text, *_ in page.get_text("blocks"):
+            for x0, y0, x1, y1, text, *_ in get_text(page, "blocks"):
                 t = text.strip()
                 if not t or not PAGE_NO.match(t) or t in have.get(i, ()):
                     continue
@@ -410,11 +411,11 @@ def read_geometry(path):
         vocab = vocabulary(d)
         for i, page in enumerate(d):
             rich = _page_rich(page, i, vocab)
-            plain_len = len(ARABIC.findall(page.get_text("text")))
+            plain_len = len(ARABIC.findall(get_text(page, "text")))
             rich_len = sum(len(ARABIC.findall(b.text)) for b in rich)
             if plain_len and rich_len < plain_len * 0.5:
                 rich = [Block(kind=PARAGRAPH, text=_clean(b[4]), page=i)
-                        for b in sorted(page.get_text("blocks"),
+                        for b in sorted(get_text(page, "blocks"),
                                         key=lambda b: (round(b[1]), b[0]))
                         if b[6] == 0]
             for b in rich:
@@ -436,7 +437,7 @@ def vocabulary(doc):
     would count the very joins in question as words (قامYazdanian)."""
     words = collections.Counter()
     for page in doc:
-        for b in page.get_text("dict")["blocks"]:
+        for b in get_text(page, "dict")["blocks"]:
             for line in b.get("lines", []):
                 for sp in line["spans"]:
                     t = sp["text"]
@@ -535,7 +536,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
 
 def _page_rich(page, i, vocab=None):
     out = []
-    for b in sorted(page.get_text("dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
+    for b in sorted(get_text(page, "dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
         if b.get("type") != 0:
             continue
         blk = _rich_block([b], i, vocab=vocab)
@@ -601,7 +602,7 @@ def read_labels(path):
         doc.pages = len(d)
         vocab = vocabulary(d)
         for i, page in enumerate(d):
-            tree = page.get_text("dict", flags=pymupdf.TEXTFLAGS_DICT
+            tree = get_text(page, "dict", flags=pymupdf.TEXTFLAGS_DICT
                                  | pymupdf.TEXT_COLLECT_STRUCTURE)
             units = {}           # key -> [chain, [text blocks]], in order
 
@@ -995,7 +996,7 @@ def measure_layout(path, doc):
             return doc
         w, h = d[0].rect.width, d[0].rect.height
         for page in d:
-            for b in page.get_text("blocks"):
+            for b in get_text(page, "blocks"):
                 if b[6] != 0 or not str(b[4]).strip():
                     continue
                 if (b[2] - b[0]) < w * 0.35:      # skip page numbers, stray marks
@@ -1004,7 +1005,7 @@ def measure_layout(path, doc):
                 tops.append(b[1]); bottoms.append(b[3])
             hh, pit = _ink_rows(page)
             heights.extend(hh); pitches.extend(pit)
-            for bl in page.get_text("dict")["blocks"]:
+            for bl in get_text(page, "dict")["blocks"]:
                 if bl.get("type") != 0:
                     continue
                 for line in bl["lines"]:
@@ -1254,7 +1255,7 @@ def _collage(path, blocks, outdir):
         return None
     with pymupdf.open(path) as d:
         page = d[0]
-        if NUMBERS_AND_SPACE.sub("", page.get_text("text")):
+        if NUMBERS_AND_SPACE.sub("", get_text(page, "text")):
             return None
         return _collage_shot(page, blocks, outdir)
 
@@ -1306,7 +1307,7 @@ def _drop_collage_captions(doc, path):
     """
     try:
         with pymupdf.open(path) as d:
-            printed = WS.sub("", d[0].get_text("text")).replace("\n", "")
+            printed = WS.sub("", get_text(d[0], "text")).replace("\n", "")
     except Exception:
         return
     keep = []
@@ -1365,7 +1366,7 @@ def read_images(path, outdir):
                     if shot:
                         blob, ext = shot, "png"
                         try:
-                            over = bool(page.get_text("text", clip=rects[0]).strip())
+                            over = bool(get_text(page, "text", clip=rects[0]).strip())
                         except Exception:
                             over = False
                 if not _word_can_read(blob):
@@ -1488,7 +1489,7 @@ def _cell_text(page, box, fallback, page_flat):
     if box is None:
         return _unreverse(_clean(fallback or ""), page_flat)
     try:
-        clip = page.get_text("text", clip=pymupdf.Rect(box))
+        clip = get_text(page, "text", clip=pymupdf.Rect(box))
     except Exception:
         return _unreverse(_clean(fallback or ""), page_flat)
     a, b = WS.sub("", (clip or "").replace("\n", "")), \
@@ -1523,7 +1524,7 @@ def read_tables(path):
                 found = page.find_tables().tables
             except Exception:
                 continue
-            page_flat = WS.sub("", page.get_text("text"))
+            page_flat = WS.sub("", get_text(page, "text"))
             for t in found:
                 try:
                     raw = t.extract()
