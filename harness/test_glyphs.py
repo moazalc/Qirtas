@@ -188,6 +188,11 @@ def main():
         joins = join_map(str(repaired(str(split))))
         check("a split word is joined as the pair repair reads it",
               joins.get("امل حددات"), "المحددات")
+        # د never joins forward: only where the space is drawn tells.
+        check("محدود ة, its space drawn away, is one word",
+              joins.get("محدود ة"), "محدودة")
+        check("مباشر أو, as close with its space drawn away, is two",
+              any(k.startswith("مباشر أو") for k in joins), False)
 
     print("what a font says plainly is not a letter")
     stretched = Path("corpus/wild/z20397518.pdf")

@@ -378,6 +378,25 @@ def _touch(before, after):
     return abs(a[0] - b[2]) <= TOUCH * h
 
 
+# The share of a page's spaces between Arabic letters that must be drawn
+# between them before one drawn elsewhere counts as evidence. Pages below it
+# draw their spaces away from the words (z21761968, z22179435).
+PLACED_SHARE = 0.8
+# Closer than `_touch` asks: two words a space apart are 0.15 of the type size
+# apart at the least (5% of 9183 real spaces), a split word under 0.1 (93% of
+# 238). "مباشر أو" sits 0.15 apart with its space drawn elsewhere.
+CLOSE = 0.1
+# QIRTAS_SPACE_PLACE=0 turns this evidence off, to measure against.
+PLACE_ON = os.environ.get("QIRTAS_SPACE_PLACE", "1") != "0"
+
+
+def _drawn_between(space, before, after, size):
+    """Is the space drawn in the gap between its two letters, right to left?"""
+    size = size or 10.0
+    mid = (space["bbox"][0] + space["bbox"][2]) / 2
+    return after["bbox"][2] - 0.2 * size <= mid <= before["bbox"][0] + 0.2 * size
+
+
 def _split_at(chars, drop):
     """The words of a line that hold a dropped space: [(as stored, joined)].
     A word here is a run of letters and marks and the dropped spaces inside
@@ -411,8 +430,13 @@ def join_map(path):
     across the space on the page, so the space is not a word boundary. The
     form comes from the installed font's shaping rules (`glyphs.forms`); a
     font that is not installed gives no evidence and nothing is joined.
-    Letters that never join forward (ا د ذ ر ز و) give none either, so
-    "إ يجاد" stays as it is.
+    Letters that never join forward (ا د ذ ر ز و) give none either.
+
+    For those, and for words the page draws broken (الم ستخرجة), the space's
+    own place settles it: letters closer than a word gap, with the space
+    drawn away from them, where the page's other spaces sit between their
+    letters (2026-09-23, PLAN "The space's own place"). "إ يجاد" is joined
+    this way.
 
     The same safety as the lam-alef map: a stored word that also appears
     somewhere without that evidence is left alone everywhere.
@@ -450,39 +474,67 @@ def join_map(path):
                     i += step
                 return i if 0 <= i < len(text) else -1
 
+            lines = []
             for b in get_text(page, "rawdict")["blocks"]:
                 for line in b.get("lines", ()):
-                    chars = [c for s in line["spans"] for c in s["chars"]]
-                    text = [c["c"] for c in chars]
-                    plain.append("".join(text))
-                    drop = set()
-                    for i, c in enumerate(text):
-                        if c != " ":
-                            continue
-                        j, k = letter(text, i - 1, -1), letter(text, i + 1, 1)
-                        if j < 0 or k < 0:
-                            continue
-                        # A joined pair touches: the letter before ends where
-                        # the one after begins, right to left. Where the text
-                        # holds letters out of drawing order, two letters side
-                        # by side in it may be far apart on the page, and
-                        # their shapes are joined to other letters -
-                        # "م في كان" came out as ميفكان.
-                        if not _touch(chars[j], chars[k]):
-                            continue
-                        before, after = form(chars[j]), form(chars[k])
-                        if (before and before <= _JOINS_NEXT) \
-                                or (after and after <= _JOINS_PREVIOUS):
-                            drop.add(i)
-                    # The word joined as the letter-pair repair reads it:
-                    # "امل حددات" is المحددات, not املحددات. The repair only
-                    # swaps letters, so its spaces are where the stored ones are.
-                    fixed = [c[0] for c in repair_ligatures(
-                        [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars])]
-                    for (stored, _), (_, whole) in zip(_split_at(text, drop),
-                                                       _split_at(fixed, drop)):
-                        found[stored] = found.get(stored, 0) + 1
-                        joined[stored] = whole
+                    chars, size = [], []
+                    for s in line["spans"]:
+                        chars += s["chars"]
+                        size += [s["size"]] * len(s["chars"])
+                    lines.append((chars, size))
+            # Where the page draws its spaces between the letters round them,
+            # a space drawn somewhere else is not the gap between them.
+            placed = [_drawn_between(chars[i], chars[i - 1], chars[i + 1],
+                                     size[i])
+                      for chars, size in lines
+                      for i in range(1, len(chars) - 1)
+                      if chars[i]["c"] == " "
+                      and _ARABIC_LETTER.match(chars[i - 1]["c"])
+                      and _ARABIC_LETTER.match(chars[i + 1]["c"])]
+            trust_place = PLACE_ON and bool(placed) and \
+                sum(placed) / len(placed) >= PLACED_SHARE
+            for chars, size in lines:
+                text = [c["c"] for c in chars]
+                plain.append("".join(text))
+                drop = set()
+                for i, c in enumerate(text):
+                    if c != " ":
+                        continue
+                    j, k = letter(text, i - 1, -1), letter(text, i + 1, 1)
+                    if j < 0 or k < 0:
+                        continue
+                    # A joined pair touches: the letter before ends where
+                    # the one after begins, right to left. Where the text
+                    # holds letters out of drawing order, two letters side
+                    # by side in it may be far apart on the page, and
+                    # their shapes are joined to other letters -
+                    # "م في كان" came out as ميفكان.
+                    if not _touch(chars[j], chars[k]):
+                        continue
+                    before, after = form(chars[j]), form(chars[k])
+                    if (before and before <= _JOINS_NEXT) \
+                            or (after and after <= _JOINS_PREVIOUS):
+                        drop.add(i)
+                    # Letters that never join forward (إ يجاد) and words
+                    # the page draws broken show nothing in their shapes:
+                    # the space's own place does. Touching letters with
+                    # the space drawn away from them (2026-09-23: 209 of
+                    # 238 such spaces on the dev pages, 10 of 9183 real
+                    # ones, on pages whose spaces sit where drawn).
+                    elif trust_place and not _drawn_between(
+                            chars[i], chars[j], chars[k], size[i]) \
+                            and chars[j]["bbox"][0] - chars[k]["bbox"][2] \
+                            < CLOSE * (size[i] or 10.0):
+                        drop.add(i)
+                # The word joined as the letter-pair repair reads it:
+                # "امل حددات" is المحددات, not املحددات. The repair only
+                # swaps letters, so its spaces are where the stored ones are.
+                fixed = [c[0] for c in repair_ligatures(
+                    [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars])]
+                for (stored, _), (_, whole) in zip(_split_at(text, drop),
+                                                   _split_at(fixed, drop)):
+                    found[stored] = found.get(stored, 0) + 1
+                    joined[stored] = whole
     everything = "\n".join(plain)
     out = {}
     for stored, n in found.items():

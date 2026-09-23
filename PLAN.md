@@ -2011,6 +2011,42 @@ left of the group is not reachable from the letters' shapes. An idea not
 yet tried: join two pieces where the joined word stands whole elsewhere in
 the same document and a piece does not stand alone there.
 
+### The space's own place, 2026-09-23
+
+Where the letters' shapes say nothing, where the space character is drawn
+does. Measured on the dev set's OCR'd pages (`2026-09-23-dev-newbase`),
+every stored space between two Arabic letters labelled by the OCR: FAKE
+where the two sides joined are a word the page shows (238), REAL where both
+sides are shown as words and the joined one is not (9183).
+
+- The space's own drawn width does not separate them (same for both: it is
+  the font's space advance). This was the idea from other extractors
+  (pdf_oxide #1109); it does not hold for Word's PDFs.
+- The gap between the two letters does: FAKE median 0.004 of the type size,
+  REAL at least 0.15 (5th percentile). Alone, below 0.1: 222 of 238 FAKE,
+  142 REAL wrongly.
+- Where the space is drawn: REAL spaces sit between their letters 98% of
+  the time, FAKE 10% - Word draws the stored space somewhere else on the
+  line. Close letters AND the space elsewhere: 210 FAKE, 52 REAL.
+- 37 of those 52 are one file (`z21761968`), and `z22179435` another few:
+  pages whose spaces are drawn away from their words in general. Only pages
+  where at least 80% of the spaces between Arabic letters sit between them
+  count: 209 FAKE, 10 REAL.
+
+`join_map` takes this as a second kind of evidence, after the shapes, and
+with `_touch` still required, and closer than `_touch` (0.1 of the type size:
+"مباشر أو" is 0.15 apart with its space drawn away). The "every occurrence
+must carry the evidence" rule still holds. `QIRTAS_SPACE_PLACE=0` turns it
+off.
+
+Quick run, 11 files (9 with the most split words, the two pages above, two
+theses), off vs on (`2026-09-23-quick-space-place-{0b,1}`; `-0` has the
+truth score, taken before its Word files were overwritten): gate 100% both;
+page-truth wrong 7.2% -> 6.1%; 7 files better, none worse; `z21761968`,
+`z22179435` and the theses unchanged. About 500 words joined, 317 distinct;
+read through, one wrong: في منحني -> فيمنحني (`z19799068`). The document-
+vocabulary idea above was not needed for this part.
+
 ### امل for الم: the lam pairs by their shared edge, 2026-09-23
 
 Full run first (`2026-09-23-{dev,regression}-newbase`, fonts installed,

@@ -212,7 +212,8 @@ In order:
     `z21762915`). 2026-09-23: the gate asks the page (FLAGS 25); split
     pieces joined (12 better, 0 worse). Left, by size: spaces Word stores
     inside words (most split words - joined by the letters' shapes
-    2026-09-23, 24 files better, 0 worse; spaces after ا د ذ ر ز و left),
+    2026-09-23, 24 files better, 0 worse; spaces after ا د ذ ر ز و and words the page draws broken joined by where
+the space is drawn 2026-09-23, quick run 7.2 -> 6.1% wrong),
     letters in the wrong order (22% of wrong words), `z20397518` alone
     (23% of them), files with no installed font (`z21751977`). DONE
     2026-09-23: the article title dropped as a header band's copy (PLAN);

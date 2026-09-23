@@ -40,10 +40,9 @@ mistakes — that is the realistic floor.
 
 Of the remaining wrong words, about 2.8 points are the OCR misreading the
 page (measured on the theses, whose text is right). The rest is ours. The
-biggest piece of it: **spaces Word stored inside words** (`م رجعية`,
-`للعلا قات`) where our shape check finds no evidence - about 2 points, and
-the letters' shapes cannot settle the rest. Idea: join two pieces where the
-whole word appears elsewhere in the same document. Then, smaller:
+biggest piece of it was **spaces Word stored inside words** (`م رجعية`,
+`للعلا قات`) - about 2 points. Most of it is now fixed by where the space is
+drawn (see the timeline); a full run will say how much is left. Then, smaller:
 
 1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
    Arabic-only lines are fixed (see the timeline); these are not yet.
@@ -56,7 +55,8 @@ whole word appears elsewhere in the same document. Then, smaller:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** nothing to push. Two fonts are
+**Waiting on Moaz:** two commits to push (the note on why spaces were
+left, and the fix). Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 
@@ -157,6 +157,11 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   never joins (إ يجاد), or the page itself draws the word broken
   (الم ستخرجة). The shapes cannot fix what is left; a different idea is
   needed (see "What is left").
+- **Spaces inside words, second fix**: where the letters' shapes say
+  nothing, the place Word draws the space does - a fake space is drawn
+  somewhere else on the line, a real one between the two words. On 11 short
+  files: wrong words 7.2% -> 6.1%, 7 files better, none worse, nothing lost
+  still 100%. About 500 words joined; one of them wrongly (في منحني).
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
