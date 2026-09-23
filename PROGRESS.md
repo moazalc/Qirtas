@@ -47,7 +47,7 @@ page (measured on the theses, whose text is right). The rest is ours:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
-**Waiting on Moaz:** push the commits made since `211f5b1`. Two fonts are
+**Waiting on Moaz:** nothing to push. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 
