@@ -194,6 +194,24 @@ def main():
         check("مباشر أو, as close with its space drawn away, is two",
               any(k.startswith("مباشر أو") for k in joins), False)
 
+    cut = Path("corpus/wild/z21490618.pdf")
+    if cut.exists():
+        # Two pieces of text, touching, no space: printed nowhere else whole,
+        # only the letters meeting at the cut tell.
+        from convert.glyphs import repaired
+        from convert.reader import read_geometry
+        text = " ".join(b.text for b in read_geometry(
+            str(repaired(str(cut)))).blocks)
+        check("a word cut between touching pieces is one (التأهيلي)",
+              ("التأهيلي" in text, "التأ هيلي" in text), (True, False))
+        # The list dashes are Symbol's: a private code, a box in Word.
+        import re
+        with pymupdf.open(repaired(str(cut))) as doc:
+            page = doc[11].get_text()
+        check("Symbol's list dash is a dash, not a private code",
+              (len(re.findall("[-]", page)), "−" in page),
+              (0, True))
+
     print("what a font says plainly is not a letter")
     stretched = Path("corpus/wild/z20397518.pdf")
     if stretched.exists():

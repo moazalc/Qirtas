@@ -226,7 +226,10 @@ the space is drawn 2026-09-23, quick run 7.2 -> 6.1% wrong),
     (punctuation inside words, N5c), letters in another order (whole words
     reversed were table cells - FIXED 2026-09-23, 300 cells; امل for الم
     FIXED 2026-09-23 by the shared edge (PLAN); left: `z21763864`, whose
-    widths are not trusted, and 81 short cells), numbers (mostly the OCR - check first).
+    widths are not trusted, and 81 short cells), numbers (CHECKED
+    2026-09-23: 272 of 336 unconfirmed numbers are the OCR misreading; no
+    fix - PLAN "Words cut between touching pieces"). Words cut between two
+    touching pieces (التأ هيلي) DONE 2026-09-23 by the letters either side.
   - **Ask the user to install a missing font (Moaz, 2026-09-23).** Before
     converting, name the fonts the PDF uses that are not installed and
     offer to wait while the user installs them: several repairs read the
@@ -237,8 +240,12 @@ the space is drawn 2026-09-23, quick run 7.2 -> 6.1% wrong),
     be had.
   - **N5c. Punctuation and full stops** - DONE for Arabic lines
     2026-09-23, third attempt (`convert/order.py`, PLAN "third attempt"):
-    every reading of the page goes through one function. Left: marks on
-    lines with digits or Latin (الإ8 ،براهيمي, :العدد05), brackets.
+    every reading of the page goes through one function. Lines with
+    digits or Latin DONE 2026-09-23 (`_order_mixed`: marks, and spaces and
+    brackets stranded at the line's end); English lines with Arabic words
+    left alone. Symbol's and Wingdings' dashes and bullets as real
+    characters, not boxes, DONE 2026-09-23. Left: brackets on mixed lines
+    where a word is next to them (اختبار فيشر ( لنموذج).
     Earlier notes: order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.

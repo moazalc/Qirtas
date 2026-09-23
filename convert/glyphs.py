@@ -59,6 +59,30 @@ SYMBOL_FONTS = {
     "agaarabesque": {chr(0xF072): chr(0xFDFA),      # ﷺ
                      chr(0xF074): chr(0xFD47)},     # رضي الله عنه
 }
+
+# Word's list dashes and bullets, and Greek and maths signs, typed in Symbol
+# or Wingdings: stored as private codes, which reach Word without the font
+# and show as boxes (the dashes of z21490618's lists, 96 signs in 5 dev
+# files, 2026-09-23). Symbol by Adobe's table for it; Wingdings only the
+# shapes looked at. Codes not listed are left as they are.
+_SYMBOL = dict(zip(
+    "\"$'*-@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^abcdefghijklmnopqrstuvwxyz~",
+    "∀∃∋∗−≅ΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ∴⊥αβχδεφγηιϕκλμνοπθρστυϖωξψζ∼"))
+_SYMBOL.update({chr(c): u for c, u in zip(
+    range(0xA1, 0xC1),
+    "ϒ′≤⁄∞ƒ♣♦♥♠↔←↑→↓°±″≥×∝∂•÷≠≡≈…⏐⎯↵ℵ")})
+_SYMBOL.update({"\xc5": "⊕", "\xc6": "∅", "\xc7": "∩", "\xc8": "∪",
+                "\xd0": "∠", "\xd1": "∇", "\xd6": "√", "\xd7": "⋅",
+                "\xd8": "¬", "\xd9": "∧", "\xda": "∨", "\xde": "⇒",
+                "\xe0": "◊", "\xe5": "∑", "\xf2": "∫"})
+_WINGDINGS = {"!": "✏", "l": "●", "n": "■", "q": "❑", "u": "◆", "v": "❖",
+              "\xa7": "▪", "\xa8": "◻", "\xd8": "➢", "\xe8": "➔",
+              "\xfb": "✗", "\xfc": "✓"}
+if os.environ.get("QIRTAS_SYMBOLS", "1") != "0":
+    for _name, _table in (("symbol", _SYMBOL), ("wingdings", _WINGDINGS),
+                          ("wingdingsregular", _WINGDINGS)):
+        SYMBOL_FONTS[_name] = {chr(0xF000 + ord(k)): v
+                               for k, v in _table.items()}
 # Signs no font here draws (U+FD47 is Unicode 14): written out, by the writer
 # and by the checker alike.
 SPELLED = {chr(0xFD47): "رضي الله عنه"}
@@ -72,7 +96,8 @@ def spell_out(text):
 
 
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "5"
+REPAIR_VERSION = "6" + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
+                        else "-nosymbols")
 
 _INDEX = None
 _MAPS = {}

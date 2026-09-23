@@ -9,8 +9,10 @@ line-final full stop at the start of the line (z21762915, z22658522).
 
 Only where it is drawn settles it. Every mark on an Arabic line goes right
 after the word it is drawn beside - the nearest word on its right. Letters
-and spaces never move, so the letter-pair repairs that read the extractor's
-order of letters (`arabic.repair_ligatures`) see what they always saw.
+never move, so the letter-pair repairs that read the extractor's order of
+letters (`arabic.repair_ligatures`) see what they always saw; spaces move
+only on a line with numbers or Latin, and only one stranded at the line's
+end (`_order_mixed`).
 
 Every reading of a page's text goes through `get_text` here - the reader's
 and the checker's alike - so both see the same order. Two attempts that
@@ -28,10 +30,10 @@ import pymupdf
 # Arabic letters, the stretching stroke, vowel marks, display shapes.
 ARABIC = re.compile(r"[\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF\u0640"
                     r"\u064B-\u065F\u0670\uFB50-\uFDFF\uFE70-\uFEFC]")
-# A line holding any of these is left alone: numbers and Latin run left to
-# right inside the line, and where a mark beside them goes is not the
-# nearest-word question (DVB-S, 2 . 11 - TASKS N5c).
+# Numbers and Latin run left to right inside a line; a line holding any is
+# read by _order_mixed (DVB-S, 2 . 11 - TASKS N5c).
 LEFT_TO_RIGHT = re.compile(r"[%٪A-Za-z0-9\u0660-\u0669\u06F0-\u06F9]")
+LATIN = re.compile(r"[A-Za-zÀ-ɏ]")
 MARKS = set(".،,:؛;!؟?")
 # What may stand between a word and its mark: it is already after the word.
 BETWEEN = set(" ()[]«»\"'") | MARKS
@@ -68,9 +70,19 @@ def order(line):
     if os.environ.get("QIRTAS_PUNCT_ORDER", "1") == "0":
         return None                # off, to measure against
     text = [c for c, _, _ in line]
-    if not any(ARABIC.match(c) for c in text) \
-            or any(LEFT_TO_RIGHT.match(c) for c in text) \
-            or not any(c in MARKS for c in text):
+    if not any(ARABIC.match(c) for c in text):
+        return None
+    if any(LEFT_TO_RIGHT.match(c) for c in text):
+        if os.environ.get("QIRTAS_PUNCT_MIXED", "1") == "0":
+            return None            # off, to measure against
+        # An English line with Arabic words in it runs left to right: the
+        # rule below took it for Arabic and lost text of `z22179435`'s and
+        # `z21760107`'s English abstracts (the gate, 2026-09-23).
+        if sum(1 for c in text if LATIN.match(c)) \
+                > sum(1 for c in text if ARABIC.match(c)):
+            return None
+        return _order_mixed(line)
+    if not any(c in MARKS for c in text):
         return None
     us = units(text)
     base = [line[u[0]] for u in us]          # a unit's letter and box
@@ -126,6 +138,122 @@ def order(line):
     return [~k if k is not SPACE and k in moved else k for k in out]
 
 
+# Besides the marks, what may stand misplaced between Arabic and a number or
+# English word: the extractor stores it at the Arabic run's far end, like a
+# mark (` وبأطوال30` for وبأطوال 30, `( ،فارس2002)` for فارس، (2002)).
+SHIFTED = set(" ()[]")
+
+
+def _order_mixed(line):
+    """order() for a line holding numbers or Latin as well as Arabic.
+
+    Each run of numbers or Latin is kept whole, with what lies inside it
+    (2.11, DVB-S, Omega loop), and counts as a word. A mark goes after the
+    word drawn on its right, as on an Arabic line; a space or bracket only
+    where it is drawn beside a number or Latin run - between two Arabic
+    words the stored spaces are left alone (PLAN "Spaces inside words")."""
+    text = [c for c, _, _ in line]
+    us = units(text)
+    base = [line[u[0]] for u in us]
+    arabic = [bool(ARABIC.match(c)) for c, _, _ in base]
+    xs = {round(x0, 1) for (c, x0, _), a in zip(base, arabic) if a}
+    if len(xs) < PLACED * sum(arabic):
+        return None
+    ltr = [bool(LEFT_TO_RIGHT.match(c)) for c, _, _ in base]
+    # Words: runs of Arabic letters; runs of numbers or Latin, taking in
+    # anything stored and drawn between two of their characters.
+    words, kinds, k = [], [], 0
+    while k < len(base):
+        if arabic[k]:
+            w = [k]
+            while k + 1 < len(base) and arabic[k + 1]:
+                k += 1
+                w.append(k)
+            words.append(w)
+            kinds.append("R")
+        elif ltr[k]:
+            w = [k]
+            j = k + 1
+            while j < len(base) and not arabic[j]:
+                if ltr[j]:
+                    lo = min(base[i][1] for i in w + [j])
+                    hi = max(base[i][2] for i in w + [j])
+                    if all(lo - TOL <= base[i][1] and base[i][2] <= hi + TOL
+                           for i in range(w[-1] + 1, j)):
+                        w.extend(range(w[-1] + 1, j + 1))
+                        k = j
+                    else:
+                        break
+                j += 1
+            words.append(w)
+            kinds.append("L")
+        k += 1
+    inside = {k for w in words for k in w}
+    rtl = [w for w, t in zip(words, kinds) if t == "R"]
+    steps = [base[w[i]][1] - base[w[i + 1]][1] for w in rtl
+             for i in range(len(w) - 1)]
+    if sum(1 for d in steps if d > 0) < PLACED * sum(1 for d in steps if d):
+        return None
+    lefts = [min(base[k][1] for k in w) for w in words]
+    rights = [max(base[k][2] for k in w) for w in words]
+    owner = {k: v for v, w in enumerate(words) for k in w}
+    after = {}
+    moved = set()
+    for k, (c, x0, x1) in enumerate(base):
+        if k in inside or not (c in MARKS or c in SHIFTED):
+            continue
+        # A mark stored right after a number or Latin run and drawn at its
+        # right end is that run's, laid out left to right: `(Evershed,` at
+        # a line's end, its comma drawn between Evershed and the Arabic
+        # word before it (z21760107 - moved there, the gate lost it).
+        p = next((j for j in range(k - 1, -1, -1)
+                  if base[j][0] not in BETWEEN), None)
+        if c in MARKS and p in owner and kinds[owner[p]] == "L" \
+                and abs(x0 - rights[owner[p]]) <= 2 * TOL:
+            continue
+        near = [(left, w) for w, left in enumerate(lefts) if left >= x1 - TOL]
+        if not near:
+            continue
+        w = min(near)[1]
+        if c in SHIFTED:
+            # Only one left stranded at the line's end or beside a mark: one
+            # stored between two words is where it belongs (سبق  قدّم, and
+            # the brackets of (TGV), drawn mirrored).
+            p = next((j for j in range(k - 1, -1, -1) if base[j][0] != " "),
+                     None)
+            n = next((j for j in range(k + 1, len(base))
+                      if base[j][0] != " "), None)
+            if p is not None and n is not None and (arabic[p] or ltr[p]) \
+                    and (arabic[n] or ltr[n]):
+                continue
+            if c != " " and ((p is not None and ltr[p])
+                             or (n is not None and ltr[n])):
+                continue
+            far = [(-right, v) for v, right in enumerate(rights)
+                   if right <= x0 + TOL]
+            if kinds[w] != "L" and not (far and kinds[min(far)[1]] == "L"):
+                continue
+        last = words[w][-1]
+        if k > last and all(base[j][0] in BETWEEN or j in moved
+                            for j in range(last + 1, k)):
+            continue                          # already after its word
+        after.setdefault(last, []).append(k)
+        moved.add(k)
+    if not moved:
+        return None
+    out = []
+    for k in range(len(base)):
+        if k not in moved:
+            out.append(k)
+        out.extend(sorted(after.get(k, ()), key=lambda j: -base[j][1]))
+    return [~k if k in moved else k for k in out]
+
+
+def _moved(us, seq):
+    """Character indices of the units `seq` moves."""
+    return {i for k in seq if k is not SPACE and k < 0 for i in us[~k]}
+
+
 def _indices(us, seq):
     """Character indices in the order `seq` reads the units."""
     out = []
@@ -149,6 +277,8 @@ def _fix_raw(line):
     if seq is None:
         return None
     new = []
+    shifted = {id(chars[i]) for i in _moved(units([c["c"] for c in chars]),
+                                             seq)}
     for i in _indices(units([c["c"] for c in chars]), seq):
         if i is None:                # the gap a moved mark stood in
             a = new[-1]
@@ -158,13 +288,15 @@ def _fix_raw(line):
         else:
             new.append(chars[i])
     stored = "".join(c["c"] for c in chars)
-    # A moved mark joins the span of the character now before it.
+    # A moved mark, space or bracket joins the span of the character now
+    # before it.
     owner = {id(c): s for s in line["spans"] for c in s["chars"]}
     for s in line["spans"]:
         s["chars"] = []
     prev = None
     for c in new:
-        mine = id(c) in owner and (prev is None or c["c"] not in MARKS)
+        mine = id(c) in owner and (prev is None or (
+            c["c"] not in MARKS and id(c) not in shifted))
         s = owner[id(c)] if mine else owner[id(prev)]
         s["chars"].append(c)
         prev = c
@@ -258,10 +390,11 @@ def _fix_dict_line(line, orders):
         return
     todo.pop(0)
     spans = [[] for _ in line["spans"]]
+    shifted = _moved(us, seq)
     prev = None
     for i in _indices(us, seq):
         k, c = (prev, " ") if i is None else owned[i]
-        if c in MARKS and prev is not None:
+        if (c in MARKS or i in shifted) and prev is not None:
             k = prev
         spans[k].append(c)
         prev = k

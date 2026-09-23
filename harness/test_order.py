@@ -83,12 +83,42 @@ def main():
     check("a mark already after its word", order(ln), None)
     ln = line(("والتنمية", None)) + [(")", 355, 358), ("،", 350, 352)]
     check("a bracket between a word and its mark", order(ln), None)
+
+    print("\nlines with numbers or Latin")
     ln = [(".", 300, 302)] + line(("العدد 5", None))
-    check("a line with a number", order(ln), None)
+    check("a mark after the number", read(ln), "العدد 5.")
     ln = [(".", 300, 302)] + line(("أو أكثر%", None))
-    check("a line with a percent sign", order(ln), None)
-    ln = [(".", 300, 302)] + line(("DVB-S بين", None))
-    check("a line with Latin", order(ln), None)
+    check("... after a percent sign", read(ln), "أو أكثر%.")
+    ln = [(".", 300, 302)] + line(("DVB-S بين القمرين", None))
+    check("... after the word beyond the Latin", read(ln),
+          "DVB-S بين القمرين.")
+    # An English line with an Arabic word in it runs left to right
+    # (z22179435's abstract): the gate lost text when it was reordered.
+    ln = [(".", 300, 302)] + line(("the word قلب was mapped", None))
+    check("an English line with an Arabic word is left alone", order(ln),
+          None)
+    # Word lays numbers left to right: وبأطوال 30 is stored " وبأطوال30",
+    # the space drawn between the word and the number (z19799524).
+    word = line(("وبأطوال", None))
+    ln = [(" ", 361, 365)] + word + [("3", 350, 355), ("0", 355, 360)]
+    check("a space stored at the line's end goes before the number",
+          read(ln), "وبأطوال 30")
+    ln = [(":", 361, 364)] + word + [("0", 350, 355), ("7", 355, 360)]
+    check("so does a mark (المجلد: 07)", read(ln), "وبأطوال:07")
+    ln = [(c, x0, x1) for c, x0, x1 in line(("الفرنسي ", None))] + [
+        ("(", 356, 360), ("T", 340, 345), ("G", 345, 350), ("V", 350, 355),
+        (")", 336, 340)]
+    check("brackets beside Latin stay (TGV)", read(ln), "الفرنسي (TGV)")
+    # (Evershed, at a line's end: the comma is drawn at the Latin run's
+    # right end, between it and الوقت - still the run's (z21760107).
+    ln = line(("الوقت", None)) + [("(", 371, 374)] + [
+        (c, 330 + 5 * i, 335 + 5 * i) for i, c in enumerate("Evershed")] + [
+        (",", 370, 372)]
+    check("a comma at a Latin run's end stays (Evershed,)", read(ln),
+          "الوقت(Evershed,")
+    ln = line(("سبق", None)) + [(" ", 330, 334)] + line(
+        ("قدم", None), start=384) + [("V", 340, 345), ("a", 345, 350)]
+    check("a space between two Arabic words stays", read(ln), "سبق قدمVa")
     # the theses: text laid over a drawing, every character at one point
     ln = [(c, 310, 310) for c in "معرفة المقصود من القراءات الشواذ."]
     check("a line whose characters have no place of their own", order(ln),

@@ -2152,6 +2152,82 @@ installed: Word cuts a PostScript name at 24 characters
 is also cached against the list of installed fonts, so installing one
 redoes the repair.
 
+### Words cut between touching pieces; marks beside numbers; Symbol's dashes, 2026-09-23
+
+Found on a random page no fix was tuned on (`z21490618` page 12), which
+still showed التأ هيلي, والخد مي, `المصرفية ،`, `1.2.3 .متطلبات` and the
+list dashes as boxes.
+
+**Words cut between two touching pieces.** Those two are not a stored
+space: the PDF writes the line as two pieces that touch, and cuts the word
+between them. `_glued` joined such pieces only when the whole word is
+printed somewhere else in the document; these are not. Measured on the dev
+set's OCR'd pages (`2026-09-23-dev-newbase`), every pair of touching pieces
+on one line with an Arabic letter either side and no space, labelled by
+the OCR as in "The space's own place": 174 cut words, 143 two words.
+- The pieces' own boxes do not separate them: a piece's box runs on over
+  the space after it, so two words' pieces "touch" as closely as a cut
+  word's (both medians 0.004 of the type size).
+- The letters either side of the cut do: cut words median 0.002 of the
+  type size apart (95% under 0.02); two words at least 0.25 (5th
+  percentile), a space's width. Between -0.05 and 0.05, and not after
+  ة or ى (which end a word - two of the few two-word cases): 75 more cut
+  words joined than the vocabulary finds, no two words wrongly.
+
+`_glued` now takes this as evidence after the vocabulary, from
+`_letter_ends` (a rawdict read with the same flags, keyed by the piece's
+box). On the quick set's files it joins 169 more; read through, none
+wrong (ك|أوكرانيا, ف|قامت are the prefix, rightly). `QIRTAS_SEAM_TOUCH=0`
+turns it off.
+
+**Marks, spaces and brackets beside numbers and Latin.** On a line
+holding digits or Latin, the extractor stores what stands between the last
+Arabic word and the number at the line's far end: ` وبأطوال30` for
+وبأطوال 30, `:المجلد07` for المجلد: 07, `( ،فارس2002)` for فارس، (2002).
+Of 871 such lines on the dev sample pages, most change. This is also a
+share of "two page words run together" (الشكل7, في60). `order._order_mixed`
+now reads these lines: each run of digits or Latin is one word, with what
+is stored and drawn inside it (2.11, DVB-S, Omega loop); a mark goes after
+the word drawn on its right, as on Arabic lines; a space or bracket moves
+only when stranded at the line's end or beside a mark, and only when drawn
+beside a number or Latin run. Two faults found by reading 40 lines each
+time, both fixed before measuring: brackets beside Latin came out mirrored
+(`)TGV(`), and a space between two Arabic words drawn out of place was
+moved, gluing them (سبققدّم). A third found by the gate: English lines
+with an Arabic word in them (`z22179435`, `z21760107`'s abstracts) were
+read as right to left and text went missing - gate 98.8% and 99.6%. Lines
+with more Latin letters than Arabic are now left alone. And a fourth, also
+by the gate: `(Evershed,` at a line's end in `z21760107` - the comma is
+the Latin run's, drawn at its right end, and was moved after the Arabic
+word beyond; the checker's plain-text reading moved it and ours did not, so
+a sentence we wrote right read as lost. A mark stored right after a number
+or Latin run and drawn at its right end now stays.
+`QIRTAS_PUNCT_MIXED=0` turns it off. A moved space or bracket joins the
+span before it, like a moved mark.
+
+**Symbol and Wingdings.** Word's list dashes and bullets, and Greek and
+maths signs, are typed in Symbol or Wingdings, which store them as private
+codes (U+F02D, U+F0B7): the code reaches Word without the font and shows
+as a box. 96 in 5 dev files (42 in `z21490618`). They go through the same
+repair as AGA Arabesque's signs, by Adobe's table for Symbol and the shapes
+looked at for Wingdings (REPAIR_VERSION 6). Wingdings 2 and codes not in
+the tables are left. `QIRTAS_SYMBOLS=0` turns it off.
+
+**Numbers were checked, not fixed.** Of 4,437 numbers on our dev sample
+pages, 336 are not read by OCR on the page. 272 of those are exactly what
+the PDF stores, and looking at 25: the OCR's misreadings (l for 1 in
+DOIs, 20l0, whole references read as one number). 45 look reversed, but
+are chance matches in reference lists. Real: a handful (`z20276145`'s
+0302). No fix: the numbers task is mostly the instrument.
+
+Quick set, page truth wrong words (11 files, `2026-09-23-quick-*`): before
+all three 6.1%; touching pieces only 5.8% (`mixed-off`); marks beside
+numbers only 5.5% (`seam-off`); both 5.2% (`mixed-seam-on`, before the
+English-line fix, gate 99.9%). With the English-line and Evershed fixes and
+the Symbol table (`all-on-3`): wrong 6.1 -> 5.2%, found 95.3 -> 95.9%, gate 100%
+on every file, words in order 98.7% as before; 7 files better, none worse,
+the theses unchanged (`z19798743` 8.6 -> 5.8%, `z19799068` 8.5 -> 5.0%).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
