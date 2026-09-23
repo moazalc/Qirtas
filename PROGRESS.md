@@ -41,8 +41,9 @@ mistakes — that is the realistic floor.
 Of the remaining wrong words, about 2.8 points are the OCR misreading the
 page (measured on the theses, whose text is right). The rest is ours. The
 biggest piece of it: **spaces Word stored inside words** (`م رجعية`,
-`للعلا قات`) where our shape check finds no evidence - about 2 points.
-Then, smaller:
+`للعلا قات`) where our shape check finds no evidence - about 2 points, and
+the letters' shapes cannot settle the rest. Idea: join two pieces where the
+whole word appears elsewhere in the same document. Then, smaller:
 
 1. **Punctuation next to numbers or English** (`الإ8 ،براهيمي`) — the
    Arabic-only lines are fixed (see the timeline); these are not yet.
@@ -152,6 +153,10 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   changed - only the counting.
 - **New breakdown**: the biggest remaining cause is spaces stored inside
   words in the PDF itself (380 of 400 word pieces).
+- **Why our shape check misses them**: mostly the letter before the space
+  never joins (إ يجاد), or the page itself draws the word broken
+  (الم ستخرجة). The shapes cannot fix what is left; a different idea is
+  needed (see "What is left").
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).

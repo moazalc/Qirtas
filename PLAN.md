@@ -2001,6 +2001,16 @@ in the PDF's own text as stored: spaces Word stores inside words
 (م رجعية, للعلا قات, الا ستنتا) where `join_map` found no evidence. The
 other 20 are ours, most of them one figure's labels (`z19798743`).
 
+Why `join_map` leaves them, for the 66 spaces whose two sides joined are a
+word the page's OCR reads whole: 64% the letter before the space never
+joins forward (إ يجاد, زود نا, و المحسوبة - no shape evidence either way,
+and some are how the author typed it); 29% both letters drawn in their
+unjoined shapes (الم ستخرجة, ال بدئي, المن تجة - the page itself draws the
+word broken, and only the OCR reads it whole); 8% a gap drawn. What is
+left of the group is not reachable from the letters' shapes. An idea not
+yet tried: join two pieces where the joined word stands whole elsewhere in
+the same document and a piece does not stand alone there.
+
 ### امل for الم: the lam pairs by their shared edge, 2026-09-23
 
 Full run first (`2026-09-23-{dev,regression}-newbase`, fonts installed,
