@@ -198,9 +198,13 @@ In order:
     two things the gate cannot see (Word's own note numbers, and its own
     backwards reading). Four fixes tried and reverted - see FLAGS 24 before
     trying a fifth.
-  - **N5b. Headers, footers, page numbers** - journal headers, logos,
-    page-number graphics and coloured bands out of the body (17 pages, 8
-    files); page numbers present and right (7 pages, 4 files).
+  - **N5b. Headers, footers, page numbers** - DONE 2026-09-22 (PLAN "N5b").
+    Every repeating piece lifted, even/odd headers, page numbers by the
+    number that follows the page, header bands found as tables lifted.
+    Right page 57.5 -> 60.0%, 8 files better, 0 worse, theses unchanged.
+    Left: text that is not text in the PDF (`z21763864`), page numbers in a
+    broken font (`z19799068`), header banners photographed with their text
+    (not drawn), alternating footer pictures drawn on every page.
   - **N5c. Punctuation and full stops** - order them by where they are
     drawn: العرا .ق, ،دراسة, 2 . 11 . (15 pages, 9 files). Careful: the
     last attempt broke DVB-S (N3a) - tests first.

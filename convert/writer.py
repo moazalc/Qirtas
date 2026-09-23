@@ -8,7 +8,7 @@ import copy
 import hashlib
 import re
 import sys
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from pathlib import Path
 
 from docx import Document
@@ -292,8 +292,14 @@ def _running_furniture(model):
     or "footer"} for the blocks to lift out, plus the file to draw in each.
     """
     top, bottom = _text_column(model)
+    H = model.page_height or 0.0
+    # Or wholly inside the page's outer strip: the margins are measured from
+    # the content, so a page number at the very top pulls the column up over
+    # the logo and the corner graphic beside it (`z22051439`).
     outside = [b for b in model.blocks if b.kind == IMAGE and b.image
-               and not (top <= (b.y + b.y1) / 2 <= bottom)]
+               and (not (top <= (b.y + b.y1) / 2 <= bottom)
+                    or (H and (b.y1 <= EDGE_ZONE * H
+                               or b.y >= (1 - EDGE_ZONE) * H)))]
     if not outside:
         return {}, {}
     pages = max(1, model.pages)
@@ -328,7 +334,8 @@ def _running_furniture(model):
         blocks = [b for b in blocks if id(b) not in lift]
         if len({b.page for b in blocks}) < max(2, pages // 2):
             continue                       # a one-off, leave it in the flow
-        where = "header" if (blocks[0].y + blocks[0].y1) / 2 < top else "footer"
+        mid = (blocks[0].y + blocks[0].y1) / 2
+        where = "header" if mid < (H / 2 if H else top) else "footer"
         for b in blocks:
             lift[id(b)] = where
         # A photographed picture with page text inside it carries THAT page's
@@ -342,7 +349,12 @@ def _running_furniture(model):
         # this to it too stopped one of the two running-header pictures of
         # `الفصل الخامس المبحث الثالث` being drawn at all, because one of its
         # photos happens to overlap a word of the page (2026-09-21).
-        if by_position and any(b.over_text for b in blocks):
+        #
+        # And only when most copies caught text: the page-number box has its
+        # number in every copy. `z21760107`'s journal logo caught a word on 1
+        # of 16 pages, and "any" dropped the logo from the whole file once the
+        # page's outer strip counted as furniture (N5b).
+        if by_position and 2 * sum(b.over_text for b in blocks) > len(blocks):
             continue
         # Draw a copy with no page text caught inside it, where there is one.
         # Each copy is photographed off its own page, and a header photo can
@@ -350,8 +362,14 @@ def _running_furniture(model):
         # page's copy used to be the one drawn and happened to be clean; once
         # a title page is photographed whole it is no longer in the group, and
         # page 2's copy printed a sliver of page 2's text under every header.
+        #
+        # With no clean copy at all, draw none. `z22051439` photographs its
+        # corner graphic with the page number printed on it, every copy; drawn
+        # once, it printed page one's 80 on every page next to the real
+        # number (N5b).
         clean = [b for b in blocks if not b.over_text]
-        draw.setdefault(where, []).append((clean or blocks)[0])
+        if clean:
+            draw.setdefault(where, []).append(clean[0])
     return lift, draw
 
 
@@ -365,10 +383,87 @@ LIST_HANG = 14.0
 
 RUNNING_MAX_CHARS = 200
 WS_RUN = re.compile(r"\s+")
-DIGITS = re.compile(r"[0-9\u0660-\u0669\u06F0-\u06F9]+")
-ONLY_PAGE_NO = re.compile(r"^[\s.\-\u2013\u2014()\[\]]*"
-                          r"[0-9\u0660-\u0669\u06F0-\u06F9]{1,4}"
-                          r"[\s.\-\u2013\u2014()\[\]]*$")
+DIGITS = re.compile(r"[0-9٠-٩۰-۹]+")
+# The strip along the top and bottom of the page, as a share of its height,
+# where text that repeats is furniture whatever the measured margins say. The
+# margins are measured FROM the content, header included, so on `z21095413`
+# the page number at y=664 of 729 sat inside the "column" and in the middle of
+# the page's reading order - neither test below could see it.
+EDGE_ZONE = 0.12
+# A header that alternates - the author on even pages, the title on odd ones
+# (`z21761968`) - has to be on this share of the pages of its side.
+PARITY_SHARE = 0.6
+# The share of a group's copies whose number must follow the page for that
+# number to be taken as the page number.
+NUMBER_SHARE = 0.6
+
+
+class Furniture:
+    """One piece of running text: its copies, and how to draw it.
+
+    parity  None, or the page parity (0-based index % 2) it is printed on
+    run     None, or (which number in the text is the page number, the number
+            printed on page 0)
+    silent  lifted out of the body, not drawn: a table whose text is already
+            drawn by another piece, or a band with no text at all
+    """
+
+    def __init__(self, blocks, parity=None, run=None):
+        self.blocks, self.parity, self.run = blocks, parity, run
+        self.silent = False
+
+    @property
+    def block(self):
+        return self.blocks[0]
+
+    @property
+    def y(self):
+        ys = sorted(b.y for b in self.blocks)
+        return ys[len(ys) // 2]
+
+
+def _furniture_text(b):
+    if b.kind == TABLE:
+        return " ".join(c.strip() for row in (b.rows or []) for c in row
+                        if c and c.strip())
+    return b.text or ""
+
+
+def _page_run(blocks):
+    """Which number in these copies is the page number. -> (index, number on
+    page 0) or None.
+
+    The number whose value less the page is the same on most copies. Taking
+    the first copy's instead is what `z20538636` did: a year on its title page
+    read backwards, ٥٢٠٢, has the shape of a page number, and the whole
+    document was numbered from 5202. A number that never changes - a volume,
+    a year - is not the page number however it lines up.
+    """
+    runs = [[int(d.translate(WESTERN)) for d in DIGITS.findall(_furniture_text(b))]
+            for b in blocks]
+    if not any(runs):
+        return None
+    width = Counter(len(r) for r in runs if r).most_common(1)[0][0]
+    best = None
+    for i in range(width):
+        pairs = [(r[i], b.page) for r, b in zip(runs, blocks) if len(r) == width]
+        if len({v for v, _ in pairs}) < 2:
+            continue
+        start, n = Counter(v - p for v, p in pairs).most_common(1)[0]
+        if n >= max(2, NUMBER_SHARE * len(blocks)) and start >= 0 \
+                and (best is None or n > best[2]):
+            best = (i, start, n)
+    return best and best[:2]
+
+
+def _agrees(b, run):
+    i, start = run
+    runs = DIGITS.findall(_furniture_text(b))
+    return len(runs) > i and int(runs[i].translate(WESTERN)) - b.page == start
+
+
+def _letters(text):
+    return Counter(c for c in text if c.isalpha())
 
 
 def _running_text(model):
@@ -386,7 +481,7 @@ def _running_text(model):
     the original pagination blow-up, and those three files inflate 17->23,
     37->48 and 33->43.
 
-    Two things make this harder than the picture case:
+    What makes this harder than the picture case:
 
     - **The page number is different on every page**, so grouping by exact text
       finds nothing. Digits are replaced by a placeholder before grouping, so
@@ -394,108 +489,220 @@ def _running_text(model):
     - **The tags route carries no coordinates for text** (the geometry route
       does). Where there is no y, position on the page cannot be used at all,
       so the first or last block of its page is what counts as an edge.
+    - **A header is often more than one piece** (N5b, 2026-09-22): a journal
+      line in two languages, a header that alternates between even and odd
+      pages, a page number printed twice on top of itself. Only one piece per
+      edge used to be taken; the rest stayed in the body.
+    - **Some headers are tables**: the band between two rules is found as a
+      table and was written as an empty grid on every page (`z21762915`).
 
     Repetition is the real signal and is route-independent: a Word header is
     drawn on every page, so lifting something that appears once would stamp it
     across the whole document.
 
-    -> ({id(block): "header"|"footer"}, {"header"|"footer": Block})
+    -> ({id(block): "header"|"footer"}, {"header"|"footer": [[Furniture]]}),
+    each inner list one line of the header, top to bottom.
     """
     pages = max(1, model.pages)
     if pages < 4:
         # Too few pages for "repeats on most of them" to mean anything.
         return {}, {}
     top, bottom = _text_column(model)
+    H = model.page_height or 0.0
 
-    by_page = {}
+    def placed(b):
+        return bool(b.y or b.y1)
+
+    def zone(b):
+        if not (H and placed(b)):
+            return None
+        if b.y1 <= EDGE_ZONE * H:
+            return "header"
+        if b.y >= (1 - EDGE_ZONE) * H:
+            return "footer"
+        return None
+
+    by_page, tables = {}, []
     for b in model.blocks:
-        if b.kind in (IMAGE, TABLE) or not b.text.strip():
-            continue
-        by_page.setdefault(b.page, []).append(b)
+        if b.kind == TABLE:
+            if zone(b):
+                tables.append(b)
+        elif b.kind != IMAGE and b.text.strip():
+            by_page.setdefault(b.page, []).append(b)
 
     def edge(b):
+        if b.kind == TABLE:
+            return zone(b)
         # Coordinates decide it when they put the block clearly outside the
         # column. They often do not, and the reason is circular: the margins
         # are MEASURED from the content, and the running header is part of that
         # content, so the column is drawn to include it and it never looks
         # outside. That is why the journal line was missed on the first attempt
-        # here while the page numbers were found.
-        if b.y or b.y1:
+        # here while the page numbers were found - and why the outer strip of
+        # the page counts too.
+        if placed(b):
             mid = (b.y + b.y1) / 2
             if mid < top:
                 return "header"
             if mid > bottom:
                 return "footer"
+            if zone(b):
+                return zone(b)
         # Fall back to where it sits in the page's reading order. This is the
         # only test available on the tags route, which carries no coordinates
         # for text at all. Repetition is what makes it safe: being first on the
         # page is ordinary, being first on the page with the same words every
         # time is furniture.
         sibs = by_page.get(b.page) or []
-        # A block that is BOTH first and last - the only text on its page -
-        # is settled by which half of the page it sits in, when that is known.
-        # A photographed title page leaves its page number alone on the page,
-        # and asking "first?" before "last?" filed it as a header, so it never
-        # joined the footer group and the chapter lost its first page number.
-        if sibs and b is sibs[0] and b is sibs[-1] and (b.y or b.y1):
-            return "footer" if (b.y + b.y1) / 2 > model.page_height / 2 \
-                else "header"
-        if sibs and b is sibs[0]:
-            return "header"
-        if sibs and b is sibs[-1]:
-            return "footer"
-        return None
+        if not sibs or (b is not sibs[0] and b is not sibs[-1]):
+            return None
+        # Which edge is settled by which half of the page it sits in, when that
+        # is known, not by whether it came first. A photographed title page
+        # leaves its page number alone on the page, and asking "first?" filed
+        # it as a header; `z21763864` reads its footer first on every page.
+        if placed(b) and H:
+            return "footer" if (b.y + b.y1) / 2 > H / 2 else "header"
+        return "header" if b is sibs[0] else "footer"
 
     groups = {}
-    for sibs in by_page.values():
-        for b in sibs:
-            flat = WS_RUN.sub(" ", b.text.strip())
-            if len(flat) > RUNNING_MAX_CHARS:
-                continue
-            where = edge(b)
-            if not where:
-                continue
-            groups.setdefault((where, DIGITS.sub("#", flat)), []).append(b)
+    for b in [b for sibs in by_page.values() for b in sibs] + tables:
+        flat = WS_RUN.sub(" ", _furniture_text(b).strip())
+        if len(flat) > RUNNING_MAX_CHARS:
+            continue
+        where = edge(b)
+        if not where:
+            continue
+        key = (where, b.kind == TABLE, DIGITS.sub("#", flat))
+        groups.setdefault(key, []).append(b)
 
     need = max(3, pages // 2)
-    lift, draw = {}, {}
-    for (where, _), blocks in sorted(groups.items(),
-                                     key=lambda kv: -len({b.page for b in kv[1]})):
-        if len({b.page for b in blocks}) < need or where in draw:
+    lift, found = {}, {}
+    for (where, _, _), blocks in groups.items():
+        on = {b.page for b in blocks}
+        sides = {p % 2 for p in on}
+        parity = None
+        if len(sides) == 1:
+            side = next(iter(sides))
+            if len(on) < max(3, PARITY_SHARE * len(range(side, pages, 2))):
+                continue
+            parity = side
+        elif len(on) < need:
             continue
-        draw[where] = blocks[0]
+        run = _page_run(blocks)
+        if run:
+            # Only the copies whose number IS the page number. The rest - the
+            # year on the title page - stay where they were.
+            blocks = [b for b in blocks if _agrees(b, run)]
+        found.setdefault(where, []).append(Furniture(blocks, parity, run))
         for b in blocks:
             lift[id(b)] = where
+
+    # A table band whose words another piece already draws is lifted and not
+    # drawn: `z20276275` has its header both as text and, read backwards, as
+    # a table around it. Letters are compared as a bag, so the backwards
+    # reading still matches.
+    for pieces in found.values():
+        for f in pieces:
+            if f.block.kind != TABLE:
+                continue
+            own = _letters(_furniture_text(f.block))
+            other = sum((_letters(b.text) for b in by_page.get(f.block.page, ())
+                         if lift.get(id(b))), Counter())
+            left = sum((own - other).values())
+            f.silent = left <= 0.1 * sum(own.values())
+
+    # A piece found only on pages of one side, carrying nothing the other
+    # pieces at its edge do not, is the same furniture read in another order -
+    # not a header that alternates. `z21763864` mirrors its footer on even
+    # pages, and there "- 8 - 10 2016" reads "2016 10 - 8 -": taken as an even
+    # page footer, it printed next to the real one. `z21761968`'s title and
+    # author alternate and share nothing, so they stay apart.
+    # When both sides are read differently, whatever covered the silenced
+    # piece is printed on every page.
+    def bag(g):
+        return Counter(DIGITS.sub("#", WS_RUN.sub("", _furniture_text(g.block))))
+
+    for pieces in found.values():
+        for f in pieces:
+            if f.parity is None or f.silent:
+                continue
+            cover = [g for g in pieces if g is not f and not g.silent
+                     and g.parity != f.parity]
+            own = bag(f)
+            if own and cover and not own - sum(map(bag, cover), Counter()):
+                f.silent, f.parity = True, None
+                for g in cover:
+                    g.parity = None
+
+    # Pieces sharing a line are drawn as one paragraph, as the original shows
+    # them: "- 8 -" and "2016" at the foot of `z21763864`, two blocks on one
+    # line, would otherwise take two lines of the footer.
+    draw = {}
+    for where, pieces in found.items():
+        lines = []
+        for f in sorted(pieces, key=lambda f: f.y):
+            last = lines[-1][-1] if lines else None
+            if last and placed(f.block) and placed(last.block) \
+                    and f.y < last.y + max(1.0, (last.block.y1 - last.block.y) / 2):
+                lines[-1].append(f)
+            else:
+                lines.append([f])
+        draw[where] = lines
     return lift, draw
 
 
-def _page_number_start(model, block):
-    """What number the original printed on its FIRST page. -> int or None.
+def _page_base(draw):
+    """The number the original printed on its first page, or None."""
+    return next((f.run[1] for lines in draw.values() for line in lines
+                 for f in line if f.run), None)
 
-    A PAGE field numbers from 1, but these are chapters and offprints: page 9
-    of `z21011460` is printed 82. Without an offset the footer would contradict
-    every cross-reference in the text.
-    """
-    flat = WS_RUN.sub(" ", block.text.strip())
-    if not ONLY_PAGE_NO.match(flat):
-        return None
-    m = DIGITS.search(flat)
-    if not m:
-        return None
-    try:
-        shown = int("".join(str(ord(c) & 0xF) if ord(c) > 0x600 else c
-                            for c in m.group(0)))
-    except ValueError:
-        return None
-    start = shown - block.page
-    return start if start > 0 else None
+
+def _add_page_field(p, cached, run=None):
+    """A PAGE field; `run`, a formatted run, carries its look. Without one the
+    number takes Word's default size, larger than the footer around it
+    ("- 8 - 10 2016" on `z21763864`)."""
+    fld = OxmlElement("w:fldSimple")
+    fld.set(qn("w:instr"), " PAGE ")
+    if run is None:
+        r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = str(cached)
+        r.append(t)
+    else:
+        r = run._r
+        r.getparent().remove(r)
+    fld.append(r)
+    p._p.append(fld)
+
+
+def _furniture_align(model, line, rtl):
+    """Where the line sits across the page: the middle, or one side."""
+    b = line[0].block
+    W = model.page_width
+    if not (W and (b.x0 or b.x1)):
+        return WD_ALIGN_PARAGRAPH.CENTER
+    x0 = min(f.block.x0 for f in line)
+    x1 = max(f.block.x1 for f in line)
+    mid = (x0 + x1) / 2
+    if abs(mid - W / 2) < 0.1 * W:
+        return WD_ALIGN_PARAGRAPH.CENTER
+    left = mid < W / 2
+    # w:jc is logical: in a right-to-left paragraph "left" is its start, the
+    # right side of the page. See ALIGN_START.
+    return WD_ALIGN_PARAGRAPH.LEFT if left != rtl else WD_ALIGN_PARAGRAPH.RIGHT
 
 
 def _draw_text_furniture(doc, draw, model):
     """Put the running header and footer text into Word's header and footer.
 
     A page number becomes a real PAGE field rather than the literal digits, or
-    every page of the Word file would read 82.
+    every page of the Word file would read 82 - also when the number sits
+    inside a line of text, "- 8 - 10 2016" (`z21763864`), where the whole line
+    used to be copied from the first page.
+
+    A header that differs between even and odd pages goes into Word's two
+    headers. Word picks between them by the page NUMBER, so the printed
+    numbering decides which of our page indexes is even.
     """
     section = doc.sections[0]
     # The block's OWN measured size, not a fraction of the body size. The
@@ -503,31 +710,75 @@ def _draw_text_furniture(doc, draw, model):
     # writing it at 0.8 x 12pt body made it 9.6pt, about 398pt wide, and it
     # wrapped onto a second line the original never had.
     fallback = max(7.0, round(model.body_size * 0.8, 1))
-    for where, block in draw.items():
-        size = block.size if block.size and block.size >= 5 else fallback
-        part = section.header if where == "header" else section.footer
-        part.is_linked_to_previous = False
-        p = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
-        if p.text.strip() or p.runs:
-            p = part.add_paragraph()
-        rtl = is_rtl(block.text)
-        _rtl_paragraph(p, rtl)
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        start = _page_number_start(model, block)
-        if start is not None:
-            fld = OxmlElement("w:fldSimple")
-            fld.set(qn("w:instr"), " PAGE ")
-            r = OxmlElement("w:r")
-            t = OxmlElement("w:t")
-            t.text = str(start + block.page)
-            r.append(t)
-            fld.append(r)
-            p._p.append(fld)
-            _set_page_number_start(section, start)
-        else:
-            run = p.add_run(WS_RUN.sub(" ", block.text.strip()))
-            run.font.size = Pt(size)
-            _rtl_run(run, size, model.font, rtl)
+    base = _page_base(draw)
+    if base is not None:
+        _set_page_number_start(section, base)
+    split = any(f.parity is not None and not f.silent
+                for lines in draw.values() for line in lines for f in line)
+    if split:
+        doc.settings.odd_and_even_pages_header_footer = True
+    first = 1 if base is None else base
+    for where, lines in draw.items():
+        parts = [(getattr(section, where), 1)]
+        if split:
+            parts.append((getattr(section, f"even_page_{where}"), 0))
+        for part, odd in parts:
+            part.is_linked_to_previous = False
+            for line in lines:
+                shown = [f for f in line if not f.silent and
+                         (f.parity is None or (first + f.parity) % 2 == odd)]
+                if not shown:
+                    continue
+                p = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
+                if p.text.strip() or p.runs:
+                    p = part.add_paragraph()
+                text = " ".join(WS_RUN.sub(" ", _furniture_text(f.block).strip())
+                                for f in shown)
+                rtl = is_rtl(text)
+                _rtl_paragraph(p, rtl)
+                p.alignment = _furniture_align(model, shown, rtl)
+                for k, f in enumerate(shown):
+                    if k:
+                        _furniture_run(p, " ", f, fallback, model, rtl)
+                    _draw_piece(p, f, fallback, model, rtl)
+            # A header band's pictures go with it: `z20276275` keeps its
+            # journal logo in a cell of the header box, and lifting the box
+            # without them dropped the logo from all 18 pages.
+            for line in lines:
+                for f in line:
+                    cells = f.block.cell_images if f.block.kind == TABLE else {}
+                    if not cells:
+                        continue
+                    p = part.add_paragraph()
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for (ri, ci), path in sorted(cells.items()):
+                        box = (f.block.cell_boxes or [])[ri][ci] \
+                            if ri < len(f.block.cell_boxes or []) else None
+                        width = (box[2] - box[0]) if box else 60.0
+                        _place(p, path, width, model.dropped_images)
+
+
+def _furniture_run(p, text, f, fallback, model, rtl):
+    size = f.block.size if f.block.size and f.block.size >= 5 else fallback
+    run = p.add_run(text)
+    run.font.size = Pt(size)
+    _rtl_run(run, size, model.font, rtl)
+
+
+def _draw_piece(p, f, fallback, model, rtl):
+    text = WS_RUN.sub(" ", _furniture_text(f.block).strip())
+    if not f.run:
+        _furniture_run(p, text, f, fallback, model, rtl)
+        return
+    i, start = f.run
+    runs = list(DIGITS.finditer(text))
+    m = runs[i]
+    if text[:m.start()]:
+        _furniture_run(p, text[:m.start()], f, fallback, model, rtl)
+    _furniture_run(p, str(start + f.block.page), f, fallback, model, rtl)
+    _add_page_field(p, start + f.block.page, p.runs[-1])
+    if text[m.end():]:
+        _furniture_run(p, text[m.end():], f, fallback, model, rtl)
 
 
 def _first_page_number(doc, model, draw, lift):
@@ -541,8 +792,8 @@ def _first_page_number(doc, model, draw, lift):
     first page number. Copy the footer onto the first page in that case only.
     """
     photo = next((b for b in model.blocks if b.collage and b.page == 0), None)
-    foot = draw.get("footer")
-    if photo is None or foot is None or _page_number_start(model, foot) is None:
+    numbered = any(f.run for line in draw.get("footer", ()) for f in line)
+    if photo is None or not numbered:
         return
     first = [b for b in model.blocks
              if lift.get(id(b)) == "footer" and b.page == 0]
@@ -563,7 +814,7 @@ def _set_page_number_start(section, start):
     for old in pr.findall(qn("w:pgNumType")):
         pr.remove(old)
     el = OxmlElement("w:pgNumType")
-    el.set(qn("w:start"), str(max(1, start)))
+    el.set(qn("w:start"), str(max(0, start)))
     pr.append(el)
 
 

@@ -30,6 +30,15 @@ def _spilled(orig_pdf, rebuilt_pdf):
     with pymupdf.open(orig_pdf) as A, pymupdf.open(repaired(rebuilt_pdf)) as B:
         orig = [set(_page_words(p)) for p in A]
         ours = [set(_page_words(p)) for p in B]
+    # Words on a third or more of the original's pages are its running header
+    # and footer, and say nothing about which page is which. Worse once Word
+    # draws an alternating header (N5b): the overflow of a page carries the
+    # header of the page after it, matched that page, and the loop shrank the
+    # wrong one - z19799068 went from 95% to 42% on right page.
+    seen = collections.Counter(w for o in orig for w in o)
+    furniture = {w for w, k in seen.items() if len(orig) >= 4 and k >= len(orig) / 3}
+    orig = [o - furniture for o in orig]
+    ours = [o - furniture for o in ours]
     return {i for i, n in collections.Counter(_owners(orig, ours)).items()
             if n > 1}
 

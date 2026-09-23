@@ -179,7 +179,7 @@ PDF's own text layer.
 
 ### tests
 
-Twenty-two suites, all passing as of 2026-09-22. Each is a plain script:
+Twenty-three suites, all passing as of 2026-09-22. Each is a plain script:
 
     export PYTHONUTF8=1
     for t in harness/test_*.py; do .venv/Scripts/python "$t" || echo "FAILED $t"; done
@@ -190,7 +190,7 @@ nothing to do with the converter.
 
     alignment  answerkey  arabic  digits  fit  footnotes  glyphs  heading_style
     headings  image_drop  images  inline  labels  lists  loss_gate  notes
-    pagination  scan  spelling  tables  text_score  xml_safe
+    pagination  running  scan  spelling  tables  text_score  xml_safe
 
 Their docstrings are where the failure modes are recorded — `test_arabic.py` and
 `test_loss_gate.py` especially are worth reading before touching either area.

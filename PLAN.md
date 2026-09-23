@@ -1638,6 +1638,94 @@ page 4 - Arial, ١١٥٧/٣ and ١٤٨ as in the original, the signs in place.
 Still different there: bold body text lost, page numbers 66 not ٦٦, Word's
 footnote numbers 1, 2, 3 (N5d).
 
+## N5b: headers, footers, page numbers, 2026-09-22
+
+N4 counted journal headers, page-number graphics and header bands in the
+body on 16 pages of 7 files, and wrong or missing page numbers on 4 files.
+Nine files traced (`out/work/n5b`); five separate causes, all in
+`writer._running_text` / `_running_furniture`:
+
+1. **One piece per edge.** A header in two lines, English and Arabic
+   (`z21095413`), a page number printed twice on itself (`z22051439`), an
+   author on even pages and a title on odd ones (`z21761968`): only the
+   piece on most pages was taken, the rest stayed in the body. Now every
+   group that repeats is taken; pieces on one line are one paragraph.
+2. **Alternating headers** go into Word's even and odd headers
+   (`evenAndOddHeaders`). Word picks by the page NUMBER, so the printed
+   numbering decides. Checked in Word: page 129 shows the title, 130 the
+   author, as the original. A footer read in another order on its mirrored
+   pages (`z21763864`: "2016 10 - 8 -") looks alternating too; a one-sided
+   piece carrying nothing the other side does not is the same furniture.
+3. **Edges found by position, not only reading order.** The margins are
+   measured from the content, header included, so on `z21095413` the page
+   number sat inside the "column" and mid reading order. Now the outer 12%
+   of the page counts (`EDGE_ZONE`), for text and pictures; which edge is
+   settled by which half of the page, not by coming first - `z21763864`
+   reads its footer first and it was filed as a header.
+4. **Page numbers.** The number whose value less the page is the same on
+   most copies (`_page_run`), not the first copy's: `z20538636`'s title
+   page has a year read backwards, ٥٢٠٢, and the file was numbered from
+   5202. Only copies that agree are lifted - the year stays. A number inside
+   a line - "- 8 - 10 2016", "صفحة92" - is a PAGE field in its place; the
+   whole line used to be copied from page one. The field carries the
+   footer's size.
+5. **Header bands found as tables** (`z21762915`: two rules above and below
+   the header, an empty grid on every page) are lifted; their text goes to
+   the header, their pictures too (`z20276275` keeps its logo in a cell).
+   A band whose letters another piece already draws is not drawn again.
+
+Pictures: a repeated picture with no clean copy - every photo caught its
+page's text - is lifted and NOT drawn. `z22051439` photographs its corner
+graphic with the number on it, and drew page one's 80 on every page. For
+position groups the old "any copy caught text" became "most copies": the
+`z21760107` logo caught a word on 1 of 16 pages and was dropped everywhere.
+
+**The fit loop was fooled by the headers.** `fit._spilled` matches our pages
+to the original's by shared words. With alternating headers the overflow
+page carries the next page's header, matched it, and the loop shrank the
+wrong page: `z19799068` 95% -> 42% right page. Words on a third or more of
+the original's pages are now left out of the matching.
+
+**The checker** (`compare._furniture_texts`) now gives each page the header
+Word draws there (first / even / default), and reads a PAGE field as the
+number that page shows instead of skipping it, so "صفحة92" matches. Scored
+both ways on the same output, neither change moves any file's number.
+
+**Results** (`--max-pages 30`, `2026-09-22-{dev,regression}-n5b-headers-3`):
+
+    dev, all 48     nothing lost 99.9% (unchanged, FLAGS 24)
+                    words in order 97.6%, right page 57.5 -> 60.0%
+                    8 files better on right page, 0 worse
+    theses          unchanged: 100% / 99.0% / 80.4%
+
+    z21762915   13% -> 71%   39 -> 26 pages (orig 23)
+    z21761968   73% -> 97%   21 -> 20 pages (orig 20)
+    z21751977   31% -> 47%   21 -> 19
+    z20538636   14% -> 22%   numbered 157.. not 5202..
+
+**What the numbers do not say:**
+- `z21762458` words in order 97.9 -> 96.4%. Same words; the original's text
+  layer lists its footer right after the header, at the TOP of each page,
+  and we now print it at the foot where it is. The checker's order, not ours.
+- The table score falls on three files (`z21762915` 46 -> 0 tables): the
+  PDF side counts the header bands as tables. Not tables lost.
+- Pictures not drawn, on purpose: `z21418248`'s two header banners (every
+  photo carries the header text, which is now in the header as text) and
+  `z22051439`'s corner graphic. The decoration is gone, not the text.
+- `z21763864`: the journal name and running title are not text in the PDF
+  (only "- 8 - 10 2016" is), so they are still missing.
+- `z19799068`'s page numbers come through a broken font (594, 594, 599,
+  411 ...): no number follows the page, so "594" is printed on every page.
+  It was a field counting from 594 before - wrong either way.
+- `z20276275`'s header title is stretched letters in pieces, jumbled as read;
+  it is now jumbled in the header instead of the body.
+- `z21760107` alternates two footer pictures; both are drawn on every page.
+- Page numbers are Word's digits, not ٦٦ (N5a).
+
+Looked at (`out/work/n5b/look`): `z21762915` p10, `z20276275` p12,
+`z21761968` p4, `z22051439` p5, `z21763864` p3 header and footer. Also seen,
+not this step: `z21762915` still writes each page's text twice (N5f).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

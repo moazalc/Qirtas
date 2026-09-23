@@ -81,6 +81,7 @@ def text_of_docx(docx_path):
         endnotes = _footnote_texts(z, "endnote")
         furniture = _furniture_texts(z)
     out, buf, pending = [], [], []
+    page = [0]
 
     def end_para():
         if buf:
@@ -93,7 +94,7 @@ def text_of_docx(docx_path):
         # same way or the text it holds reads as lost - the identical trap
         # footnotes had, and the gate would have blamed the converter for text
         # that is present and correct.
-        out.extend(furniture.get("header", []))
+        out.extend(furniture("header", page[0]))
 
     def end_page():
         # A real footnote lives in footnotes.xml, but on the PAGE it is printed
@@ -105,7 +106,8 @@ def text_of_docx(docx_path):
         end_para()
         out.extend(pending)
         pending.clear()
-        out.extend(furniture.get("footer", []))
+        out.extend(furniture("footer", page[0]))
+        page[0] += 1
 
     start_page()
     for m in re.finditer(r"<w:p[ >]|<w:t[^>]*>([^<]*)</w:t>"
@@ -131,26 +133,69 @@ def text_of_docx(docx_path):
     return html.unescape("\n".join(out)).translate(WESTERN)
 
 
-def _furniture_texts(z):
-    """{"header"|"footer": [text]} from word/headerN.xml and footerN.xml.
+# Stands in for a PAGE field until the page it is drawn on is known.
+PAGE_MARK = "⁣"
 
-    A PAGE field's cached value is skipped: the number differs on every page,
-    so counting it once per page would compare our "82" against the original's
-    83, 84, 85 and report text that is perfectly correct as missing.
+
+def _furniture_texts(z):
+    """-> furniture(where, page): the header or footer text Word draws on that
+    page (0-based), as a list of paragraphs' text.
+
+    A PAGE field is read as the number Word prints on THAT page, not as its
+    cached value: the cache is one number for every page, and counting it
+    would compare our "82" against the original's 83, 84, 85. It used to be
+    skipped, which was fine while a page number stood alone - not once it sits
+    inside a word, "صفحة92" (`z21762458`, N5b), where skipping it left the
+    word unmatched on every page.
+
+    Which header a page gets is Word's rule, read from the file: the first
+    page's own when the section has one (a photographed title page), the even
+    page's on even page NUMBERS when the document has both, else the default.
+    Emitting every header on every page read an alternating header - the
+    author on one page, the title on the next (N5b) - onto both.
     """
-    out = {}
-    for name in z.namelist():
-        m = re.fullmatch(r"word/(header|footer)\d*\.xml", name)
-        if not m:
+    names = set(z.namelist())
+    doc = z.read("word/document.xml").decode("utf-8")
+    rels = z.read("word/_rels/document.xml.rels").decode("utf-8")         if "word/_rels/document.xml.rels" in names else ""
+    target = dict(re.findall(r'Id="([^"]+)"[^>]*Target="([^"]+)"', rels))
+    target.update({k: v for v, k in
+                   re.findall(r'Target="([^"]+)"[^>]*Id="([^"]+)"', rels)})
+    settings = z.read("word/settings.xml").decode("utf-8")         if "word/settings.xml" in names else ""
+    even_odd = re.search(r"<w:evenAndOddHeaders(?![^>]*w:val=\"(?:0|false)\")",
+                         settings) is not None
+    sect = doc[doc.rfind("<w:sectPr"):]
+    title_pg = re.search(r"<w:titlePg(?![^>]*w:val=\"(?:0|false)\")", sect) is not None
+    m = re.search(r'<w:pgNumType[^>]*w:start="(\d+)"', sect)
+    start = int(m.group(1)) if m else 1
+
+    texts = {}
+    for kind, typ, rid in re.findall(
+            r'<w:(header|footer)Reference\b(?=[^>]*w:type="(\w+)")'
+            r'(?=[^>]*r:id="([^"]+)")[^>]*/>', sect):
+        name = "word/" + target.get(rid, "").lstrip("/").replace("word/", "")
+        if name not in names:
             continue
         xml = z.read(name).decode("utf-8")
         xml = re.sub(r"<w:fldSimple[^>]*w:instr=\"[^\"]*PAGE[^\"]*\"[^>]*>.*?"
-                     r"</w:fldSimple>", "", xml, flags=re.S)
-        body = " ".join(t for t in re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml)
-                        if t.strip())
-        if body.strip():
-            out.setdefault(m.group(1), []).append(body)
-    return out
+                     r"</w:fldSimple>", f"<w:t>{PAGE_MARK}</w:t>", xml, flags=re.S)
+        # Runs of one paragraph join as Word shows them, with no space added:
+        # "صفحة" and the field after it are one word on the page.
+        body = " ".join(p for p in (
+            "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", para))
+            for para in re.findall(r"<w:p[ >].*?</w:p>", xml, flags=re.S))
+            if p.strip())
+        texts[(kind, typ)] = [body] if body.strip() else []
+
+    def pick(where, page):
+        if title_pg and page == 0:
+            return texts.get((where, "first"), [])
+        if even_odd and (start + page) % 2 == 0:
+            return texts.get((where, "even"), [])
+        return texts.get((where, "default"), [])
+
+    def furniture(where, page):
+        return [t.replace(PAGE_MARK, str(start + page)) for t in pick(where, page)]
+    return furniture
 
 
 def _footnote_texts(z, note="footnote"):
