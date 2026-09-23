@@ -55,6 +55,29 @@ drawn (see the timeline); a full run will say how much is left. Then, smaller:
    idea, 23 Sept) — in TASKS.
 7. Then the looks: bold, centring, the coloured bands, tables, footnotes.
 
+### Plan from here (agreed 23 Sept, rough estimates)
+
+**Text, about 2 days**
+1. Full run on every test file, to confirm today's fixes and give a new
+   breakdown of what is left (about 3 hours, in the background).
+2. Punctuation next to numbers or English (`الإ8 ،براهيمي`), about 0.5
+   points, half a day.
+3. Words glued together, about 1 point, half a day.
+4. Numbers: the few real cases; most are the OCR misreading. Half a day.
+5. Words not on the page at all, file by file. Half a day.
+6. One file comes out 24 pages against 23. A couple of hours.
+
+Parked: `z21763864`, whose text is drawn as shapes.
+
+**Missing-font feature, about 1 day**
+7. Before converting, tell the user which fonts the PDF uses that are not
+   installed, and which to install (Moaz's idea).
+8. On Moaz's PC: DecoType Naskh Special and Muna still missing.
+
+**Looks, about a week**
+9. Bold, italics, text size. 10. Centring and alignment. 11. Coloured
+bands and headers. 12. Tables that look like the original. 13. Footnotes.
+
 **Waiting on Moaz:** nothing to push. Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
