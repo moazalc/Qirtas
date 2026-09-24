@@ -206,7 +206,8 @@ Their docstrings are where the failure modes are recorded — `test_arabic.py` a
 
 How every text fix since 2026-09-23 was measured. Each fix has an
 environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
-`QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER` = `0`).
+`QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
+`QIRTAS_TIGHT` = `0`).
 
 **Quick run**, 11 short files (9 with the most known faults, two theses),
 once with the switch off and once on, **each in its own `--work` folder** -

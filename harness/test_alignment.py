@@ -36,6 +36,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH as AL
 
 from convert.model import Doc, Block, PARAGRAPH, HEADING
 from convert.writer import write, ALIGN_START
+from convert.footnotes import directional
 
 FAILED = []
 
@@ -84,6 +85,18 @@ def main():
           "that could have caught this")
     where_it_lands(tmp)
 
+    print("\nEnglish in Arabic text: its own run, so a line wrapping inside "
+          "it keeps its & in place")
+    pieces = directional("العالمي (Lawn & Zumla, 2011; Horrigan et al.)، حيث")
+    check("the English is one left-to-right piece", pieces[1],
+          ("Lawn & Zumla, 2011; Horrigan et al.", False))
+    check("the brackets stay with the Arabic", (pieces[0][1], pieces[2][1]),
+          (True, True))
+    check("a number alone stays Arabic", len(directional("أكثر من 15% من")), 1)
+    check("a bracket opened inside closes inside",
+          directional("السل Tuberculosis (TB) أحد")[1][0], "Tuberculosis (TB)")
+    where_it_wraps(tmp)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 
@@ -126,6 +139,42 @@ def where_it_lands(tmp):
             return
         check("latin heading sits against the LEFT margin",
               hits[0].x1 < w / 2, True)
+
+
+def where_it_wraps(tmp):
+    """Render a citation that wraps at every place, and look at each line
+    holding its &: Word drew `(Zumla, 2011 &` when the English was part of
+    the Arabic run (z20252507 page 3)."""
+    import pymupdf
+    from harness.roundtrip import docx_to_pdf
+
+    cite = "(Lawnnnnnnnnnnnnnn & Zumla, 2011)"
+    blocks = [Block(kind=PARAGRAPH, page=0, text=(
+        "حيث يصنف " + "ب" * k + " ضمن الأسباب العشرة الأولى للوفاة على "
+        "المستوى العالمي " + cite + "، وتعد المتفطرة السلية العامل المسبب"))
+        for k in range(0, 60, 2)]
+    out = Path(tmp) / "wraps.docx"
+    write(Doc(blocks=blocks), str(out))
+    pdf = docx_to_pdf(out, tmp)
+    wrapped = wrong = 0
+    name = "Lawnnnnnnnnnnnnnn"
+    with pymupdf.open(pdf) as d:
+        for page in d:
+            lines = {}                  # the English words, by baseline
+            for w in page.get_text("words"):
+                word = w[4].strip("()")
+                if word in ("&", "Zumla,", name):
+                    lines.setdefault(round(w[3]), {})[word] = w[0]
+            for at in lines.values():
+                if "&" not in at or len(at) == 3:
+                    continue
+                wrapped += 1
+                # & reads after the name and before Zumla, left to right
+                if ("Zumla," in at and at["&"] > at["Zumla,"]) or (
+                        name in at and at["&"] < at[name]):
+                    wrong += 1
+    check("the citation wrapped at the & somewhere", wrapped > 0, True)
+    check("the & on the right side of every wrapped line", wrong, 0)
 
 
 if __name__ == "__main__":

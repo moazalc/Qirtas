@@ -116,6 +116,17 @@ def main():
         (",", 370, 372)]
     check("a comma at a Latin run's end stays (Evershed,)", read(ln),
           "الوقت(Evershed,")
+    # 15% من حالات: the 15 is the piece before; this one stores the % last
+    # and draws it at its right end, against the 15 (z20252507).
+    ln = line(("  من حالات", None)) + [("%", 401, 406)]
+    check("a % drawn at the line's right end starts it", read(ln),
+          "%  من حالات")
+    ln = line(("أكثر من حالات%", None))
+    check("a % drawn at the left stays last", read(ln), "أكثر من حالات%")
+    ln = [("1", 380, 385), ("5", 385, 390)] + line(
+        (" من حالات", None), start=380) + [("%", 391, 396)]
+    check("... and so does one beside a number of its own line", order(ln),
+          None)
     ln = line(("سبق", None)) + [(" ", 330, 334)] + line(
         ("قدم", None), start=384) + [("V", 340, 345), ("a", 345, 350)]
     check("a space between two Arabic words stays", read(ln), "سبق قدمVa")

@@ -844,3 +844,23 @@ server. A web app needs a renderer and an OCR engine that run anywhere
 documents to a cloud OCR is ruled out for unpublished work like the theses.
 
 **Closes when:** Moaz decides where Qirtas runs (desktop, server, both).
+
+---
+
+## 27. "Right page" reads English glued to the Arabic word before it
+
+**Status: OPEN, needs a decision (raised 2026-09-24).** Since English inside
+an Arabic paragraph is written as its own left-to-right run (PLAN
+"Citations where a line wraps"), the text read back from our rendered page
+glues it to the Arabic word before it - `الأنظمةHallonsten, 2021` - though
+the page draws the space. The glued word matches nothing on the original
+page, so "right page" falls on every file with English citations: 72.8 ->
+72.4% on the quick set, for no change in where anything landed.
+
+Splitting words where Arabic meets Latin, on both sides, in
+`compare._page_words` takes almost all of it away (72.93 -> 72.78%). But it
+changes the instrument, so every "right page" recorded before it stops being
+comparable until re-scored.
+
+**Closes when:** Moaz decides whether to change the instrument (and
+re-score the last full run with it), or live with the small drop.

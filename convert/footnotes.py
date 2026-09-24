@@ -13,6 +13,7 @@ the rId chosen here does not have to match anything.
 An endnote is a footnote collected at the end of the document instead of the
 foot of its page. The machinery is the same; only the names differ.
 """
+import os
 import posixpath
 import re
 import shutil
@@ -67,6 +68,47 @@ def split_number(text):
     return m.group(1).translate(WESTERN), (text or "")[m.end():].strip()
 
 
+# English inside an Arabic paragraph is written as a left-to-right run of its
+# own - from its first Latin letter to its last letter or digit, with what
+# lies between (`Lawn & Zumla, 2011`) and a full stop that ends it (`et al.`).
+# Written into the paragraph's one right-to-left run, Word draws it right
+# while it stays on one line, but where a line wraps inside it Word takes the
+# `&`, comma or full stop that begins or ends a line for Arabic, and moves it
+# to the far end: `(Zumla, 2011 &` for `(& Zumla, 2011` (`z20252507` page 3;
+# PLAN "Citations where a line wraps"). The brackets around it stay in the
+# Arabic run, as an author's own Word types them, and Word draws them
+# mirrored as before. A number alone stays in the Arabic run.
+# QIRTAS_LTR_RUNS=0 turns this off, to measure against.
+LTR_ON = os.environ.get("QIRTAS_LTR_RUNS", "1") != "0"
+_ARABIC = r"\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF"
+LTR_STRETCH = re.compile(
+    r"[A-Za-z\u00C0-\u024F](?:[^" + _ARABIC + r"]*[A-Za-z\u00C0-\u024F0-9])?"
+    r"\.?")
+PAIRS = {"(": ")", "[": "]"}
+
+
+def directional(text, rtl=True):
+    """-> [(piece, rtl)]: `text` cut where English starts and ends inside a
+    right-to-left paragraph. A left-to-right paragraph is one piece."""
+    if not rtl or not LTR_ON or not text:
+        return [(text, rtl)]
+    out, at = [], 0
+    for m in LTR_STRETCH.finditer(text):
+        end = m.end()
+        # `Tuberculosis (TB)`: a bracket opened inside is closed inside.
+        for o, c in PAIRS.items():
+            if text.count(o, m.start(), end) > text.count(c, m.start(), end) \
+                    and text[end:end + 1] == c:
+                end += 1
+        if m.start() > at:
+            out.append((text[at:m.start()], True))
+        out.append((text[m.start():end], False))
+        at = end
+    if at < len(text):
+        out.append((text[at:], True))
+    return out
+
+
 def _sep(kind, tag, wid, note="footnote"):
     return (f'<w:{note} w:type="{kind}" w:id="{wid}">'
             f'<w:p><w:pPr><w:spacing w:after="0" w:line="240" '
@@ -99,8 +141,9 @@ def build_xml(notes, font="Arial", size_pt=9.0, rtl=True, note="footnote"):
             f'<w:p><w:pPr>{bidi}<w:spacing w:after="0"/></w:pPr>'
             f'<w:r>{_rpr(font, size_pt, rtl, superscript=True)}'
             f'<w:{note}Ref/></w:r>'
-            f'<w:r>{_rpr(font, size_pt, rtl)}'
-            f'<w:t xml:space="preserve"> {escape(text)}</w:t></w:r>'
+            + "".join(f'<w:r>{_rpr(font, size_pt, r)}'
+                      f'<w:t xml:space="preserve">{escape(t)}</w:t></w:r>'
+                      for t, r in directional(" " + text, rtl)) +
             f'</w:p></w:{note}>')
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             f'<w:{note}s xmlns:w="{W}">' + "".join(parts) + f'</w:{note}s>')

@@ -159,6 +159,9 @@ def _order_mixed(line):
     xs = {round(x0, 1) for (c, x0, _), a in zip(base, arabic) if a}
     if len(xs) < PLACED * sum(arabic):
         return None
+    pct = _percent_first(base, arabic)
+    if pct is not None:
+        return pct
     ltr = [bool(LEFT_TO_RIGHT.match(c)) for c, _, _ in base]
     # Words: runs of Arabic letters; runs of numbers or Latin, taking in
     # anything stored and drawn between two of their characters.
@@ -247,6 +250,32 @@ def _order_mixed(line):
             out.append(k)
         out.extend(sorted(after.get(k, ()), key=lambda j: -base[j][1]))
     return [~k if k in moved else k for k in out]
+
+
+PERCENT = "%٪"
+
+
+def _percent_first(base, arabic):
+    """A % that ends the stored line but is drawn at its right end starts
+    it: `  من حالات%` is `% من حالات`, the % of the 15 drawn just right of
+    it in the piece before (`z20252507`, 15% من حالات). None otherwise.
+    QIRTAS_TIGHT=0 turns it off, with the reader's joins beside it."""
+    if os.environ.get("QIRTAS_TIGHT", "1") == "0":
+        return None
+    k = next((j for j in range(len(base) - 1, -1, -1)
+              if base[j][0] != " "), None)
+    if k is None or base[k][0] not in PERCENT or not any(arabic):
+        return None
+    # and only on a line read right to left, not one stored backwards
+    steps = [base[j][1] - base[j + 1][1] for j in range(len(base) - 1)
+             if arabic[j] and arabic[j + 1] and base[j][1] != base[j + 1][1]]
+    if sum(1 for d in steps if d > 0) < PLACED * len(steps):
+        return None
+    others = [base[j] for j in range(len(base)) if j != k and base[j][0] != " "]
+    if any(LEFT_TO_RIGHT.match(c) for c, _, _ in others) or \
+            any(x1 > base[k][1] + TOL for _, _, x1 in others):
+        return None
+    return [~k] + [j for j in range(len(base)) if j != k]
 
 
 def _moved(us, seq):

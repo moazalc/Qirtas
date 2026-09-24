@@ -2250,6 +2250,115 @@ the Symbol table (`all-on-3`): wrong 6.1 -> 5.2%, found 95.3 -> 95.9%, gate 100%
 on every file, words in order 98.7% as before; 7 files better, none worse,
 the theses unchanged (`z19798743` 8.6 -> 5.8%, `z19799068` 8.5 -> 5.0%).
 
+### Citations where a line wraps; a % stored at the wrong end, 2026-09-24
+
+**The diagnosis in TASKS was half right.** The note said `(Shegaze et al.,
+2020)` is written `العالمي( Shegaze et al., 2020 )` and that Word then puts
+the brackets in the wrong place where the line wraps. The spacing was
+wrong, but the brackets were not: measured by drawn position and glyph
+shape (a tool that prints each rendered line left to right, with each
+bracket shown as the shape actually drawn), Word draws them the way it
+draws them in any Arabic document typed in Word. The real fault was what
+lies INSIDE the citation. The whole paragraph was one right-to-left run,
+and where a line wraps inside the English, Word treats a `&`, comma or full
+stop at the start or end of a line as Arabic and moves it to the far end:
+`(Zumla, 2011 &` for `(& Zumla, 2011` (`z20252507` page 3, line 3).
+Measured in Word on three ways of writing the same citation at 34 column
+widths: one right-to-left run (ours) moved the `&` wherever the line broke before
+it; the English as a left-to-right run of its own, brackets left in the
+Arabic run, never did, and draws exactly like the other ways when
+the citation does not wrap.
+
+**Writer:** English inside an Arabic paragraph - from its first Latin
+letter to its last letter or digit, with a closing full stop and a bracket
+opened inside - is now its own left-to-right run, in body text, table cells
+and notes (`footnotes.directional`). A number alone stays in the Arabic run.
+`QIRTAS_LTR_RUNS=0` turns it off. `test_alignment` renders a citation
+wrapping at 30 places and checks the `&` on every line (2 wrong with the
+switch off, 0 on).
+
+**Reader: the spaces.** Where Arabic meets English or a number, each is its
+own piece, and the pieces were joined with a space: `( Shegaze ... 2020 )`,
+`15 %`. Now (`reader._tight`) two pieces meeting at a bracket or `%` are
+joined without one when their inked edges touch on the page (within 0.05 of
+the type size). And (`reader._edge_spaces`) spaces the extractor stored at a
+right-to-left piece's start go where they are drawn: at its left end they
+end it (` . إنّ` after `2005)`), just right of a bracket that ends it they
+stand before it (` المستوى العالمي(` - the original prints العالمي (Shegaze).
+Two faults found by reading every change across the 86 dev and regression
+files, both fixed before measuring:
+- On pieces the PDF stores backwards (`z20161304`, ةليلقلا), moving the
+  space changed which word the spelling repairs saw: في became يف in 24
+  places. Both rules now act only on pieces whose letters run right to left.
+- A space moved off the start of a paragraph's first word broke the
+  lam-alef repair, which reads a word's start by the space before it:
+  لا يوجد became ال يوجد (`z20589058`, `z21087226`). A space before a word
+  now stays; only one before a mark, bracket or % moves.
+
+**A `%` stored at the wrong end** (`order._percent_first`, both readings):
+`15 من حالات%` - the 15 is the piece before, and this one stores its % last
+but draws it at its right end, against the 15. Now `15% من حالات`. Across
+the 86 files: 197 changes that touch letters, all a `%` back beside its
+number (`84 في%` -> `84% في`, `إلى% 44` -> `إلى 44%`) or a repair now
+reaching its word (يف -> في 4, ال% -> لا 1). `QIRTAS_TIGHT=0` turns off
+this and the two reader rules.
+
+**Not fixed:** `Tuberculosis(TB)` on the same page. The PDF stores the `(`
+at the start of the Arabic piece before TB; the reading by structure labels
+sees that piece without TB, the plain reading with it, and moving the
+bracket in one and not the other is what broke the gate on 7 files on 23
+Sept. Left.
+
+**"Right page" is thrown by the English runs, not the page.** Quick set
+(`2026-09-24-quick-cite-{off,on}`, 11 files): gate 100%, page-truth wrong
+5.2% both, found 95.9% both, words in order 98.6% both; right page 72.8 ->
+72.4%. Isolated (`cite-ltroff`, 3 files): the drop is the English runs.
+Read back from our rendered page, a left-to-right run comes out glued to
+the Arabic word before it (`الأنظمةHallonsten, 2021`, `منChatGPT`), though
+the page draws the space; the glued word matches nothing on the original
+page. Split at a change of script on both sides, right page reads 72.93 ->
+72.78%. The rest is lines breaking in other places. FLAGS 27.
+
+Full run (`2026-09-24-{dev,regression}-cite`, against `textfixes4`): the
+gate unchanged on every file (99.8%, only `z21763864` under 100%, 90.0%);
+page-truth wrong 7.8% and found 91.9%, the same on every file - it counts
+Arabic words of three letters or more, and none of this changes one; words
+in order 96.4% as before; right page 65.4 -> 65.7% even with FLAGS 27
+(`z19799524` 21 -> 20 pages, its own count, 72.9 -> 93.1%; `z21418248` 29
+-> 30, the squashed pictures below). Regression identical.
+
+### What the rest of the wrong words are; pictures drawn squashed, 2026-09-24
+
+Looked at while the full run above ran, so on the 25 dev files it had not
+yet reached (`textfixes4`'s Word files, 530 wrong words, every one counted
+rather than the 15 a page `truth.json` keeps):
+
+    one letter off          31%   many correct words (قام, ابراهيم): OCR
+    not on the page         26%
+    one word cut in two     17%   + a piece of a word 9%
+    other words overlap      8%
+    two words glued          5%   + glued to a number (العدد6) 3%
+
+**Glued words are nearly all one file.** `z20276275` stores whole phrases
+with no space (`ﻟﺘﻄﺒﯿﻘﺎتﻣﻘﺎرﻧﺔﻣﻨﮭﺠﯿﺔ`); the page draws the gaps. Two letters
+side by side with no space between, drawn at least 0.15 of the type size
+apart: 308 places in that file, at most one in any other of the 48. Its
+display shapes also say where a word ends (a both-sides-joining letter in
+its end or alone shape), but only at 92 of them - it stores some letters as
+plain Persian ی and ھ. Two files carry 2.4 of the 7.8 points of wrong words:
+`z21763864` (drawn as shapes, parked) and `z21751977` (its font is not
+installed).
+
+**The file 24 pages against 23 (`z21762915`) is a picture.** Its pages
+1-17 land exactly; page 18 holds a photo the author's Word squashed to fit
+- 438x333 pixels drawn 350x221pt - and we place it at its drawn width only,
+so Word keeps its own shape: 41pt taller. The notes after it spill onto a
+new page, and every page after is one late. 107 pictures in 23 of the dev
+and regression files are drawn out of their own proportions by more than
+5pt; `z21418248` adds up to 580pt, most of a page (22 -> 30 pages). The
+writer should give Word the drawn height as well as the width. Some large
+negative ones (`z21751977`) may be pictures turned on their side - check.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

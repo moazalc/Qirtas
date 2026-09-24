@@ -466,7 +466,8 @@ WORD_END = "ةى"
 
 
 def _letter_ends(page, flags):
-    """{piece's box: (box of its first letter, box of its last)}, read with
+    """{piece's box: (box of its first letter, box of its last, its
+    characters)}, read with
     the same flags as the dict it is used with. A piece's own box runs on
     over the space after it, so only its letters tell whether it touches
     the next (PLAN "Words cut between two pieces")."""
@@ -479,7 +480,12 @@ def _letter_ends(page, flags):
                     cs = [c for c in s.get("chars", ())
                           if not c["c"].isspace() and not MARKS.match(c["c"])]
                     if cs:
-                        ends[_box(s["bbox"])] = (cs[0]["bbox"], cs[-1]["bbox"])
+                        # and every character with where it is drawn, for
+                        # _edge_spaces and _tight
+                        ends[_box(s["bbox"])] = (
+                            cs[0]["bbox"], cs[-1]["bbox"],
+                            [(c["c"], c["bbox"][0], c["bbox"][2])
+                             for c in s["chars"]])
             walk(b)
 
     walk(get_text(page, "rawdict", flags=flags))
@@ -534,6 +540,93 @@ def _glued(prev, sp, vocab, ends=None):
     return -TOUCH <= (ea[1][0] - eb[0][2]) / size < TOUCH
 
 
+# Where two pieces of a line meet at one of these, only the page says whether
+# a space stands between them.
+LATIN = re.compile(r"[A-Za-zÀ-ɏ]")
+TIGHT = "()[]%٪"
+OPENING = "(["
+# QIRTAS_TIGHT=0 turns _edge_spaces and _tight off, to measure against.
+TIGHT_ON = os.environ.get("QIRTAS_TIGHT", "1") != "0"
+
+
+def _right_to_left(chars):
+    """Are a piece's Arabic letters stored right to left, as drawn? A piece
+    with no two letters side by side (` .`) counts as so."""
+    steps = [a[1] - b[1] for a, b in zip(chars, chars[1:])
+             if ARABIC.match(a[0]) and ARABIC.match(b[0]) and a[1] != b[1]]
+    return sum(1 for d in steps if d > 0) >= 0.5 * len(steps)
+
+
+def _edge_spaces(sp, ends, arabic=False):
+    """The piece's text, with the spaces stored at its start put where they
+    are drawn.
+
+    The extractor stores a right-to-left piece's spaces at its start
+    wherever they are drawn. Drawn at its left end, they end it: ` . إنّ`
+    is `. إنّ ` after `2005)`. Drawn just right of a bracket that ends it,
+    they stand before the bracket too: ` المستوى العالمي(` is
+    ` المستوى العالمي (`
+    (`z20252507`). Only the spaces beside a bracket or % decide anything
+    (_tight); elsewhere the join puts one space between pieces either way.
+    A piece without Arabic letters (` .`) is read so only in Arabic text,
+    `arabic`: in English a space stored first is drawn first.
+    """
+    t = sp["text"]
+    e = (ends or {}).get(_box(sp["bbox"]))
+    body = t.rstrip()
+    n = len(body) - len(body.lstrip())
+    if not TIGHT_ON or not e or not n or LATIN.search(body) or \
+            not (arabic or ARABIC.search(body)):
+        return t
+    chars = e[2]
+    lead, ink = chars[:n], [c for c in chars if not c[0].isspace()]
+    if len(chars) != len(t) or any(c[0] != " " for c in lead) or not ink             or ink[-1][0] != body[-1]:
+        return t
+    # Only a piece read right to left: one stored backwards (ةليلقلا for
+    # القليلة, `z20161304`) has its spaces where they are drawn already, and
+    # moving them changed which words the spelling repairs saw (يف for في).
+    if not _right_to_left(chars):
+        return t
+    size = max(sp["size"], 1.0)
+    # A word keeps the space before it: the lam-alef repair reads a word's
+    # start by it (لا يوجد read ال يوجد, `z20589058`).
+    if not ARABIC_LETTER.match(body[n]) and             all(c[2] <= min(k[1] for k in ink) + TOUCH * size for c in lead):
+        return body[n:] + " "
+    bracket = ink[-1]
+    if body[-1] in OPENING and len(ink) > 1 and             abs(min(c[1] for c in lead) - bracket[2]) <= TOUCH * size and             all(c[2] <= min(k[1] for k in ink[:-1]) + TOUCH * size
+                for c in lead):
+        return " " + body[n:-1] + " " + body[-1] + t[len(body):]
+    return t
+
+
+def _tight(prev, text, sp, run, ends):
+    """Do `sp` and the piece before it meet at a bracket or % with nothing
+    drawn between them?
+
+    Each is its own piece where Arabic meets English or a number, and joined
+    with a space `(Shegaze et al., 2020)` came out `( Shegaze et al., 2020 )`,
+    and 15% as `15 %` (`z20252507`). Only a bracket or % is joined: two
+    words drawn touching are still two words (قام|Yazdanian)."""
+    if not TIGHT_ON or not prev or not ends or not text or not run:
+        return False
+    if text[-1].isspace() or run[0].isspace() or             not (text[-1] in TIGHT or run[0] in TIGHT):
+        return False
+    ea, eb = ends.get(_box(prev["bbox"])), ends.get(_box(sp["bbox"]))
+    if not ea or not eb:
+        return False
+    size = max(prev["size"], sp["size"], 1.0)
+    pa, pb = prev["bbox"], sp["bbox"]
+    if abs(pa[3] - pb[3]) > 0.3 * size:
+        return False                        # not on one line
+    ia = [c for c in ea[2] if not c[0].isspace()]
+    ib = [c for c in eb[2] if not c[0].isspace()]
+    if pb[0] + pb[2] < pa[0] + pa[2]:       # drawn to the left: right to left
+        gap = min(c[1] for c in ia) - max(c[2] for c in ib)
+    else:
+        gap = min(c[1] for c in ib) - max(c[2] for c in ia)
+    return abs(gap) <= TOUCH * size
+
+
 def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     """One Block from one or more PyMuPDF text blocks, with size, boldness and
     runs of like formatting. None if they hold no text.
@@ -550,7 +643,11 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 run = sp["text"]
                 if not run.strip():
                     continue
+                run = _edge_spaces(sp, ends, bool(ARABIC.search(text)))
                 glue = _glued(prev, sp, vocab, ends)
+                # A bracket or % drawn against its neighbour is written
+                # against it: joined like a word put back together.
+                glue = glue or _tight(prev, text, sp, run, ends)
                 prev = sp
                 text += ("" if glue or not text else " ") + run
                 size = max(size, sp["size"])

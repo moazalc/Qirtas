@@ -17,7 +17,7 @@ must match the printed page before any work on looks.
 | Words on the printed page that we have | **91.9%** | 87.2% |
 | Nothing lost (the hard gate), test files | 99.8%, worst file 90.0%* | 100%* |
 | Nothing lost, theses and hard files | 100% | 100% |
-| Pages land on the right page (test files) | 65.4% | 60.0% |
+| Pages land on the right page (test files) | 65.7% | 60.0% |
 | Pages land on the right page (theses) | 83.6% | 80.6% |
 
 ‡ The page check was counting numbers in running headers against us
@@ -63,11 +63,11 @@ drawn (see the timeline); a full run will say how much is left. Then, smaller:
 2. Punctuation next to numbers or English - DONE 23-24 Sept.
 3. Numbers - CHECKED 23 Sept: nearly all the OCR misreading; no fix.
 Next, in this order (agreed 24 Sept):
-4. Brackets around English citations (`(Shegaze et al., 2020)` lands in
-   the wrong place when a line wraps) and a stray `%`. Half a day.
-5. Words glued together, the rest (part was fixed by 2). Half a day.
-6. Words not on the page at all, file by file. Half a day.
-7. One file comes out 24 pages against 23. A couple of hours.
+4. Brackets around English citations and a stray `%` - DONE 24 Sept.
+5. Pictures drawn squashed (found behind the file that came out 24 pages
+   against 23; 107 pictures in 23 files). A couple of hours.
+6. Words glued together, the rest - nearly all one file. A couple of hours.
+7. Words not on the page at all, file by file. Half a day.
 
 Parked: `z21763864`, whose text is drawn as shapes.
 
@@ -218,3 +218,31 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 - Tried and reverted: fixing letter order at the source (fought an
   existing repair); moving punctuation to where it is drawn (cost the
   gate on two files).
+
+### 24 Sept — citations, and what is left
+- **Brackets around English citations**: the brackets themselves were fine;
+  what went wrong was inside. Where a line broke in the middle of a
+  citation, Word threw its `&` or comma to the wrong end of the line
+  (`(Zumla, 2011 &`). English inside Arabic text is now written as its own
+  left-to-right piece, and Word keeps it in order however the line breaks.
+  Spaces around brackets now follow the printed page (`العالمي (Shegaze et
+  al., 2020)`, not `العالمي( Shegaze et al., 2020 )`), and a `%` stored at
+  the wrong end goes back beside its number (`15% من حالات`) - about 190
+  of those across 20 test files.
+- Read every text change this made on all 86 test files before measuring.
+  Two faults caught and fixed first: on lines the PDF stores backwards,
+  `في` became `يف`; and `لا يوجد` became `ال يوجد` in two files.
+- **Full run**: nothing lost unchanged on every file; wrong words
+  unchanged (the page check counts only Arabic words, so it cannot see
+  brackets or `%`); right page 65.4% -> 65.7%, one file now exactly its
+  own page count. Theses unchanged. Not committed yet.
+- One leftover on the example page: `Tuberculosis(TB)` - the PDF stores
+  that bracket in the wrong piece, and moving it risks losing words.
+- **Needs Moaz** (FLAGS 27): the "right page" check reads our English
+  glued to the Arabic word before it, which costs a little of that score
+  for nothing. Changing the check means re-scoring every old number.
+- **What is left, looked at while the full run ran**: "glued words" is
+  nearly all one file that stores whole phrases with no spaces. The file
+  that came out 24 pages against 23 is a photo the author squashed to fit,
+  which we draw at its own shape, 41pt taller - and 107 pictures in 23 test
+  files are like that, up to most of a page in one file. Both are next.

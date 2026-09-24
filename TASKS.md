@@ -15,24 +15,32 @@ file, open risks and decisions in `FLAGS.md`.
 must match the printed page before any work on looks. The plan and its
 progress are in `PROGRESS.md` ("Plan from here").
 
-**Where it stands** - full run `2026-09-24-{dev,regression}-textfixes4`:
+**Where it stands** - full run `2026-09-24-{dev,regression}-cite`:
 page-truth wrong words 7.8% on the 48 dev files (floor: Moaz's theses 2.8%),
 found 91.9%, nothing lost 100% on every file but the parked `z21763864`
-(90.0%). Everything is committed and pushed.
+(90.0%). Citations done and measured, NOT yet committed (waiting on Moaz).
 
-**Next, in this order** (agreed with Moaz 2026-09-24):
-1. **Brackets around English citations.** `(Shegaze et al., 2020)` is
-   written `العالمي( Shegaze et al., 2020 )` - no space before the bracket,
-   spaces inside - and Word then places the brackets wrongly where the line
-   wraps (`z20252507` page 3). On nearly every academic paper. With it: a
-   `%` the PDF stores stuck to the next word (`15 من حالات%`, same page),
-   fixable by where it is drawn. Half a day.
-2. **Glued words, the rest** - break down the new full run's wrong words
-   first (`harness/truth.py` output, `truth.json` per run). Half a day.
-3. **Words not on the page at all**, file by file; some are the PDF storing
+**Next, in this order** (agreed with Moaz 2026-09-24; 2 and 4 re-scoped the
+same day by what the breakdown found - PLAN "What the rest of the wrong
+words are"):
+1. ~~Brackets around English citations~~ - DONE 24 Sept (PLAN "Citations
+   where a line wraps"). Left: `Tuberculosis(TB)`, a bracket the PDF stores
+   in the wrong piece; moving it risks the gate. FLAGS 27 needs Moaz.
+2. **Pictures drawn squashed** (was "the file 24 pages against 23"): the
+   writer places a picture at its drawn width and Word keeps its own shape.
+   107 pictures in 23 files, up to most of a page (`z21418248`). Give Word
+   the drawn height too; check pictures turned on their side
+   (`z21751977`). A couple of hours.
+3. **Glued words, the rest**: nearly all `z20276275`, which stores whole
+   phrases with no space - a space where two letters are drawn 0.15 of the
+   type size apart; also words glued to a number in journal headers
+   (`العدد6`). A couple of hours.
+4. **Words not on the page at all**, file by file; some are the PDF storing
    text broken (`ربع أ عقد وست ج در ات` for أربع عقد وست درجات,
-   `z19773087` page 19). Half a day.
-4. **The file that comes out 24 pages against 23.** A couple of hours.
+   `z19773087` page 19). A third of the "one letter off" words look right
+   and may be the OCR. Half a day.
+Moaz is installing missing fonts (list in PROGRESS): after that, run
+`python -m harness.env` and a fresh full run before comparing anything.
 Then Part 2, the missing-font message (below), then Part 3, looks - Moaz's
 thesis page 13 of الفصل الثاني shows the list: bold lost, text too small
 (footnotes worst), Arabic-style digits and commas (the file stores `1`, `,`

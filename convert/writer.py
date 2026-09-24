@@ -22,7 +22,7 @@ from convert.glyphs import spell_out
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
 from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
                                marker_numbers, RAISED, WESTERN,
-                               build_xml, install)
+                               build_xml, install, directional)
 
 PT_PER_EMU = 12700
 RTL_CHARS = re.compile(r"[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]")
@@ -967,10 +967,11 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
             crtl = is_rtl(text) if text.strip() else rtl
             _rtl_paragraph(para, crtl)
             para.alignment = ALIGN_START   # see ALIGN_START: correct both ways
-            run = para.add_run(text)
-            run.font.size = Pt(body_pt)
-            run.bold = (ri == 0)
-            _rtl_run(run, body_pt, font, crtl)
+            for piece, prtl in directional(text, crtl):
+                run = para.add_run(piece)
+                run.font.size = Pt(body_pt)
+                run.bold = (ri == 0)
+                _rtl_run(run, body_pt, font, prtl)
     return t
 
 
@@ -1104,15 +1105,17 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         [(block.text, bold, False)]
 
     def add(text, sbold, sital, lead=False):
-        run = p.add_run((" " if lead else "") + text)
-        run.font.size = Pt(size)
-        run.bold = sbold
-        run.italic = sital
-        if block.kind == HEADING:
-            # Stated outright, not left to inherit. Word's Heading styles are
-            # blue (#2F5496), and the original document's headings are not.
-            run.font.color.rgb = RGBColor(0, 0, 0)
-        _rtl_run(run, size, font, rtl)
+        # English in an Arabic paragraph is a run of its own (`directional`).
+        for piece, prtl in directional((" " if lead else "") + text, rtl):
+            run = p.add_run(piece)
+            run.font.size = Pt(size)
+            run.bold = sbold
+            run.italic = sital
+            if block.kind == HEADING:
+                # Stated outright, not left to inherit. Word's Heading styles
+                # are blue (#2F5496), and the original document's are not.
+                run.font.color.rgb = RGBColor(0, 0, 0)
+            _rtl_run(run, size, font, prtl)
         return run
 
     for n, (text, sbold, sital) in enumerate(parts):
