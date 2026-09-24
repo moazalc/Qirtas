@@ -6,6 +6,7 @@ things every other tool we tested forgets.
 """
 import copy
 import hashlib
+import os
 import re
 import sys
 from collections import Counter, OrderedDict
@@ -870,7 +871,8 @@ def _draw_furniture(doc, draw, model, dropped):
             width = min(b.x1 - b.x0, column)
             if width <= 0:
                 continue
-            _place(p, b.image, width, dropped)
+            height = (b.y1 - b.y) * width / (b.x1 - b.x0) if SHAPE_ON else 0
+            _place(p, b.image, width, dropped, height if height > 0 else None)
 
 
 def _image_fit(model, lift):
@@ -1010,7 +1012,13 @@ def _fix_columns(table, widths_pt, rows):
                 pass
 
 
-def _place(para, path, width_pt, dropped):
+# Give Word the height the picture was drawn at, not only its width. Word
+# otherwise keeps the file's own shape, and authors often squash a picture to
+# fit: drawn at its own shape it came out up to 41pt taller (z21418248).
+SHAPE_ON = os.environ.get("QIRTAS_IMG_SHAPE", "1") != "0"
+
+
+def _place(para, path, width_pt, dropped, height_pt=None):
     """Draw a picture into a paragraph. -> True if it went in.
 
     python-docx identifies an image by its literal signature bytes and raises on
@@ -1020,7 +1028,9 @@ def _place(para, path, width_pt, dropped):
     drop is how one missing picture survived weeks of runs unnoticed.
     """
     try:
-        para.add_run().add_picture(path, width=Emu(int(width_pt * PT_PER_EMU)))
+        height = Emu(int(height_pt * PT_PER_EMU)) if height_pt else None
+        para.add_run().add_picture(path, width=Emu(int(width_pt * PT_PER_EMU)),
+                                   height=height)
         return True
     except Exception as e:
         dropped.append((str(path), f"{type(e).__name__}: {e}"))
@@ -1028,9 +1038,13 @@ def _place(para, path, width_pt, dropped):
 
 
 def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
-    """Place a picture at the width it was drawn at, capped to the text column."""
+    """Place a picture at the size it was drawn at, capped to the text column."""
     width = (block.x1 - block.x0) * k
+    height = (block.y1 - block.y) * k if SHAPE_ON else 0
     if width <= 0 or width > column_pt:
+        # Capped: keep the drawn shape, not the file's.
+        if width > 0 and height > 0:
+            height *= column_pt / width
         width = column_pt
     p = doc.add_paragraph()
     _rtl_paragraph(p)
@@ -1038,7 +1052,8 @@ def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
     pf = p.paragraph_format
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
-    if not _place(p, block.image, width, dropped if dropped is not None else []):
+    if not _place(p, block.image, width, dropped if dropped is not None else [],
+                  height if height > 0 else None):
         # Take the paragraph back out. Left in, it is an empty paragraph eating
         # a line on the page - the same defect the page-break comment in write()
         # warns about, and it would push pagination out of step for free.

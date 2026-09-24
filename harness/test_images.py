@@ -133,6 +133,36 @@ def main():
     check("original placements", count_pdf_structure(str(many))[1], 4)
     check("placements written to the docx", count_docx_structure(str(dst))[1], 4)
 
+    print("\na picture keeps the shape it was drawn at")
+    # Drawn squashed to half its height (z21418248 has one at 2.3 times its
+    # own width-to-height), and drawn turned on its side (z20538636 page 17).
+    import io, re, zipfile
+    from PIL import Image
+    # Not flat grey: a flat picture is photographed off the page (_is_flat),
+    # which hides the stored shape from this check.
+    photo = io.BytesIO()
+    Image.effect_noise((320, 120), 60).convert("RGB").save(photo, "JPEG")
+    for label, rect, rotate in (("squashed", (40, 40, 360, 100), 0),
+                                ("turned on its side", (40, 40, 160, 360), 90)):
+        doc = pymupdf.open()
+        page = doc.new_page(width=595, height=842)
+        page.insert_image(pymupdf.Rect(*rect), stream=photo.getvalue(), rotate=rotate,
+                          keep_proportion=False)
+        # Text too, or the page reads as a scan and is refused.
+        page.insert_text((40, 420), "A line of text under the picture.")
+        src = tmp / f"shape-{rotate}.pdf"
+        doc.save(src); doc.close()
+        dst = tmp / f"shape-{rotate}.docx"
+        convert_v1(str(src), str(dst))
+        with zipfile.ZipFile(dst) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+            media = [n for n in z.namelist() if n.startswith("word/media/")]
+            px = Image.open(io.BytesIO(z.read(media[0]))).size if media else (0, 0)
+        cx, cy = map(int, re.search(r'<wp:extent cx="(\d+)" cy="(\d+)"', xml).groups())
+        drawn = (rect[2] - rect[0]) / (rect[3] - rect[1])
+        check(f"{label}: placed at the drawn shape", round(cx / cy, 2), round(drawn, 2))
+        check(f"{label}: stored the way round it is drawn", px[0] > px[1], drawn > 1)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

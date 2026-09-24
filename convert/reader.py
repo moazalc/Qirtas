@@ -1348,6 +1348,18 @@ def _dpi_for(rect, px, lo=96, hi=300):
     return int(max(lo, min(hi, 72.0 * px / rect.width)))
 
 
+def _turned(m):
+    """Drawn turned or mirrored: the stored pixels are not the way round the
+    page shows them, so a copy placed at the drawn size would come out
+    squashed sideways (z20538636 page 17). Photograph those off the page."""
+    if not TURNED_ON:
+        return False
+    return abs(m.b) > 1e-3 or abs(m.c) > 1e-3 or m.a < 0 or m.d < 0
+
+
+TURNED_ON = os.environ.get("QIRTAS_IMG_SHAPE", "1") != "0"
+
+
 def _render_region(page, rect, dpi=200):
     """Photograph the page where the picture sits, rather than decoding it.
 
@@ -1490,10 +1502,13 @@ def read_images(path, outdir):
                 xref, w, h = info[0], info[2], info[3]
                 if xref in seen or w < MIN_IMAGE_PX or h < MIN_IMAGE_PX:
                     continue
-                rects = [r for r in (page.get_image_rects(xref) or [])
-                         if r.width >= MIN_IMAGE_PT and r.height >= MIN_IMAGE_PT]
-                if not rects:
+                placed = [(r, m) for r, m in
+                          (page.get_image_rects(xref, transform=True) or [])
+                          if r.width >= MIN_IMAGE_PT and r.height >= MIN_IMAGE_PT]
+                if not placed:
                     continue
+                rects = [r for r, _ in placed]
+                turned = _turned(placed[0][1])
                 seen.add(xref)
                 try:
                     raw = d.extract_image(xref)
@@ -1504,7 +1519,7 @@ def read_images(path, outdir):
                 # A picture whose appearance is partly in a transparency mask
                 # cannot be rebuilt from the stored pixels - see _is_flat. Take
                 # it off the page instead, where it is already correct.
-                if raw.get("smask") or _is_flat(d, xref):
+                if raw.get("smask") or _is_flat(d, xref) or turned:
                     shot = _render_region(page, rects[0], _dpi_for(rects[0], w))
                     if shot:
                         blob, ext = shot, "png"
