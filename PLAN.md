@@ -2359,6 +2359,16 @@ and regression files are drawn out of their own proportions by more than
 writer should give Word the drawn height as well as the width. Some large
 negative ones (`z21751977`) may be pictures turned on their side - check.
 
+**Fonts Moaz installed, 2026-09-24.** Every one found by `glyphs._path`
+under the PDF's own name (`BoutrosNewsH1-Bold`, `AF_Diwani-NormalTraditio`,
+`DecoTypeNaskhSpecial`, `MunaBlack`) except `MunaRegular`: the installed
+Muna (alfont.com's copy) has PostScript name `Muna`. A key ending in
+"regular" now also tries the name without it. Muna Bold not installed
+(`z20538636`, 1,000 letters). Word gets the family, "Muna", either way.
+`z20276275` page 12 converted alone and looked at: fonts right; the table
+mirrored wrong, squeezed and written twice, the kashida-stretched title in
+pieces - the same in the whole-document run, so not the cut.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

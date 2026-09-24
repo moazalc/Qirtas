@@ -246,3 +246,17 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   that came out 24 pages against 23 is a photo the author squashed to fit,
   which we draw at its own shape, 41pt taller - and 107 pictures in 23 test
   files are like that, up to most of a page in one file. Both are next.
+- **Fonts installed by Moaz**: DecoType Naskh Special, Boutros News H1,
+  AF_Diwani, Arabic Transparent, AGA Arabesque, XB Niloofar, PT Bold
+  Broken, Muna and Muna Black - all found by the converter under the names
+  the PDFs use. One fix: a PDF calls Muna "MunaRegular" and the installed
+  file calls itself "Muna"; now matched. Still missing: Muna Bold (1,000
+  letters in `z20538636`). Scores from here on are not comparable with
+  earlier ones - a fresh full run is the new starting point.
+- **One page looked at** (`z20276275` page 12, which uses Boutros News H1):
+  the fonts are right; the page is not. The table's columns come out in
+  the wrong order with the question column squeezed thin, the table is
+  written a second time as plain text below it, the stretched title
+  (مجلة المؤتمرات العلمية الدولية) comes out as broken pieces, and the text
+  below is too small with words glued. All already on the list (tables in
+  Part 3, glued words next); the title is new.

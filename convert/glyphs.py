@@ -164,6 +164,9 @@ def _path(name):
     index = _index()
     if k in index:
         return index[k]
+    # MunaRegular in the PDF, "Muna" in the installed file (z20752227)
+    if k.endswith("regular") and k[:-len("regular")] in index:
+        return index[k[:-len("regular")]]
     if len(name.split("+", 1)[-1]) >= 24:
         found = {f for key, f in index.items() if key.startswith(k)}
         if len(found) == 1:
