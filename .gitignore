@@ -21,6 +21,12 @@ corpus/*
 !corpus/wild/
 corpus/wild/*
 !corpus/wild/manifest.jsonl
+#  - corpus/theses/ is the Word-made Arabic thesis corpus, from Zenodo (2026-09-24)
+!corpus/theses/
+corpus/theses/*
+!corpus/theses/manifest.jsonl
+!corpus/theses/picked.json
+!corpus/theses/cuts.json
 
 # Those two exceptions are each ~44KB and neither is regenerable output:
 #

@@ -54,6 +54,26 @@ Also needed:
 
 ## corpus
 
+**Since 2026-09-24 the corpus is Arabic theses made by Word** (`corpus/theses/`,
+Moaz's call): the case the project is for. The Zenodo mix below is kept on disk
+but no longer scored - half of it was 8-page journal articles and a fifth
+scans. Of 113 Arabic theses on Zenodo, 37 count (made by Word, 30+ pages,
+text not a scan or picture tiles, mostly Arabic); each is cut to the same 13-14
+pages - first 3, 8 from a third of the way in, the first table page after
+those, the start of the reference list. 25 are the working set (`--set
+thesis`), 12 held out (`--set thesis-holdout`). The regression set is two of
+Moaz's chapters. To rebuild on a new machine:
+
+    .venv/Scripts/python -m harness.fetch_corpus --from-manifest --out corpus/theses
+    .venv/Scripts/python -m harness.theses --cut
+
+Committed: `corpus/theses/manifest.jsonl` (the 113 records and which PDF of
+each), `picked.json` (which count, and why the rest do not), `cuts.json` (the
+pages taken, and dev or holdout). `--pick` re-judges the downloads; there is
+no need to run it to rebuild.
+
+### the old corpus (not scored since 2026-09-24)
+
 The PDFs are not committed — `corpus/*.pdf` are unpublished thesis chapters (not
 ours to publish) and `corpus/wild/` is ~570MB of open-access PDFs from Zenodo.
 Two small files that describe the corpus **are** committed, and they are what
@@ -207,28 +227,29 @@ Their docstrings are where the failure modes are recorded — `test_arabic.py` a
 How every text fix since 2026-09-23 was measured. Each fix has an
 environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
 `QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
-`QIRTAS_TIGHT` = `0`).
+`QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE` = `0`).
 
-**Quick run**, 11 short files (9 with the most known faults, two theses),
-once with the switch off and once on, **each in its own `--work` folder** -
-both write their Word files there, and a shared one makes the second run
-overwrite the first:
+**Quick run, after every fix**: 8 theses from the working set that cover
+its kinds of trouble (two read through the labels tree, one through geometry,
+many tables, pages that spill, one clean) plus Moaz's two chapters, once with
+the switch off and once on, **each in its own `--work` folder** - both write
+their Word files there, and a shared one makes the second run overwrite the
+first:
 
     export PYTHONIOENCODING=utf-8
-    F=(); for f in z21760107 z19799068 z22051439 z20921788 z19798743 z21087226 z21761968 z22179435 z21095413; do F+=("corpus/wild/$f.pdf"); done
-    F+=("corpus/الفصل الثالث قراءات انفرادات.pdf" "corpus/عن بعد.pdf")
-    QIRTAS_SEAM_TOUCH=0 .venv/Scripts/python -m harness.eval --files "${F[@]}" --max-pages 30 --jobs 3 --work out/work/eval-off --label seam-off < /dev/null
+    F=(); for f in z22058810 z21145041 z21850164 z3387756 z20585114 z15446639 z20973693 z20782957; do F+=("corpus/theses/cuts/$f.pdf"); done
+    F+=("corpus/الفصل الثاني- انفرادات القراء- الشريف.pdf" "corpus/مقدمة البحث.pdf")
+    QIRTAS_SEAM_TOUCH=0 .venv/Scripts/python -m harness.eval --files "${F[@]}" --max-pages 0 --jobs 3 --work out/work/eval-off --label seam-off < /dev/null
     .venv/Scripts/python -m harness.truth out/runs/<date>-quick-seam-off
 
-About 15 minutes each. Most of these files are untagged, so a change to how
-text is read can pass here and fail on tagged ones.
+About 10 minutes each.
 
-**Full run**, before calling a fix done - about 3 hours, the same settings
-every time so the numbers compare (`--max-pages 30`, not the default 60):
+**Full run, at milestones only** (the end of a Part, or a change to how text
+is read) - about 25 minutes, the same settings every time:
 
-    .venv/Scripts/python -m harness.eval --set dev --max-pages 30 --jobs 3 --label <label> < /dev/null
-    .venv/Scripts/python -m harness.truth out/runs/<date>-dev-<label>
-    .venv/Scripts/python -m harness.eval --set regression --max-pages 30 --jobs 3 --work out/work/eval-reg --label <label> < /dev/null
+    .venv/Scripts/python -m harness.eval --set thesis --max-pages 0 --jobs 3 --work out/work/eval-thesis --label <label> < /dev/null
+    .venv/Scripts/python -m harness.truth out/runs/<date>-thesis-<label>
+    .venv/Scripts/python -m harness.eval --set regression --max-pages 0 --jobs 3 --work out/work/eval-reg --label <label> < /dev/null
     .venv/Scripts/python -m harness.truth out/runs/<date>-regression-<label>
 
 Compare with the last full run file by file (`results.json`: `kept`,

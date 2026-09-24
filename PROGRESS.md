@@ -260,3 +260,41 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   (مجلة المؤتمرات العلمية الدولية) comes out as broken pieces, and the text
   below is too small with words glued. All already on the list (tables in
   Part 3, glued words next); the title is new.
+- **Fresh full run with the new fonts** (the new starting point): nothing
+  lost unchanged on every file; wrong words unchanged at 7.8%. Right page
+  65.7% -> 65.1% on the test files, 83.6% -> 87.0% on the theses. One file
+  got worse (`z21751977`, 20 pages against 18). I first blamed the new
+  font; that was wrong - see the pictures entry below.
+- **Pictures drawn squashed - fixed, full run still to do.** Authors often
+  squeeze a picture to fit; we gave Word only its width, so it came out at
+  its original shape, taller or shorter than on the page. 157 pictures in
+  the test files, including a journal logo on every page. Now Word gets the
+  height too, and six pictures turned on their side are copied off the page
+  the right way round. On 11 picture-heavy files: nothing lost, right page
+  62.0% -> 64.7%, one file now exactly its original 17 pages. One file got
+  a page longer: two pictures that sit side by side in the original are
+  written one above the other, and at their true size they no longer fit.
+  That is a separate, older problem, for the looks part.
+- **The file I blamed on a font was not a font problem.** `z21751977`'s
+  Arabic body text is not letters at all but about 130 small pictures a
+  page, like a partly scanned page. The converter drops tiny pictures, so
+  the body never arrives. It should probably be refused like a scan - that
+  needs your call (FLAGS 28).
+- **New test corpus: Arabic theses made in Word** (your call). The old
+  collection was mostly short journal articles and scans - 5 theses out of
+  225. Now: every Arabic thesis on Zenodo (113 downloaded), of which 37 are
+  made by Word with real text. The same 13-14 pages are taken from each
+  every time: the opening pages, a run from the middle, a table page and the
+  reference list. 25 to work on, 12 kept aside to check we did not tune to
+  the 25, and two of your chapters kept as a quick check.
+- **Runs are fast now**: a full run took 23 minutes instead of 3 hours; the
+  check after each fix will take about 10.
+- **Two problems caught while building it**: cutting pages left hidden text
+  from the removed pages inside the file (one 14-page cut read back as most
+  of the thesis) - fixed; and the page checker was comparing our pages with
+  the wrong pages of the whole thesis - fixed before any number was kept.
+- **Where the theses stand**: wrong words 10.1% (your chapters 2.2%), right
+  page 61.1%, and output 14% longer than the original - some theses come
+  out at double their pages. Nothing lost is 99.4%: five theses show words
+  missing, and so far what is "missing" is the PDF's own hidden text stored
+  backwards, not text we dropped. That is the first thing to settle.

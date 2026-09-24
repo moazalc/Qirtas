@@ -7,6 +7,10 @@ between calls, and a size cap so we don't drag down huge scans.
     python -m harness.fetch_corpus --n 100 --out corpus/wild       # new files
     python -m harness.fetch_corpus --from-manifest --out corpus/wild  # THIS corpus
 
+    # the thesis corpus (2026-09-24): every Arabic thesis Zenodo holds
+    python -m harness.fetch_corpus --theses --n 200 --out corpus/theses
+    python -m harness.fetch_corpus --from-manifest --out corpus/theses
+
 Those two are not the same operation, and the difference matters.
 
 The search is sorted by `mostrecent`, so it returns whatever Arabic publications
@@ -66,8 +70,11 @@ def restore(out, delay):
             rec = get(f"{API}/{row['id']}")
             pdfs = [f for f in rec.get("files", [])
                     if f.get("key", "").lower().endswith(".pdf")]
+            # The thesis manifest names the file taken; the first corpus
+            # always took the first PDF.
+            pdfs = [f for f in pdfs if f["key"] == row["key"]] or                 pdfs[:0 if "key" in row else 1]
             if not pdfs:
-                raise ValueError("record no longer carries a PDF")
+                raise ValueError("record no longer carries that PDF")
             download(pdfs[0]["links"]["self"], dest)
         except Exception as e:
             dest.unlink(missing_ok=True)
@@ -95,7 +102,10 @@ def main():
     ap.add_argument("--delay", type=float, default=1.0)
     ap.add_argument("--from-manifest", action="store_true",
                     help="restore exactly this corpus instead of fetching new files")
+    ap.add_argument("--theses", action="store_true",
+                    help="theses only, largest PDF of each record, up to 60MB")
     a = ap.parse_args()
+    max_mb = 60 if a.theses else MAX_MB
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -111,8 +121,11 @@ def main():
     with manifest.open("a", encoding="utf-8") as mf:
         while got < a.n and page <= 100:
             try:
-                data = get(API, {"q": a.query, "size": 20, "page": page,
-                                 "sort": "mostrecent", "type": "publication"})
+                params = {"q": a.query, "size": 20, "page": page,
+                          "sort": "mostrecent", "type": "publication"}
+                if a.theses:
+                    params["subtype"] = "dissertation"
+                data = get(API, params)
             except Exception as e:
                 print(f"  page {page} failed: {e}")
                 break
@@ -130,9 +143,11 @@ def main():
                 if not pdfs:
                     skipped += 1
                     continue
-                f = pdfs[0]
+                # A thesis record can carry its abstract or cover as a
+                # separate PDF; the thesis is the largest.
+                f = max(pdfs, key=lambda x: x.get("size", 0)) if a.theses else pdfs[0]
                 mb = f.get("size", 0) / 1e6
-                if mb > MAX_MB:
+                if mb > max_mb:
                     skipped += 1
                     continue
                 dest = out / f"z{rid}.pdf"
@@ -150,12 +165,13 @@ def main():
                     "title": (md.get("title") or "")[:120],
                     "type": md.get("resource_type", {}).get("title", ""),
                     "year": str(md.get("publication_date", ""))[:4],
+                    **({"key": f["key"]} if a.theses else {}),
                 }, ensure_ascii=False) + "\n")
                 mf.flush()
                 print(f"  [{got:>3}/{a.n}] {dest.name} {mb:>5.1f}MB  {(md.get('title') or '')[:58]}")
                 time.sleep(a.delay)
             page += 1
-    print(f"\ndownloaded {got}, skipped {skipped} (no pdf or >{MAX_MB}MB) -> {out}")
+    print(f"\ndownloaded {got}, skipped {skipped} (no pdf or >{max_mb}MB) -> {out}")
 
 
 if __name__ == "__main__":

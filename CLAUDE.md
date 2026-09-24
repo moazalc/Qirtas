@@ -64,8 +64,9 @@ its own it is blind to non-text content.
 ## Rules that were learned the hard way
 
 **Nothing lost is a hard gate.** No change ships while a word is being dropped.
-It has held at 100% across the dev and regression sets. There is one known
-exception parked in the paused holdout — see `FLAGS.md`.
+It held at 100% across the old dev and regression sets. On the thesis corpus
+(since 2026-09-24) it reads 99.4%: five theses, where the PDF's own hidden text
+looks at fault — `FLAGS.md` 29. Settle that before trusting the gate there.
 
 **When a number moves, check the instrument first.** Seven bugs so far have
 been in the measuring tools, not the converter. Three times a reported

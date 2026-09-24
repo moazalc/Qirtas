@@ -1792,8 +1792,8 @@ the reference has الٕ with no alef, كبير ا where it has كبيرر ا; o
 had been matching the reference's own mistakes. Words in order falls for
 the same reason. The page-truth score did not fall on any of the three.
 
-**Not helped:** `z21751977` (3% found - its font is not installed, so there
-is nothing to choose between), `z21763864` (34% - its words are drawn, not
+**Not helped:** `z21751977` (3% found - its body text is picture tiles, not
+text; found 2026-09-24, FLAGS 28), `z21763864` (34% - its words are drawn, not
 stored as text), words split where the font changes (FLAGS 24 cause 2:
 بمجالات, بين read بني).
 
@@ -2368,6 +2368,85 @@ Muna (alfont.com's copy) has PostScript name `Muna`. A key ending in
 `z20276275` page 12 converted alone and looked at: fonts right; the table
 mirrored wrong, squeezed and written twice, the kashida-stretched title in
 pieces - the same in the whole-document run, so not the cut.
+
+**Full run after the fonts, 2026-09-24 (`fonts-baseline`, the new
+baseline).** Against `cite`, the same code: nothing lost unchanged on every
+file (dev 99.8%, worst 90.0% the parked `z21763864`; regression 100%);
+words in order unchanged (96.4% / 99.0%); wrong words 7.8% dev,
+unchanged. Right page dev 65.7% -> 65.1%, regression 83.6% -> 87.0%.
+Only two files moved: `عن بعد.pdf` (regression, 1 page) 0.73 -> 1.00, and
+`z21751977` 0.47 -> 0.17, now 20 pages against 18 (was 19). First put
+down to DecoType Naskh Special being taller than Word's stand-in - wrong,
+see "Pictures at the shape they are drawn" below: the file's body text is
+not text at all. `harness.truth` crashed printing
+Arabic file names to the console; run it with PYTHONIOENCODING=utf-8.
+
+### Pictures at the shape they are drawn, 2026-09-24
+
+The writer gave Word only a picture's drawn width, so Word used the file's
+own shape. Across the 56 dev and regression files, 157 of 1,036 pictures
+are drawn at a different shape from the one stored, most by 15-40%, the
+worst 2.3 times (`z21418248`); among them the journal logo repeated in the
+header of every page of `z21760107` and `z21764080`. Six are drawn turned
+on their side (`z20252507` pages 4-6, `z20538636` page 17); none flipped.
+
+Now: the drawn height goes to Word too (`_emit_image`, and the running
+pictures in headers and footers), scaled with the width when the width is
+capped to the column. A turned picture is photographed off the page
+(`reader._turned`), since its stored pixels are the wrong way round for the
+drawn box. `_image_fit` already sized pages by drawn height, so the step
+that shrinks pictures on crowded pages and the writer now agree. Switch
+`QIRTAS_IMG_SHAPE=0`. Test: `harness.test_images`, a squashed and a turned
+picture; fails 3 of 4 with the switch off.
+
+Quick run on 11 picture-heavy files (`2026-09-24-quick-pics-{off,on}`):
+nothing lost 100% both; words in order 96.2% both; wrong words 8.8% both;
+right page 62.0 -> 64.7%. `z20256558` 49 -> 94%, 18 pages -> 17, its exact
+count. Worse: `z19773087` 88 -> 72%, 23 -> 24 pages. Its page 18 has two
+pictures side by side, which we write one above the other; drawn at their
+own shape the chart was shorter and the page just fit. Side-by-side
+pictures are the real fault (Part 3). `z21751977` 20 -> 21 pages, but its
+body text is picture tiles (FLAGS 28) and its score is noise.
+
+## The thesis corpus, 2026-09-24
+
+**Why.** Moaz: the Zenodo corpus did not match the plan - digitally born
+Arabic theses first. Counted: of 225 files, 118 journal articles (median 8
+pages), 5 theses (3 usable), 38 scans, half not made by Word; of the 135 dev
+files, 33 refused and 15 thin or mostly not Arabic. Moaz's 8 chapters had
+stopped moving (100% nothing lost, 2.8% wrong words) and had been tuned on
+for weeks. And a full run took three hours.
+
+**What.** Zenodo holds 137 records typed thesis with language Arabic
+(`type=publication&subtype=dissertation`, `q=language:ara`; searching Arabic
+words matches nearly everything). 114 carry a PDF; 113 are 60MB or less and
+were downloaded (637MB). `harness.theses --pick` keeps 37: 42 are not made by
+Word, 25 are under 30 pages, 7 mostly not Arabic, 1 picture tiles, 1 thin.
+`--cut` takes 13-14 fixed pages from each (README). Split by a hash of the
+name: 25 dev, 12 holdout. Regression: two of Moaz's chapters (الفصل الثاني,
+with the page-13 looks list; مقدمة البحث, a title page that is a photo).
+
+**Two traps met building it.** Taking pages out leaves the hidden label tree
+whole: the tags route read 41,746 words from a 14-page cut of `z22058810`,
+and the dead pages stayed in the files (310MB). `_prune` cuts the tree to the
+kept pages (69MB). The text of the kept pages is unchanged by cutting -
+checked on two old-corpus theses, 100% and 99.9% the same. And `harness.truth`
+found files by name anywhere under corpus/, so it scored our 14 pages against
+3 pages of the whole thesis (found 78.9%, wrong 23.9%, on 17 files); runs
+now record each file's path.
+
+**Baseline** (`2026-09-24-{thesis,regression}-thesis-baseline`, pictures fix
+on): thesis set nothing lost 99.4% (worst 94.8%), words in order 94.3%, right
+page 61.1%, page inflation 1.14x; page check found 91.7%, wrong 10.1% on all
+25. Regression: 100%, 99.9%, 86.6%; wrong 2.2%. 21 minutes for the thesis set,
+1 for regression, 1 for the page check - against three hours.
+
+Nothing lost is under 100% on five theses (`z22058810` 94.8%, `z21145041`
+95.6%, `z21850164` 97.8%, `z21644412` 98.8%, `z21728839` 99.0%). What reads
+as lost is the PDF's hidden text stored backwards (يمازلإلا for الإلزامي) and
+invisible joiners where spaces belong - the reference, not us, so far as seen.
+FLAGS 29. Page inflation is the other plain finding: 11 of 25 come out 3 or
+more pages long, `z3387756` 33 pages for 14.
 
 ## Known unfinished
 

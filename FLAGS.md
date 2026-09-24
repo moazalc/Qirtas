@@ -826,8 +826,8 @@ second copy had been matching the reference's mistakes. **Adopted 2026-09-23, co
 of the words the reference says we lack, and every excused sentence is
 listed in the run.
 
-Still open: `z21751977` (3% found - its font is not installed, so there is
-no second name to choose), `z21763864` (its words are not text in the PDF),
+Still open: `z21751977` (3% found - its body text is ~130 small picture
+tiles a page, not text: FLAGS 28), `z21763864` (its words are not text in the PDF),
 words split where the font changes (FLAGS 24 cause 2), and fonts whose
 shapes the installed font cannot name.
 
@@ -864,3 +864,39 @@ comparable until re-scored.
 
 **Closes when:** Moaz decides whether to change the instrument (and
 re-score the last full run with it), or live with the small drop.
+
+## 28. A file whose body text is picture tiles passes as a text PDF
+
+**Status: OPEN (raised 2026-09-24).** `z21751977` carries about 130 small
+pictures a page, and together they are its Arabic body text; what is real
+text is the header, page numbers, footnote numbers and a few French names.
+The scan check lets it through because some text is real, and the reader
+drops pictures under 24pt, so the body never reaches Word. Every score says
+"nothing lost" (the reference text has no body either), right page is 17%,
+and the file was twice blamed on its fonts - wrongly.
+
+**Why it matters:** it is a scan in all but name, and scanned PDFs are out
+of scope - it should be refused, not converted into a near-empty document.
+
+**Closes when:** the scan check counts text drawn as tiles (many small
+pictures covering most of the text area) and refuses such files, or Moaz
+decides they stay in and are converted as pictures. Kept out of the thesis
+corpus by `harness.theses` (one thesis turned away for it); the converter
+itself still lets such files through.
+
+## 29. Nothing lost is under 100% on five theses of the new corpus
+
+**Status: OPEN (raised 2026-09-24).** The first run on the thesis corpus:
+`z22058810` 94.8%, `z21145041` 95.6%, `z21850164` 97.8%, `z21644412` 98.8%,
+`z21728839` 99.0%. The sentences counted lost, looked at on the first three:
+the PDF's hidden text stored backwards (يمازلإلا for الإلزامي,
+`z22058810` and `z21145041`, both read through the labels tree) and
+invisible joiners (U+200C) where spaces belong (`z21850164`). The page
+tie-breaker excused some but not all.
+
+**Why it matters:** the gate is the rule no change ships past. If these are
+the reference's faults, the gate needs to see through them before it can
+guard the new corpus; if any is ours, it is the first real loss on theses.
+
+**Closes when:** each lost sentence on the five is put down to the
+reference or to us, and the gate reads 100% or names a real loss.

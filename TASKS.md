@@ -15,10 +15,22 @@ file, open risks and decisions in `FLAGS.md`.
 must match the printed page before any work on looks. The plan and its
 progress are in `PROGRESS.md` ("Plan from here").
 
-**Where it stands** - full run `2026-09-24-{dev,regression}-cite`:
+**The corpus changed on 24 Sept** (Moaz): 37 Word-made Arabic theses, 25 to
+work on and 12 held out, plus two of Moaz's chapters (PLAN "The thesis
+corpus"). Scores before this are not comparable. New baseline
+`2026-09-24-{thesis,regression}-thesis-baseline`: nothing lost 99.4%
+(FLAGS 29 - five theses, the reference text looks at fault), wrong words
+10.1%, right page 61.1%, pages 1.14x. A quick run after each fix (~10 min),
+a full run only at milestones (~25 min) - README "measuring a change".
+
+**First on the new set:** FLAGS 29 (is anything really lost on the five?),
+then the list below re-checked against the theses - it was drawn up on the
+old corpus.
+
+**Old corpus, for the record** - full run `2026-09-24-{dev,regression}-fonts-baseline`:
 page-truth wrong words 7.8% on the 48 dev files (floor: Moaz's theses 2.8%),
 found 91.9%, nothing lost 100% on every file but the parked `z21763864`
-(90.0%). Citations done and measured, NOT yet committed (waiting on Moaz).
+(90.0%). Citations done and committed (b14135b); fonts installed.
 
 **Next, in this order** (agreed with Moaz 2026-09-24; 2 and 4 re-scoped the
 same day by what the breakdown found - PLAN "What the rest of the wrong
@@ -26,11 +38,11 @@ words are"):
 1. ~~Brackets around English citations~~ - DONE 24 Sept (PLAN "Citations
    where a line wraps"). Left: `Tuberculosis(TB)`, a bracket the PDF stores
    in the wrong piece; moving it risks the gate. FLAGS 27 needs Moaz.
-2. **Pictures drawn squashed** (was "the file 24 pages against 23"): the
-   writer places a picture at its drawn width and Word keeps its own shape.
-   107 pictures in 23 files, up to most of a page (`z21418248`). Give Word
-   the drawn height too; check pictures turned on their side
-   (`z21751977`). A couple of hours.
+2. **Pictures drawn squashed** - DONE 24 Sept, measured on the old
+   corpus's picture files; in the thesis baseline (PLAN "Pictures at the shape they are drawn"). Right page
+   62.0 -> 64.7% on 11 picture files. Left: pictures side by side in the
+   original are written one above the other (`z19773087` page 18, now one
+   page long) - Part 3.
 3. **Glued words, the rest**: nearly all `z20276275`, which stores whole
    phrases with no space - a space where two letters are drawn 0.15 of the
    type size apart; also words glued to a number in journal headers
@@ -39,8 +51,9 @@ words are"):
    text broken (`ربع أ عقد وست ج در ات` for أربع عقد وست درجات,
    `z19773087` page 19). A third of the "one letter off" words look right
    and may be the OCR. Half a day.
-Moaz is installing missing fonts (list in PROGRESS): after that, run
-`python -m harness.env` and a fresh full run before comparing anything.
+Fonts installed and the fresh full run done (`fonts-baseline`, 2026-09-24):
+compare against that. `z21751977` is not a font problem: its body text is
+~130 small picture tiles a page (FLAGS 28).
 Then Part 2, the missing-font message (below), then Part 3, looks - Moaz's
 thesis page 13 of الفصل الثاني shows the list: bold lost, text too small
 (footnotes worst), Arabic-style digits and commas (the file stores `1`, `,`

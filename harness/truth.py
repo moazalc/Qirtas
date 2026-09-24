@@ -126,12 +126,17 @@ def main():
     a = ap.parse_args()
     run = Path(a.run)
     data = json.loads((run / "results.json").read_text(encoding="utf-8"))
-    base = "corpus" if data["set"] == "regression" else "corpus/wild"
+    base = {"regression": "corpus", "thesis": "corpus/theses/cuts",
+            "thesis-holdout": "corpus/theses/cuts"}.get(data["set"], "corpus/wild")
     rows = []
     for r in data["results"]:
-        pdf = Path(base) / r["file"]
-        if not pdf.exists():        # a quick run mixes the two folders
-            pdf = next(Path("corpus").rglob(r["file"]), pdf)
+        # The path the run recorded. Looking a name up anywhere under corpus/
+        # found the whole thesis before the pages cut from it, and scored our
+        # 14 pages against three pages of a 300-page original (2026-09-24).
+        pdf = Path(r["path"]) if r.get("path") else Path(base) / r["file"]
+        if not pdf.exists():        # an old quick run mixes the two folders
+            pdf = next((p for p in Path("corpus").rglob(r["file"])
+                        if "theses" not in p.parts), pdf)
         try:
             s = score(str(pdf), r["docx"])
         except Exception as e:

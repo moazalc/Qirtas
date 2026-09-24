@@ -23,9 +23,21 @@ from harness.env import fingerprint, describe
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
 
+# Two of Moaz's chapters, kept as a quick check that nothing obvious broke
+# when the thesis corpus replaced the rest (Moaz, 2026-09-24). The other six
+# stay on disk, out of every score.
+REGRESSION = ["الفصل الثاني- انفرادات القراء- الشريف.pdf", "مقدمة البحث.pdf"]
+
+
 def files_for(which, split_path="out/split.json"):
     if which == "regression":
-        return sorted(str(p) for p in Path("corpus").glob("*.pdf"))
+        return sorted(str(Path("corpus") / f) for f in REGRESSION)
+    if which in ("thesis", "thesis-holdout"):
+        # harness.theses: the cut pages of each Word-made Arabic thesis.
+        want = "dev" if which == "thesis" else "holdout"
+        cuts = json.loads(Path("corpus/theses/cuts.json").read_text(encoding="utf-8"))
+        return [str(Path("corpus/theses/cuts") / c["file"]) for c in cuts
+                if c["set"] == want]
     rows = json.loads(Path(split_path).read_text(encoding="utf-8"))
     return [r["file"] for r in rows if r["usable"] and r["set"] == which]
 
@@ -43,6 +55,9 @@ def score_one(args):
     """One file, start to finish. Top level so it can be sent to a worker."""
     f, work = args
     r = run_one(f, work)
+    # The file's own path, not just its name: two folders now hold a
+    # z....pdf of the same name - a thesis and the pages cut from it.
+    r["path"] = str(f)
     # Nothing lost, with the page as the tie-breaker where the PDF's hidden
     # text is itself wrong (harness.loss.judge, FLAGS 25). The strict number
     # and every excused sentence are kept beside it.
@@ -55,7 +70,7 @@ def score_one(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression"])
+    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression", "thesis", "thesis-holdout"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
     ap.add_argument("--max-pages", type=int, default=60,
                     help="skip files longer than this (0 = no limit)")
@@ -70,7 +85,7 @@ def main():
                     help="what this run was testing, e.g. 'after-backfill-fix'")
     a = ap.parse_args()
 
-    if a.set == "holdout":
+    if a.set in ("holdout", "thesis-holdout"):
         print(f"{YEL}opening the holdout set - only do this to check generalisation{OFF}")
 
     env = fingerprint()
