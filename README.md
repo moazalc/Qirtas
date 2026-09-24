@@ -227,7 +227,8 @@ Their docstrings are where the failure modes are recorded — `test_arabic.py` a
 How every text fix since 2026-09-23 was measured. Each fix has an
 environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
 `QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
-`QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE` = `0`).
+`QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE`, `QIRTAS_NEAR`, `QIRTAS_BACKFILL_TURN`,
+`QIRTAS_REPAIR_ONCE`, `QIRTAS_WITNESS_COVER`, `QIRTAS_ALLAH` = `0`).
 
 **Quick run, after every fix**: 8 theses from the working set that cover
 its kinds of trouble (two read through the labels tree, one through geometry,

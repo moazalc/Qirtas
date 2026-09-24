@@ -135,6 +135,14 @@ def main():
     check("bal is a real word", repair_lam_alef("ما بال هذا"), "ما بال هذا")
     check("wal untouched", repair_lam_alef("وال يمكن"), "وال يمكن")
 
+    print("\nالله whose ه the font's table gave to the shadda (z21644412)")
+    check("with waw", repair_lam_alef("دَرَجَاتٍ وََّاللَُّ بِمَا"),
+          "دَرَجَاتٍ وََّاللَُّه بِمَا")
+    check("alone", repair_lam_alef("يَرْفَعِ َّاللَُّ الَّذِينَ"),
+          "يَرْفَعِ َّاللَُّه الَّذِينَ")
+    for word in ("الله أكبر", "فاللَّهُ", "كلّ شيء", "اللّغة العربية", "الظلّ", "والّذي"):
+        check(f"left alone: {word}", repair_lam_alef(word), word)
+
     print("\nand the backfill must not be fooled by that same disagreement")
     # The cost of the space-sensitivity above is paid in reader._backfill.
     # One reader route yields "ومنها الشاذ", the other "ومنهالا شاذ" - the same

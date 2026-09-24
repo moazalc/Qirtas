@@ -96,7 +96,8 @@ def spell_out(text):
 
 
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "6" + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
+REPAIR_VERSION = "7" + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
+                        else "-fourpages") + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
                         else "-nosymbols")
 
 _INDEX = None
@@ -690,18 +691,28 @@ def repair(pdf_path, out_path):
     return done
 
 
+REPAIR_ONCE = os.environ.get("QIRTAS_REPAIR_ONCE", "1") != "0"
+
+
 def repaired(pdf_path):
     """The PDF to read: a repaired copy when a font's table is wrong,
     otherwise the file itself. Cached by content, so the converter and the
     checker read the same copy."""
     pdf_path = str(pdf_path)
+    cache = Path(tempfile.gettempdir()) / "qirtas-glyphs"
+    # Already a repaired copy: read it as it is. fit.convert repairs, then
+    # hands the copy to v1.convert, which repaired it again - and the second
+    # repair, reading shapes the first had already renamed, turned الله into
+    # اللَُّ (z21644412, FLAGS 29). Every file needing a repair went through
+    # the fitting loop this way. QIRTAS_REPAIR_ONCE=0 for the old behaviour.
+    if REPAIR_ONCE and Path(pdf_path).parent == cache:
+        return pdf_path
     h = hashlib.sha1(REPAIR_VERSION.encode())
     # A repair reads the installed fonts: one installed since changes it.
     h.update("|".join(sorted(_index())).encode())
     with open(pdf_path, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
-    cache = Path(tempfile.gettempdir()) / "qirtas-glyphs"
     cache.mkdir(exist_ok=True)
     out = cache / f"{h.hexdigest()[:16]}.pdf"
     none = cache / f"{h.hexdigest()[:16]}.none"

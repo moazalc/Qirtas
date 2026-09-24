@@ -23,9 +23,12 @@ corpus"). Scores before this are not comparable. New baseline
 10.1%, right page 61.1%, pages 1.14x. A quick run after each fix (~10 min),
 a full run only at milestones (~25 min) - README "measuring a change".
 
-**First on the new set:** FLAGS 29 (is anything really lost on the five?),
-then the list below re-checked against the theses - it was drawn up on the
-old corpus.
+**FLAGS 29 done 24 Sept** (nothing lost 100.0%, wrong words 10.1 -> 9.0%,
+full run `flags29c` is the new baseline). **Next:** the English the tags
+reading drops inside Arabic lines (FLAGS 29, still open) - it is put back on
+a line of its own, which reads wrong; then the list below re-checked against
+the theses - it was drawn up on the old corpus. Pages are the plain problem
+on the theses: 11 of 25 come out 3+ pages long.
 
 **Old corpus, for the record** - full run `2026-09-24-{dev,regression}-fonts-baseline`:
 page-truth wrong words 7.8% on the 48 dev files (floor: Moaz's theses 2.8%),

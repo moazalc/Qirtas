@@ -8,6 +8,7 @@ mangled) original it is scored against, and fixing a real defect would show up
 as the score getting worse. Correcting both sides compares what each document
 MEANT to say, which is the only comparison worth making.
 """
+import os
 import re
 
 # لا is a ligature - one glyph in the PDF, mapped back to two letters by the
@@ -109,6 +110,7 @@ def repair_lam_alef(text):
       ال standing alone     -> لا    (the definite article cannot stand alone)
       يف standing alone     -> في    (not a word; the commonest word, reversed)
       ا + أإآ + ل           -> ا ل + أإآ  (two alef forms cannot sit together)
+      الل + shadda, no ه    -> الله  (no other word ends so; see below)
 
     Prefixed forms (وال, بال, فال) are deliberately left alone: some are real
     words - بال is mind or condition, فأل is an omen - and they are an order of
@@ -120,7 +122,25 @@ def repair_lam_alef(text):
     text = fold_display_forms(text)
     text = _STANDALONE_AL.sub(LAM + ALEF, text)
     text = _STANDALONE_YF.sub(FA + YA, text)
-    return _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)
+    text = _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)
+    if ALLAH_ON:
+        text = _ALLAH_NO_HA.sub(r"\1" + ALEF + LAM + LAM + r"\2" + HA, text)
+    return text
+
+
+# الله as Word draws it in Simplified Arabic: a ligature named الل and the
+# shadda above it, a shape of its own - which the file's table calls ه. The
+# page shows that shape as a mark in الَّذِينَ and تعلَّمت, and names it so,
+# and الله comes out اللَُّ (z21644412, FLAGS 29). No other word is ال and
+# a lam carrying a shadda at the word's end: the ه is put back after the marks.
+# Matched in the order the file stores the ligature too (وللاَُّ): this runs
+# as each reading is taken, before that order is put right.
+HA = "ه"
+_MARKS = "[ً-ْ]"
+_ALLAH_NO_HA = re.compile(
+    "(?<![ء-ي])((?:[وفب]" + _MARKS + "*)?)(?:" + ALEF + LAM + LAM + "|"
+    + LAM + LAM + ALEF + ")(" + _MARKS + "*ّ" + _MARKS + "*)(?![ء-ي])")
+ALLAH_ON = os.environ.get("QIRTAS_ALLAH", "1") != "0"
 
 
 # ---------------------------------------------------------------------------

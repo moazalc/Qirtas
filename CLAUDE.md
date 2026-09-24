@@ -64,9 +64,10 @@ its own it is blind to non-text content.
 ## Rules that were learned the hard way
 
 **Nothing lost is a hard gate.** No change ships while a word is being dropped.
-It held at 100% across the old dev and regression sets. On the thesis corpus
-(since 2026-09-24) it reads 99.4%: five theses, where the PDF's own hidden text
-looks at fault — `FLAGS.md` 29. Settle that before trusting the gate there.
+It held at 100% across the old dev and regression sets, and reads 100.0% on
+the thesis corpus (since 2026-09-24, worst file 99.3% — `FLAGS.md` 29). Where
+a PDF's hidden text is stored backwards the gate excuses a sentence only if
+ours has its words turned round and the page image agrees.
 
 **When a number moves, check the instrument first.** Seven bugs so far have
 been in the measuring tools, not the converter. Three times a reported

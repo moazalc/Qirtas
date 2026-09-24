@@ -2448,6 +2448,66 @@ invisible joiners where spaces belong - the reference, not us, so far as seen.
 FLAGS 29. Page inflation is the other plain finding: 11 of 25 come out 3 or
 more pages long, `z3387756` 33 pages for 14.
 
+### FLAGS 29: what the five theses were losing, 2026-09-24
+
+Every sentence the gate called lost on the five was looked at. Four causes,
+two of them ours:
+
+1. **The PDF's hidden text stored backwards** (يمازلإلا for الإلزامي,
+   `z22058810`, `z21145041`), **zero-width joiners where spaces belong**
+   (`z21850164`), **words glued to a neighbour's letter** (هباصاداهجا0) and a
+   **broken font table** (أّب for أبي). The reference, not us. The gate now
+   splits words at joiners (`loss.WS`), ignores spacing when asking whether
+   a word is in ours, excuses a sentence when 80% of its words are in ours
+   turned round and the page shows them that way, and one whose every word -
+   short ones too - is in ours and differs only in punctuation.
+2. **Our output carried most of those theses twice.** The fill-in step
+   (`reader._backfill`) compared the other reading - which has the lines
+   backwards - with the chosen one, found no match, and added the backwards
+   text: `z21145041` wrote 1,431 of its 2,151 Arabic words a second time.
+   It had passed every gate because the backwards copy matched the
+   backwards reference. Now a paragraph is skipped when 80% of its Arabic
+   words are already there either way round (`QIRTAS_BACKFILL_TURN`), and
+   only its English and numbers the chosen reading lacks are put back, as a
+   line of their own - the tags reading drops English inside Arabic lines
+   (eGFR, T2DM, COVID19), and skipping the whole paragraph lost them; the
+   gate caught it at 86.7%.
+3. **Near-repeats were never put back.** The same step called a sentence
+   present if five samples of it were found anywhere; a reference list
+   repeats itself, and entry 30 of `z21145041` (entry 16's title, another
+   publisher) was lost. Now the samples must sit together and 90% of the
+   sentence's letters must line up there (`QIRTAS_NEAR`) - two swapped
+   letters in ومنها الشاذ / ومنهالا شاذ still pass.
+4. **The font repair ran twice, and the first pass was incomplete.**
+   `fit.convert` repairs, then `v1.convert` repaired the repaired copy.
+   The page witness reads four page images, the four richest in disputed
+   shapes; a shape on none of them kept the file's name. The second pass
+   picked four other pages and fixed what the first missed - Calibri's 0 and
+   2 stored as 1, the ً of اً stored as ا - and broke الله: its shadda is a
+   shape of its own which the file's table calls ه. Now: a repaired copy is
+   not repaired again (`QIRTAS_REPAIR_ONCE`); the witness adds pages until
+   every disputed shape has been seen, up to 10, and counts a reading with
+   the page's letters out of order as agreeing (`QIRTAS_WITNESS_COVER`,
+   REPAIR_VERSION 7); and الل or للا with a shadda at a word's end gets its
+   ه back, in `repair_lam_alef` and in the fix map's replacements
+   (`QIRTAS_ALLAH`). All 37 theses go through the font repair (Word's
+   Symbol and Wingdings bullets alone trigger it).
+
+Full run `2026-09-24-{thesis,regression}-flags29c`, against
+`thesis-baseline`: nothing lost 99.4 -> 100.0% (worst `z21145041` 99.3%, one
+reversed sentence with a و and a slash glued in); wrong words 10.1 -> 9.0%
+(`z21145041` 32.6 -> 13.7%, `z22058810` 27.6 -> 20.2%, which is now exactly 14
+pages); words in order 94.3 -> 93.4%; right page 61.1 -> 60.1%, all of it
+`z21145041` 0.65 -> 0.36 - an instrument effect: 520 of its 1,218 reference
+words exist in ours only turned round, and right page compares with that
+backwards hidden text. Regression unchanged. `harness.truth`, which reads
+the page, is the score to trust on these files.
+
+Looked at `z22058810` page 3: reads right, no backwards copy; COVID19 sits
+alone at the end instead of inside its sentence (the English put back on
+its own line), the page number reads 57 where the page shows ب, the title
+lost bold and centring.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

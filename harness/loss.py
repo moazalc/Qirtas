@@ -14,7 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness.compare import text_of, text_of_docx
 from convert.v1 import convert
 
-WS = re.compile(r"\s+")
+# Zero-width joiners count as space. z21850164 stores one (U+200C) between
+# every pair of words instead of a space, so a sentence was one "word" and
+# no word of it could be looked for on its own (FLAGS 29).
+WS = re.compile(r"[\s\u200b-\u200d\u2060\ufeff]+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")
 BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\033[31m", "\033[0m"
 
@@ -61,7 +64,7 @@ def words_survive(raw, b, marks=True):
     too easily to be evidence in either direction, and requiring them would
     reintroduce the false alarms this exists to remove.
     """
-    words = [w for w in (norm(x, marks) for x in raw.split())
+    words = [w for w in (norm(x, marks) for x in WS.split(raw))
              if len(w) >= MIN_WORD]
     if not words:
         return False
@@ -104,6 +107,11 @@ def coverage(orig, out, marks=True):
 # A flagged sentence is judged by the page only where the OCR plainly read
 # that part of it: at least this share of the sentence's other words.
 PAGE_READ = 0.5
+# Share of a backwards-stored sentence's words that must be in ours turned
+# round before the page is asked about it.
+TURNED = 0.8
+# A word in one script: Arabic letters, or Latin letters and digits.
+SCRIPTS = re.compile(r"[\u0621-\u064A]+|[A-Za-z0-9]+")
 
 
 def judge(pdf, out, marks=True):
@@ -135,7 +143,11 @@ def judge(pdf, out, marks=True):
     with open(pdf, "rb") as f:
         key = hashlib.sha1(f.read()).hexdigest()[:16]
     doc = pymupdf.open(pdf)
-    ours = {_norm(w) for w in out.split()}
+    ours = {_norm(w) for w in WS.split(out)}
+    # Ours with the spaces out: a word the reference glues to the next one
+    # (هداعايلع, الاصليan) is there when ours keeps them apart. The gate
+    # ignores spacing everywhere else (norm) - here too.
+    ours_run = "".join(_norm(w) for w in WS.split(out))
     excused = []
     for s in gone:
         page = next((i for i, t in enumerate(by_page) if s[5:45] in t), None)
@@ -154,11 +166,48 @@ def judge(pdf, out, marks=True):
         # question - on a page read badly (z21763864) it cuts words anywhere.
         shown = set(seq) | {"".join(seq[i:i + k]) for k in (2, 3)
                             for i in range(len(seq) - k + 1)}
-        words = [w for w in (_norm(x) for x in raw_of.get(s, "").split())
+        words = [w for w in (_norm(x) for x in WS.split(raw_of.get(s, "")))
                  if len(w) >= MIN_WORD]
-        lacking = [w for w in words if w not in ours]
-        present = [w for w in words if w in ours]
-        if not lacking or not present:
+        def there(w):
+            if w in ours or w in ours_run:
+                return True
+            # Glued where Arabic meets English (الاصلي“an): both halves.
+            parts = SCRIPTS.findall(w)
+            return len(parts) > 1 and all(p in ours or p in ours_run for p in parts)
+
+        def turned_round(f):
+            # A backwards-stored word carries a stray letter or digit of its
+            # neighbour at one end (هباصاداهجا0, اهيجولويبلا).
+            return there(f) or (len(f) >= 4 and (there(f[1:]) or there(f[:-1])))
+
+        lacking = [w for w in words if not there(w)]
+        present = [w for w in words if w not in lacking]
+        # The reference stores the sentence backwards, letter by letter
+        # (يمازلإلا for الإلزامي; z22058810, z21145041), so none of its words
+        # match ours and nothing is left to judge the page by. Turned round,
+        # nearly every word is in ours - a number, an English term or two
+        # words run together aside: excused if the page shows them that way
+        # and shows none of the rest. A sentence we dropped is in ours
+        # neither way round.
+        flipped = [w[::-1] for w in lacking]
+        turned = [f for f in flipped if turned_round(f)]
+        if lacking and len(turned) >= TURNED * len(lacking):
+            rest = [w for w, f in zip(lacking, flipped) if f not in turned]
+            if sum(1 for f in turned if f in shown or f in joined) \
+                    >= PAGE_READ * len(turned) \
+                    and not any(w in shown for w in rest):
+                excused.append(s)
+            continue
+        if not lacking:
+            # Every word there and the sentence still not found whole: the
+            # difference is punctuation - الأصلي: “an where the reference has
+            # الأصلي“an (z21850164). Excused only if the short words are
+            # there as well; a dropped في or لا is a real loss.
+            every = [w for w in (_norm(x) for x in WS.split(raw_of.get(s, ""))) if w]
+            if every and all(there(w) for w in every):
+                excused.append(s)
+            continue
+        if not present:
             continue
         read = sum(1 for w in present if w in shown or w in joined)
         if read < PAGE_READ * len(present):

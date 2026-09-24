@@ -298,3 +298,21 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   out at double their pages. Nothing lost is 99.4%: five theses show words
   missing, and so far what is "missing" is the PDF's own hidden text stored
   backwards, not text we dropped. That is the first thing to settle.
+- **The five theses that seemed to lose words - settled.** Most of the
+  "lost" text was the PDF's own hidden copy being wrong (stored backwards,
+  or with invisible characters between words); the checker now sees through
+  that, but only where the page image confirms our text. Looking closely
+  turned up four real faults of ours, all fixed:
+  - Two theses were written with much of their text **twice, the second
+    copy backwards** - no score had noticed. Gone now; their wrong words
+    fell from 33% to 14% and from 28% to 20%.
+  - Reference-list entries that look almost alike were **dropped** as
+    "already there". Now put back.
+  - The font repair **ran twice by accident**, and the accident was hiding
+    that the first pass missed digits and the ending ـاً - and it broke
+    الله. One pass now gets all three right.
+  - English inside Arabic lines is **put back on its own line** where the
+    reading drops it (COVID19 at a paragraph's end). Nothing is lost, but it
+    reads wrong - next on the list.
+- **Where it stands**: nothing lost 100% on the theses (one file 99.3%),
+  wrong words 9.0% (was 10.1%), your chapters unchanged.

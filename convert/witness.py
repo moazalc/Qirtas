@@ -32,6 +32,7 @@ is missing, nothing changes.
 import collections
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -50,6 +51,13 @@ from convert.pdftext import apply_fixes, fix_map
 PS = Path(__file__).with_name("ocr_windows.ps1")
 DPI = 200
 PAGES = 4                 # pages read by OCR, those richest in disputed shapes
+# ... then more, until every disputed shape has been seen on a page read, up
+# to this many. With only the richest four, a shape drawn on none of them got
+# no vote and kept the file's name: Calibri's 0 and 2 stored as 1, the ً of
+# اً stored as ا (z14714045, z22828583). Repairing the repaired copy read
+# four other pages and fixed them - by accident (FLAGS 29).
+COVER_PAGES = 10
+COVER_ON = os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
 SLACK = 1.5               # points added round an OCR box
 # A font whose disputed shapes the page settled mostly one way: its other
 # disputed shapes go the same way. At least this many settled, this lopsided.
@@ -184,6 +192,17 @@ def settle(pdf_path, work=None):
     if not drawn:
         return {}
     pages = sorted(drawn, key=lambda i: -len(drawn[i]))[:PAGES]
+    if COVER_ON:
+        need = {(k, g) for i in drawn for k, g, _ in drawn[i]} -             {(k, g) for i in pages for k, g, _ in drawn[i]}
+        while need and len(pages) < COVER_PAGES:
+            best = max((i for i in drawn if i not in pages),
+                       key=lambda i: len(need & {(k, g) for k, g, _ in drawn[i]}),
+                       default=None)
+            got = need & {(k, g) for k, g, _ in drawn[best]} if best is not None else set()
+            if not got:
+                break
+            pages.append(best)
+            need -= got
 
     # The same document with every disputed shape given the installed name.
     work = Path(work or tempfile.mkdtemp(prefix="qirtas-witness-"))
@@ -211,6 +230,16 @@ def settle(pdf_path, work=None):
                 for kg in here:
                     votes[kg][0] += 1
             elif b == seen:
+                for kg in here:
+                    votes[kg][1] += 1
+            # The stored text holds the word's letters out of order - الله
+            # as وللاه, a lam-alef the reader puts right later - so neither
+            # reading matched and the font's lean renamed the ه of الله a
+            # vowel mark (z21644412). The same letters as the page count.
+            elif COVER_ON and sorted(a) == sorted(seen) != sorted(b):
+                for kg in here:
+                    votes[kg][0] += 1
+            elif COVER_ON and sorted(b) == sorted(seen) != sorted(a):
                 for kg in here:
                     votes[kg][1] += 1
 

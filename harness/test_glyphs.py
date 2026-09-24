@@ -133,6 +133,14 @@ def main():
         check("a thesis' unlabelled signs are read",
               (text.count(L(0xFD47)), text.count(L(0xFDFA))), (13, 2))
         check("... in their place", "أبي بكر " + L(0xFD47) + "؛" in text, True)
+    # The page-fitting loop repairs, then the single pass repairs its copy
+    # again; on this thesis the second repair turned الله into اللَُّ
+    # (FLAGS 29). 14 pages cut from it (harness.theses).
+    twice = Path("corpus/theses/cuts/z21644412.pdf")
+    if twice.exists():
+        from convert.glyphs import repaired
+        once = repaired(twice)
+        check("repairing a repaired copy changes nothing", repaired(once), once)
 
     print("the page settles what the file and the installed font dispute")
     journal = Path("corpus/wild/z21762915.pdf")

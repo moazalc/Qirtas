@@ -12,6 +12,7 @@ We run all three and keep whichever recovered more Arabic, preferring the
 labelled ones when they come close — measure, don't predict.
 """
 import collections
+import difflib
 import os
 import re
 from pathlib import Path
@@ -73,13 +74,53 @@ SAMPLES = 5
 PRESENT_AT = 0.6
 
 
+# The windows must also be found together, within about the sentence's own
+# length. Anywhere in the text was enough before, and a reference list repeats
+# itself: entry 30 of z21145041 has entry 16's title with another publisher,
+# four of its five windows were found in entry 16, and it was never put back
+# (FLAGS 29). QIRTAS_NEAR=0 for the old test.
+NEAR_ON = os.environ.get("QIRTAS_NEAR", "1") != "0"
+NEAR_AT = 0.9     # share of a sentence's letters that must line up
+TURN_ON = os.environ.get("QIRTAS_BACKFILL_TURN", "1") != "0"
+TURN_WORD = re.compile("[\u0621-\u064A]{4,}")
+LATIN_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]+")
+TURNED_AT = 0.8     # share of a block's words already there, either way round
+
+
 def _present(sent, have):
     if len(sent) <= WINDOW:
         return sent in have
     last = len(sent) - WINDOW
-    spots = {round(i * last / (SAMPLES - 1)) for i in range(SAMPLES)}
-    hits = sum(1 for i in spots if sent[i:i + WINDOW] in have)
-    return hits >= len(spots) * PRESENT_AT
+    spots = sorted({round(i * last / (SAMPLES - 1)) for i in range(SAMPLES)})
+    need = len(spots) * PRESENT_AT
+    if not NEAR_ON:
+        return sum(1 for i in spots if sent[i:i + WINDOW] in have) >= need
+    # Where the samples say the sentence sits, it must also read the same,
+    # letter by letter. Found anywhere was enough before, and a reference
+    # list repeats itself: entry 30 of z21145041 is entry 16's title with
+    # another publisher, its samples were all found in entry 16, and it was
+    # never put back (FLAGS 29). Counting samples cannot separate that from
+    # ومنها الشاذ / ومنهالا شاذ - two letters swapped in a short sentence
+    # spoil as many samples as a new publisher in a long one. How many
+    # letters line up can: 97% against 80%.
+    starts = []
+    for i in spots:
+        w = sent[i:i + WINDOW]
+        at = have.find(w)
+        while at >= 0:
+            starts.append(at - i)
+            at = have.find(w, at + 1)
+    slack = max(WINDOW, len(sent) // 4)
+    for at in sorted(set(starts)):
+        # Only where enough samples agree on the start, give or take.
+        if sum(1 for x in starts if abs(x - at) <= slack) < need:
+            continue
+        near = have[max(0, at - slack): at + len(sent) + slack]
+        same = sum(b.size for b in difflib.SequenceMatcher(
+            None, sent, near, autojunk=False).get_matching_blocks())
+        if same >= NEAR_AT * len(sent):
+            return True
+    return False
 
 
 def _sentences(t):
@@ -119,6 +160,10 @@ def _backfill(chosen, results, path, fix=None):
     have = "".join(_bare(b.text) + "".join(_bare(c) for row in (b.rows or [])
                                             for c in row)
                    for b in chosen.blocks)
+    every = " ".join(b.text + " " + " ".join(c for row in (b.rows or []) for c in row)
+                     for b in chosen.blocks)
+    words = set(TURN_WORD.findall(every))
+    latin = set(LATIN_WORD.findall(every))
     added = False
     for _, other in results:
         if other is chosen:
@@ -134,6 +179,28 @@ def _backfill(chosen, results, path, fix=None):
             sents = _sentences(text)
             if not sents:
                 continue
+            # A reading that stores lines backwards (يمازلإلا for الإلزامي)
+            # has them the other way round from the chosen one, often only
+            # some lines of a paragraph. Unchecked, z21145041 was written with
+            # 1,431 of its 2,151 Arabic words a second time, backwards
+            # (FLAGS 29). Asked word by word, either way round: turning a
+            # whole sentence also turns its numbers and English, and lam-alef
+            # and marks land differently. English is not asked - a reference
+            # list entry missing from the chosen reading is all English.
+            ws = TURN_WORD.findall(text) if TURN_ON else []
+            if len(ws) >= 3 and sum(1 for w in ws if w in words or w[::-1] in words) \
+                    >= TURNED_AT * len(ws):
+                # Its English and numbers are put back on their own: the
+                # chosen reading of z21145041 drops the English inside Arabic
+                # lines - eGFR, T2DM, PRISMA - and this backwards copy was the
+                # only place they were. Skipped whole, they were lost; taken
+                # whole, the paragraph was doubled backwards.
+                gone = [w for w in LATIN_WORD.findall(text) if w not in latin]
+                if gone:
+                    chosen.add(Block(kind=PARAGRAPH, text=" ".join(gone), page=b.page))
+                    latin |= set(gone)
+                    added = True
+                continue
             missing = [x for x in sents if not _present(x, have)]
             # Only take a block that is genuinely absent. Adding one whose text
             # is mostly present already duplicated whole paragraphs and pushed
@@ -142,6 +209,8 @@ def _backfill(chosen, results, path, fix=None):
                 continue
             chosen.add(Block(kind=PARAGRAPH, text=text, page=b.page))
             have += _bare(text)
+            words |= set(TURN_WORD.findall(text))
+            latin |= set(LATIN_WORD.findall(text))
             added = True
     if added:
         chosen.blocks.sort(key=lambda b: b.page)

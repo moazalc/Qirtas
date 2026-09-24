@@ -886,7 +886,17 @@ itself still lets such files through.
 
 ## 29. Nothing lost is under 100% on five theses of the new corpus
 
-**Status: OPEN (raised 2026-09-24).** The first run on the thesis corpus:
+**Status: MOSTLY CLOSED 2026-09-24** (PLAN "FLAGS 29: what the five theses
+were losing"). Two causes were ours and are fixed (backwards text written
+twice, near-repeats not put back); two were the font repair, fixed; the rest
+was the reference, which the gate now sees through. Nothing lost 100.0% on
+the thesis set, worst `z21145041` 99.3% - one sentence, reference glue.
+**Still open:** the tags reading drops English inside Arabic lines, so it is
+put back on a line of its own (COVID19 at the end of a paragraph) - fix the
+reading, not the fill-in. Right page reads the backwards hidden text on
+`z21145041` and scores our right words down.
+
+Raised as: The first run on the thesis corpus:
 `z22058810` 94.8%, `z21145041` 95.6%, `z21850164` 97.8%, `z21644412` 98.8%,
 `z21728839` 99.0%. The sentences counted lost, looked at on the first three:
 the PDF's hidden text stored backwards (يمازلإلا for الإلزامي,

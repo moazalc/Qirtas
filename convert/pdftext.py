@@ -301,7 +301,11 @@ def _lam_alef_map(path):
         if k2 != k and k2 not in out and k2 not in seen \
                 and not _pattern(k2).search(settled):
             out[k2] = v
-    return out
+    # And the word it becomes spelled the same way: a spelling rule that
+    # adds a letter - the ه of الله (convert/arabic.py) - was otherwise taken
+    # back out by the map, اللَُّه -> اللَُّ (z21644412, FLAGS 29). The rules
+    # fire only on broken text, so a word in its right order passes through.
+    return {k: repair_lam_alef(" " + v + " ").strip() for k, v in out.items()}
 
 
 def _pattern(fragment):
