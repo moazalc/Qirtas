@@ -58,29 +58,32 @@ drawn (see the timeline); a full run will say how much is left. Then, smaller:
 
 ### Plan from here (agreed 23 Sept, rough estimates)
 
-**Text, about 2 days**
-1. Full run on every test file, to confirm today's fixes and give a new
-   breakdown of what is left (about 3 hours, in the background).
-2. Punctuation next to numbers or English - DONE 23 Sept.
-3. Words glued together - partly done by 2 (`الشكل7`); the rest after the
-   full run's breakdown.
-4. Numbers - CHECKED 23 Sept: nearly all the OCR misreading; no fix.
-5. Words not on the page at all, file by file. Half a day.
-6. One file comes out 24 pages against 23. A couple of hours.
+**Part 1: text, about 2 days** (started 23 Sept)
+1. Full run on every test file - DONE 24 Sept (wrong words 9.3% -> 7.8%).
+2. Punctuation next to numbers or English - DONE 23-24 Sept.
+3. Numbers - CHECKED 23 Sept: nearly all the OCR misreading; no fix.
+Next, in this order (agreed 24 Sept):
+4. Brackets around English citations (`(Shegaze et al., 2020)` lands in
+   the wrong place when a line wraps) and a stray `%`. Half a day.
+5. Words glued together, the rest (part was fixed by 2). Half a day.
+6. Words not on the page at all, file by file. Half a day.
+7. One file comes out 24 pages against 23. A couple of hours.
 
 Parked: `z21763864`, whose text is drawn as shapes.
 
-**Missing-font feature, about 1 day**
-7. Before converting, tell the user which fonts the PDF uses that are not
+**Part 2: missing-font feature, about 1 day**
+8. Before converting, tell the user which fonts the PDF uses that are not
    installed, and which to install (Moaz's idea).
-8. On Moaz's PC: DecoType Naskh Special and Muna still missing.
+9. On Moaz's PC: DecoType Naskh Special and Muna still missing.
 
-**Looks, about a week**
-9. Bold, italics, text size. 10. Centring and alignment. 11. Coloured
-bands and headers. 12. Tables that look like the original. 13. Footnotes.
+**Part 3: looks, about a week**
+10. Bold, italics, text size (Moaz's thesis page: all bold in the original,
+regular in ours; footnotes far too small). 11. Arabic-style digits and
+commas where the original shows them (`(١)`, `٤٠`, `،`). 12. Centring,
+alignment, list dashes. 13. Coloured bands and headers. 14. Tables that
+look like the original. 15. Footnotes.
 
-**Waiting on Moaz:** several commits not pushed yet (the plan, and the
-text fixes of 23-24 Sept). Two fonts are
+**Waiting on Moaz:** nothing - everything is pushed (24 Sept). Two fonts are
 still missing: **DecoType Naskh Special** (the plain DecoType Naskh installed
 is a different font) and **Muna**. 
 

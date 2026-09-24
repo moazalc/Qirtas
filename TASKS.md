@@ -9,6 +9,44 @@ file, open risks and decisions in `FLAGS.md`.
 
 ---
 
+## Start here (2026-09-24)
+
+**Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
+must match the printed page before any work on looks. The plan and its
+progress are in `PROGRESS.md` ("Plan from here").
+
+**Where it stands** - full run `2026-09-24-{dev,regression}-textfixes4`:
+page-truth wrong words 7.8% on the 48 dev files (floor: Moaz's theses 2.8%),
+found 91.9%, nothing lost 100% on every file but the parked `z21763864`
+(90.0%). Everything is committed and pushed.
+
+**Next, in this order** (agreed with Moaz 2026-09-24):
+1. **Brackets around English citations.** `(Shegaze et al., 2020)` is
+   written `العالمي( Shegaze et al., 2020 )` - no space before the bracket,
+   spaces inside - and Word then places the brackets wrongly where the line
+   wraps (`z20252507` page 3). On nearly every academic paper. With it: a
+   `%` the PDF stores stuck to the next word (`15 من حالات%`, same page),
+   fixable by where it is drawn. Half a day.
+2. **Glued words, the rest** - break down the new full run's wrong words
+   first (`harness/truth.py` output, `truth.json` per run). Half a day.
+3. **Words not on the page at all**, file by file; some are the PDF storing
+   text broken (`ربع أ عقد وست ج در ات` for أربع عقد وست درجات,
+   `z19773087` page 19). Half a day.
+4. **The file that comes out 24 pages against 23.** A couple of hours.
+Then Part 2, the missing-font message (below), then Part 3, looks - Moaz's
+thesis page 13 of الفصل الثاني shows the list: bold lost, text too small
+(footnotes worst), Arabic-style digits and commas (the file stores `1`, `,`
+and Word shows `(١)`, `،`), list dashes. New, lower: journal line numbers
+in the margin written into the text (`z19773087`), "Mode" captions of a
+picture grid written twice.
+
+**How to measure** (details in `README.md`, "measuring a change"): a quick
+run on 11 files with the change on and off, each in its own `--work`
+folder, then `harness.truth` on each; a full run before calling it done.
+The quick set is mostly untagged PDFs - a change to how text is read must
+also be checked on tagged files (PLAN "The full run caught what the quick
+set could not").
+
 ## What this is
 
 Converting Arabic PDFs back into editable Word files. The problem: people

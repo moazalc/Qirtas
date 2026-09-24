@@ -202,6 +202,46 @@ nothing to do with the converter.
 Their docstrings are where the failure modes are recorded — `test_arabic.py` and
 `test_loss_gate.py` especially are worth reading before touching either area.
 
+### measuring a change
+
+How every text fix since 2026-09-23 was measured. Each fix has an
+environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
+`QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER` = `0`).
+
+**Quick run**, 11 short files (9 with the most known faults, two theses),
+once with the switch off and once on, **each in its own `--work` folder** -
+both write their Word files there, and a shared one makes the second run
+overwrite the first:
+
+    export PYTHONIOENCODING=utf-8
+    F=(); for f in z21760107 z19799068 z22051439 z20921788 z19798743 z21087226 z21761968 z22179435 z21095413; do F+=("corpus/wild/$f.pdf"); done
+    F+=("corpus/الفصل الثالث قراءات انفرادات.pdf" "corpus/عن بعد.pdf")
+    QIRTAS_SEAM_TOUCH=0 .venv/Scripts/python -m harness.eval --files "${F[@]}" --max-pages 30 --jobs 3 --work out/work/eval-off --label seam-off < /dev/null
+    .venv/Scripts/python -m harness.truth out/runs/<date>-quick-seam-off
+
+About 15 minutes each. Most of these files are untagged, so a change to how
+text is read can pass here and fail on tagged ones.
+
+**Full run**, before calling a fix done - about 3 hours, the same settings
+every time so the numbers compare (`--max-pages 30`, not the default 60):
+
+    .venv/Scripts/python -m harness.eval --set dev --max-pages 30 --jobs 3 --label <label> < /dev/null
+    .venv/Scripts/python -m harness.truth out/runs/<date>-dev-<label>
+    .venv/Scripts/python -m harness.eval --set regression --max-pages 30 --jobs 3 --work out/work/eval-reg --label <label> < /dev/null
+    .venv/Scripts/python -m harness.truth out/runs/<date>-regression-<label>
+
+Compare with the last full run file by file (`results.json`: `kept`,
+`text_score`; `truth.json`: `wrong`). A run that reports fewer files than
+the last has had a crash - check the log for `FAIL`. A stopped run leaves
+hidden Word processes (no window) that lock the next run's files: close
+them first (`Get-Process WINWORD`, check `MainWindowTitle` is empty).
+
+**Look at a page.** A random page of a file no fix was tuned on, the
+original beside ours (`harness.look` on the eval's rebuilt PDF in
+`out/work/eval/pdf/`, see above). Moaz wants pages that are mostly
+Arabic - an English page says nothing about Arabic. The theses are someone
+else's unpublished work: their pictures stay local, never published.
+
 ## the three scores are not interchangeable
 
 Confusing them has cost real time, twice:
