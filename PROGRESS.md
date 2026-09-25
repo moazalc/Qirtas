@@ -350,3 +350,13 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   Word shows them as ١ or 1 depending on each reader's own Word setting. To
   force (١) we would type them in as fixed text - but then they no longer
   renumber if the document is edited. Which do you prefer?
+
+- **Text size fixed.** Every paragraph came out at the body size and every
+  heading at a fixed step above it, so a 22pt thesis title came out at about
+  14pt. Now each paragraph gets the size the original used, with its line
+  spacing to match. Titles and chapter headings at the original's size: 36
+  of 48 now, was 17 of 43.
+- **Spacing on title pages - tried, not kept yet.** Putting back the gaps
+  between the lines of a title page made pages run over, because our pages
+  hold more than the original's: things side by side (the two supervisors)
+  come out stacked. That is next: fix side by side, then the gaps fit.

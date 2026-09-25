@@ -2603,6 +2603,30 @@ smaller than the original's and the page is bunched at the top (the page
 fitting shrinking a page that runs over?), the two supervisors side by side
 are stacked, and a page number is printed where the original has none.
 
+### Part 3: text size, and the gaps that did not fit, 2026-09-25
+
+**Each paragraph at its own size.** The reader measured every paragraph and
+the writer ignored it: body text went out at the body size and headings at
+1.15 or 1.35 of it, so `z20782957`'s 22pt title came out near 14pt and its
+18pt names at 12. Now `Block.text_size` - the size most of its letters are
+set at (`size` stays the largest, which heading detection wants) - is
+written, times the page's fitting scale (`QIRTAS_OWN_SIZE`). The line height
+grows and shrinks with it: at the body's exact line height the title's two
+lines were drawn over each other. Measured on Word's render, lines matched
+by their words: within 10% of the original's size 67% -> 81%; lines set at
+16pt or more 17/43 -> 36/48. Nothing else moved on the quick set.
+
+**The space above paragraphs - tried, left off.** Every paragraph is
+written with no space above, so a title page spread down the page comes out
+bunched at the top. Putting back the original's gaps (`writer._gap_above`)
+pushed pages over: right page 53.4 -> 40.2% on the quick set, `z20782957`
+13 pages -> 14. Kept to pages under 150 words and measured from a picture's
+foot (a first line under a logo had got the logo's height again as space),
+still three theses gained 1-3 pages, right page 48.6%, and the fitting then
+shrank the text to make room. Our pages hold more than the original's - two
+supervisors side by side come out stacked - so the original's gaps do not
+fit. `QIRTAS_GAP=1` to try it; off by default.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

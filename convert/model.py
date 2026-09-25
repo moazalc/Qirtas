@@ -22,6 +22,9 @@ class Block:
     page: int = 0
     level: int = 0            # heading depth, 1-6
     size: float = 0.0         # font size in points, 0 if unknown
+    # The size most of its letters are set at. `size` is the largest, which
+    # suits finding headings and would enlarge a paragraph for one big letter.
+    text_size: float = 0.0
     bold: bool = False         # whole-block boldness, kept for joining and headings
     # (text, bold, italic) per run of like-formatted text. Empty when the route
     # could not read formatting, in which case the writer falls back to `bold`.

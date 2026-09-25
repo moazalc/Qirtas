@@ -705,6 +705,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     joined with a space."""
     vocab, ends = vocab if isinstance(vocab, tuple) else (vocab, None)
     text, size, bold, spans = "", 0.0, False, []
+    letters = {}             # size -> letters set at it
     prev = None
     for b in text_blocks:
         for line in b["lines"]:
@@ -720,6 +721,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 prev = sp
                 text += ("" if glue or not text else " ") + run
                 size = max(size, sp["size"])
+                letters[round(sp["size"], 1)] = letters.get(round(sp["size"], 1), 0) + len(run.strip())
                 it = bool(sp["flags"] & ITALIC_FLAG)
                 bo = bool(sp["flags"] & BOLD_FLAG)
                 bold = bold or bo
@@ -738,6 +740,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     boxes = [b["bbox"] for b in text_blocks]
     return Block(kind=kind, text=_clean(text),
                  page=i, size=round(size, 1), bold=bold,
+                 text_size=max(letters, key=letters.get) if letters else 0.0,
                  spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
                  y=round(min(r[1] for r in boxes), 1),
                  y1=round(max(r[3] for r in boxes), 1),

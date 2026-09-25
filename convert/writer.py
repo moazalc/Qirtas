@@ -174,6 +174,8 @@ def _flag(parent, tag, val="1"):
 CS_STYLE_ON = os.environ.get("QIRTAS_CS_STYLE", "1") != "0"
 # A heading's own formatting where the reading kept it (_emit).
 HEADING_OWN_ON = os.environ.get("QIRTAS_HEADING_OWN", "1") != "0"
+# Each paragraph at the size the original set it (_emit).
+OWN_SIZE_ON = os.environ.get("QIRTAS_OWN_SIZE", "1") != "0"
 
 
 def _style(run, bold, italic):
@@ -762,6 +764,44 @@ def _centred(block, model):
         abs((block.x0 + block.x1) / 2 - mid) < CENTRE_SLACK * column
 
 
+# The space the original left above a paragraph, beyond the ordinary space
+# between lines. Every paragraph is written with none: a title page spread
+# down the page comes out bunched at the top (`z20782957`, Part 3).
+#
+# OFF by default (QIRTAS_GAP=1 to try it). Measured 2026-09-25 on the quick
+# set, even kept to pages under 150 words: three theses gained 1-3 pages and
+# right page fell 53.4 -> 48.6%; the page fitting then shrank the text to
+# make room, so titles came out small again. Our pages hold more than the
+# original's - blocks side by side are stacked - and the original's gaps no
+# longer fit. Try again once side-by-side blocks are fixed.
+GAP_ON = os.environ.get("QIRTAS_GAP", "0") == "1"
+GAP_MIN = 0.5            # of the body size: less is ordinary line spacing
+GAP_MAX = 6              # lines: more is a page laid out some other way
+GAP_PAGE_WORDS = 150     # pages with fewer words than this get their gaps
+
+
+def _gap_above(block, above, model):
+    """Points of space above `block`: from the one written before it on the
+    page, or from the top margin for the first. 0 when not clearly more than
+    the ordinary gap between two lines of a paragraph."""
+    if not GAP_ON or not block.y or not model.line_pitch:
+        return 0.0
+    size = block.text_size or block.size or model.body_size
+    # between two lines of one paragraph, bottom of one to top of the next
+    ordinary = max(0.0, model.line_pitch - 1.15 * size)
+    if above is None:
+        raw = block.y - model.margin_top
+        ordinary = 0.0
+    elif above.y1 and block.y > above.y1:
+        raw = block.y - above.y1
+    else:
+        return 0.0
+    extra = raw - ordinary
+    if extra < GAP_MIN * model.body_size:
+        return 0.0
+    return min(extra, GAP_MAX * model.line_pitch)
+
+
 def _furniture_align(model, line, rtl):
     """Where the line sits across the page: the middle, or one side."""
     b = line[0].block
@@ -1109,7 +1149,7 @@ def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
 
 
 def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False,
-          notes=None):
+          notes=None, base_pt=None):
     size = body_pt
     bold = block.bold
     align = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -1121,6 +1161,12 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         align = ALIGN_START
     elif block.kind == FOOTNOTE:
         size = max(7.0, round(body_pt * 0.78, 1))
+    # The size the original set it at, shrunk as the page is (body_pt is the
+    # body size times the page's fitting scale). Every paragraph was the body
+    # size and every heading 1.15 or 1.35 of it: a title page's 22pt title
+    # came out near 14pt, its 18pt names at 12 (`z20782957`, Part 3).
+    if OWN_SIZE_ON and base_pt and block.text_size:
+        size = max(6.0, round(block.text_size * body_pt / base_pt, 1))
 
     rtl = is_rtl(block.text)
     if not rtl and block.kind != HEADING:
@@ -1136,7 +1182,12 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     # original actually used, and a multiplier plus paragraph gaps overflowed
     # every page, doubling the page count.
     if pitch:
-        pf.line_spacing = Pt(pitch * FIT * (1.0 if block.kind != FOOTNOTE else 0.62))
+        # The body's line height, grown or shrunk with the text: set at its
+        # own size (OWN_SIZE_ON), a 22pt title under a 12pt body's exact
+        # line height had its two lines drawn over each other (`z20782957`).
+        own = OWN_SIZE_ON and base_pt and block.text_size
+        share = size / body_pt if own else (1.0 if block.kind != FOOTNOTE else 0.62)
+        pf.line_spacing = Pt(pitch * FIT * share)
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
     if block.kind == HEADING:
@@ -1437,12 +1488,24 @@ def write(model: Doc, out_path, scale=None):
                 para.paragraph_format.page_break_before = True
             continue
         column = model.page_width - model.margin_left - model.margin_right
+        above = None             # the text block written last on this page
+        # Only on a page with little text - a title page, a chapter's cover.
+        # On body pages the original's gaps pushed pages over: ours are
+        # fuller than the original's (side-by-side blocks stacked), and
+        # right page on the quick set fell 53.4 -> 40.2% (`z20782957` 13
+        # pages -> 14).
+        spaced = sum(len(b.text.split()) for b in body if b.kind not in (IMAGE, TABLE)) \
+            < GAP_PAGE_WORDS
         for b in body + notes:
             if b.kind == IMAGE:
                 para = _emit_image(doc, b, column, k * img_fit.get(page, 1.0),
                                    model.dropped_images)
                 if para is None:
                     continue
+                # What comes next is measured from the picture's foot, not
+                # from the top of the page: a title page's first line under
+                # its logo got the logo's height again as space, and ran over.
+                above = b
             elif b.kind == TABLE:
                 tbl = _emit_table(doc, b, model.body_size * k, model.font,
                                   model.dropped_images)
@@ -1461,12 +1524,19 @@ def write(model: Doc, out_path, scale=None):
                     first = False
                 para = doc.add_paragraph()
                 _rtl_paragraph(para)
+                above = b
             else:
                 para = _emit(doc, b, model.body_size * k, model.line_pitch * k, model.font,
                              first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False),
-                             notes=anchors if b.kind != FOOTNOTE else None)
+                             notes=anchors if b.kind != FOOTNOTE else None,
+                             base_pt=model.body_size)
                 if b.kind in (HEADING, PARAGRAPH) and _centred(b, model):
                     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                if b.kind != FOOTNOTE and spaced:
+                    gap = _gap_above(b, above, model)
+                    if gap:
+                        para.paragraph_format.space_before = Pt(gap * k * FIT)
+                    above = b
             if first and n:
                 # break BEFORE this paragraph rather than inserting an empty one:
                 # the empty paragraph ate a line on every page and the overflow

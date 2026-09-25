@@ -27,9 +27,10 @@ a full run only at milestones (~25 min) - README "measuring a change".
 `python -m convert`; PLAN "Part 2"). **Now Part 3, looks** (Moaz: Parts 2
 and 3 before the text list below). Bold DONE 24 Sept (PLAN "Part 3: looks
 - bold"): shown bold 18% -> 78%. Headings' own bold and centring DONE 24
-Sept (PLAN "Part 3: headings' own bold"). Next in Part 3: text size and
-spacing on title pages (small and bunched; the page fitting?); blocks side
-by side (supervisors, pictures); no page number where the original has
+Sept (PLAN "Part 3: headings' own bold"). Text size DONE 25 Sept (PLAN "Part 3:
+text size"); the gaps above paragraphs tried and left off - they need side
+by side fixed first. Next in Part 3: blocks side by side (supervisors,
+pictures) - it is what stops the gaps, and what makes pages run long; no page number where the original has
 none; formatting on the tags route (`z21145041`, `z22058810`); italic drawn
 as a skew. Waiting on Moaz: footnote and page numbers as fixed text?
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
