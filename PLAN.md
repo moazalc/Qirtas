@@ -2627,6 +2627,38 @@ shrank the text to make room. Our pages hold more than the original's - two
 supervisors side by side come out stacked - so the original's gaps do not
 fit. `QIRTAS_GAP=1` to try it; off by default.
 
+### Part 3: blocks side by side, 2026-09-25
+
+A title page's two supervisors, drawn next to each other, were written one
+under the other. `writer._beside` now finds them: the reading goes back UP
+the page - a block starts above where the one before it ended - and the two
+runs sit clear of each other across the page and share at least half the
+height of the shorter. The two runs go into a borderless table of two cells,
+the run read first in cell one (mirrored when it is on the right), each
+side centred when its blocks are centred on each other, never justified
+(`QIRTAS_BESIDE`). Found on 7 of the 25 dev theses' title pages and on
+tables drawn without borders.
+
+Two things that pass that test and are not side by side: a page number at
+the foot, read before the text at the top (the runs must share height, and
+walking back must go up the page); and an entry's number set out in the
+margin level with its first line ("47 -" beside "( روسو...") - 50 on the dev
+theses, 45 of them on two reference lists. That number is joined onto the front of its
+entry instead of written on a line of its own. A table read just before a
+block is never one side: that crashed `z3387756`.
+
+**What it did not do.** The quick set's scores and page counts did not move
+(right page 53.35 -> 53.37%, nothing lost 99.9%). The guess in TASKS that
+stacked blocks were what made pages run long was wrong: `z3387756` is still
+34 pages for 14, `z21850164` 27. It is a looks fix. Still wrong on
+`z21850164`'s title page: the logo between the French and Arabic headers
+is put above them (three across is not handled), and the running header
+and a page number are drawn on it.
+
+The gaps above paragraphs, tried again on top of it (`QIRTAS_GAP=1`): still
+worse - right page 53.4 -> 49.5%, `z20973693` 22 pages -> 24 and its right
+page 70 -> 34%. Left off until whatever makes pages run long is found.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

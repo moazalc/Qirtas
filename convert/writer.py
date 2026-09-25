@@ -752,16 +752,133 @@ CENTRE_WIDTH = 0.7       # narrower than this share of the column
 CENTRE_SLACK = 0.04      # its middle this close to the column's
 
 
-def _centred(block, model):
+def _centred(block, model, within=None):
+    """Centred on the text column - or, given `within` (left, right), on
+    that stretch of the page: a cell of blocks side by side."""
     if not CENTRE_ON or not (block.x0 or block.x1):
         return False
-    column = model.page_width - model.margin_left - model.margin_right
+    lo, hi = within or (model.margin_left, model.page_width - model.margin_right)
+    column = hi - lo
     if column <= 0:
         return False
     width = block.x1 - block.x0
-    mid = model.margin_left + column / 2
+    mid = lo + column / 2
     return 0 < width < CENTRE_WIDTH * column and \
         abs((block.x0 + block.x1) / 2 - mid) < CENTRE_SLACK * column
+
+
+# Blocks the original set side by side - a title page's two supervisors, two
+# pictures in a row - were written one under the other, so the page held
+# more than the original's and ran long (`z20782957`, Part 3). They go into a
+# borderless table of two cells instead, the one read first in cell one.
+BESIDE_ON = os.environ.get("QIRTAS_BESIDE", "1") != "0"
+BESIDE_SLACK = 2.0       # points two edges may overlap and still count apart
+
+
+class Beside:
+    """Two runs of blocks drawn next to each other, in reading order."""
+    kind = "beside"
+
+    def __init__(self, first, second):
+        self.first, self.second = first, second
+        self.blocks = first + second
+        self.y = min(b.y for b in self.blocks)
+        self.y1 = max(b.y1 for b in self.blocks)
+        self.text = " ".join(b.text for b in self.blocks)
+
+
+def _placed(b):
+    return isinstance(b, Beside) or (b.y1 > b.y and b.x1 > b.x0)
+
+
+def _span(blocks):
+    return min(b.x0 for b in blocks), max(b.x1 for b in blocks)
+
+
+def _apart(a, b):
+    """The two runs share no stretch across the page."""
+    (a0, a1), (b0, b1) = _span(a), _span(b)
+    return a1 <= b0 + BESIDE_SLACK or b1 <= a0 + BESIDE_SLACK
+
+
+def _level(a, b):
+    """The two runs share at least half the height of the shorter one. A
+    page number at the foot, read before the text at the top, is not beside
+    it (`z18048055`)."""
+    a0, a1 = min(x.y for x in a), max(x.y1 for x in a)
+    b0, b1 = min(x.y for x in b), max(x.y1 for x in b)
+    return min(a1, b1) - max(a0, b0) >= 0.5 * min(a1 - a0, b1 - b0)
+
+
+# A number or dash alone - an entry's number set out in the margin, level
+# with its first line: "47 -" beside "( روسو، جان جاك. 2011 .)".
+MARKER_ONLY = re.compile(r"[\s0-9٠-٩۰-۹.\-–)(•▪❖*]{1,8}")
+
+
+def _joined(first, second):
+    """The margin number put back on the front of its entry, as one
+    paragraph. A copy: the fit loop writes the same model again."""
+    lead, rest = first[0], second[0]
+    b = copy.copy(rest)
+    b.text = lead.text.strip() + " " + rest.text
+    if rest.spans:
+        b.spans = [(lead.text.strip(), False, False)] + list(rest.spans)
+    b.y, b.y1 = min(lead.y, rest.y), max(lead.y1, rest.y1)
+    b.x0, b.x1 = min(lead.x0, rest.x0), max(lead.x1, rest.x1)
+    return [b] + second[1:]
+
+
+def _beside(body):
+    """-> body with each side-by-side stretch folded into one `Beside`.
+
+    The sign is the reading going back UP the page: a block that starts above
+    where the one before it ended, and sits clear of it across the page. The
+    first run is what came before it and still reaches down past its top; the
+    second is it and what follows while it stays level with the first run and
+    clear of it. Blocks with no position (the tags route) never match.
+    """
+    if not BESIDE_ON:
+        return body
+    out, i = [], 0
+    while i < len(body):
+        b = body[i]
+        prev = out[-1] if out else None
+        # A table read just before (`z3387756`) is never one side.
+        if prev is None or isinstance(prev, Beside) or b.kind not in (
+                PARAGRAPH, HEADING, LIST_ITEM, IMAGE) \
+                or prev.kind not in (PARAGRAPH, HEADING, LIST_ITEM, IMAGE) \
+                or not _placed(b) or not _placed(prev) \
+                or b.y >= prev.y1 - BESIDE_SLACK or not _apart([prev], [b]):
+            out.append(b)
+            i += 1
+            continue
+        # Walking back must go up the page: a page number at the foot, read
+        # first, is not part of the column above it (`z18441713`).
+        first = []
+        while out and not isinstance(out[-1], Beside) and _placed(out[-1]) \
+                and out[-1].kind in (PARAGRAPH, HEADING, LIST_ITEM, IMAGE) \
+                and out[-1].y1 > b.y + BESIDE_SLACK and _apart([out[-1]], [b]) \
+                and (not first or out[-1].y <= first[0].y + BESIDE_SLACK):
+            first.insert(0, out.pop())
+        second, j = [b], i + 1
+        bottom = max(x.y1 for x in first)
+        while j < len(body) and body[j].kind in (PARAGRAPH, HEADING, LIST_ITEM, IMAGE) \
+                and _placed(body[j]) and body[j].y < bottom - BESIDE_SLACK \
+                and _apart(first, second + [body[j]]):
+            second.append(body[j])
+            j += 1
+        if not _apart(first, second) or not _level(first, second):
+            out.extend(first)
+            out.append(b)
+            i += 1
+            continue
+        if len(first) == 1 and first[0].kind != IMAGE and second[0].kind != IMAGE \
+                and MARKER_ONLY.fullmatch(first[0].text.strip() or "x"):
+            out.extend(_joined(first, second))
+        else:
+            out.append(Beside(first, second))
+        i = j
+    return out
 
 
 # The space the original left above a paragraph, beyond the ordinary space
@@ -773,7 +890,9 @@ def _centred(block, model):
 # right page fell 53.4 -> 48.6%; the page fitting then shrank the text to
 # make room, so titles came out small again. Our pages hold more than the
 # original's - blocks side by side are stacked - and the original's gaps no
-# longer fit. Try again once side-by-side blocks are fixed.
+# longer fit. Tried again with side by side fixed (2026-09-25): still
+# worse, right page 53.4 -> 49.5%, `z20973693` 22 pages -> 24. Pages run
+# long for some other reason, and that has to be found first.
 GAP_ON = os.environ.get("QIRTAS_GAP", "0") == "1"
 GAP_MIN = 0.5            # of the body size: less is ordinary line spacing
 GAP_MAX = 6              # lines: more is a page laid out some other way
@@ -1016,6 +1135,54 @@ def _interleave(body, pics, model):
         frac = min(1.0, max(0.0, (pic.y - top) / span))
         out.insert(int(round(frac * len(body))), pic)
     return out
+
+
+def _run_centred(run):
+    """Are the blocks of one side centred on each other? Measured against the
+    run's own width, not the cell's: the cell stretches to the gutter and
+    the page edge, which the original's column need not reach."""
+    if len(run) < 2:
+        return False
+    lo, hi = _span(run)
+    mid, width = (lo + hi) / 2, hi - lo
+    close = sum(abs((b.x0 + b.x1) / 2 - mid) < CENTRE_SLACK * 2 * width for b in run)
+    return CENTRE_ON and close * 2 >= len(run)
+
+
+def _emit_beside(doc, g, model, k, img_k, notes, first_break):
+    """Two runs of blocks side by side, as a borderless table of two cells -
+    the run read first in cell one, which sits on the right when the
+    original has it on the right."""
+    left, right = model.margin_left, model.page_width - model.margin_right
+    (a0, a1), (b0, b1) = _span(g.first), _span(g.second)
+    rtl = a0 >= b1 - BESIDE_SLACK
+    gutter = (a0 + b1) / 2 if rtl else (a1 + b0) / 2
+    gutter = min(right - 36.0, max(left + 36.0, gutter))
+    widths = [right - gutter, gutter - left] if rtl else [gutter - left, right - gutter]
+    t = doc.add_table(rows=1, cols=2)
+    _fix_columns(t, widths, [0])
+    if rtl:
+        _flag(t._tbl.tblPr, "w:bidiVisual")
+    for cell, run, width in zip(t.rows[0].cells, (g.first, g.second), widths):
+        centre = _run_centred(run)
+        for b in run:
+            if b.kind == IMAGE:
+                _emit_image(cell, b, max(24.0, width - 12), k * img_k,
+                            model.dropped_images)
+                continue
+            p = _emit(cell, b, model.body_size * k, model.line_pitch * k, model.font,
+                      notes=notes, base_pt=model.body_size)
+            p.paragraph_format.first_line_indent = Pt(0)
+            p.paragraph_format.space_before = Pt(0)
+            # Never justified: in a narrow cell it spread a five-line French
+            # heading word by word across the column (`z21850164`).
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if centre else ALIGN_START
+        paras = cell.paragraphs
+        if len(paras) > 1:            # the empty one every new cell starts with
+            paras[0]._element.getparent().remove(paras[0]._element)
+    if first_break:
+        t.cell(0, 0).paragraphs[0].paragraph_format.page_break_before = True
+    return t
 
 
 def _emit_table(doc, block, body_pt, font, dropped=None):
@@ -1478,7 +1645,7 @@ def write(model: Doc, out_path, scale=None):
         # This page's references to endnotes, where a footnote on the page
         # has not already claimed the number.
         anchors = {**end_anchors.get(page, {}), **anchors}
-        body = _interleave(body, pics, model)
+        body = _beside(_interleave(body, pics, model))
         k = scale.get(page, 1.0)
         first = True
         if not blocks:
@@ -1497,6 +1664,12 @@ def write(model: Doc, out_path, scale=None):
         spaced = sum(len(b.text.split()) for b in body if b.kind not in (IMAGE, TABLE)) \
             < GAP_PAGE_WORDS
         for b in body + notes:
+            if isinstance(b, Beside):
+                _emit_beside(doc, b, model, k, img_fit.get(page, 1.0), anchors,
+                             first and n)
+                first = False
+                above = b
+                continue
             if b.kind == IMAGE:
                 para = _emit_image(doc, b, column, k * img_fit.get(page, 1.0),
                                    model.dropped_images)

@@ -932,3 +932,18 @@ reading, so a garbled render can make it shrink the wrong page or none.
 are Word's own and right, apart from the reversed ligatures the fix map
 already handles), or the repair is shown stable on renders; right page
 re-scored either way.
+
+## 31. Footnote and page numbers show as 1 or (١) depending on the reader's Word
+
+**Status: PARKED (Moaz, 2026-09-25 - "leave them as is for now, we will get
+back to them later").** Footnote references and PAGE fields are Word's own
+numbers, and Word draws their digits from each reader's "Numeral" setting
+(Context shows ١, Arabic shows 1). The theses show ١; on a default Word they
+come out 1. Body digits are not affected - they are text and already match
+the page (PLAN "Part 3").
+
+**The choice:** type the numbers in as fixed text, which always shows (١) but
+no longer renumbers when a note is added or a page moves; or keep Word's
+automatic numbers, which renumber but take the reader's setting.
+
+**Closes when:** Moaz picks one. Until then the automatic numbers stay.

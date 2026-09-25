@@ -360,3 +360,13 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   between the lines of a title page made pages run over, because our pages
   hold more than the original's: things side by side (the two supervisors)
   come out stacked. That is next: fix side by side, then the gaps fit.
+- **Footnote and page numbers - parked.** You chose to leave them as they
+  are for now (Word's automatic numbers, which show 1 or ١ depending on the
+  reader's Word). Written down as FLAGS 31 so it is not forgotten.
+- **Side by side fixed.** Two supervisors next to each other on a title
+  page now come out next to each other (an invisible two-column table),
+  each centred in its column. Seen on 7 of the 25 theses. Reference lists
+  whose numbers sit in the margin ("47 -") had the number on a line of its
+  own; it now leads its entry again. Scores did not change - this is how
+  the page looks, not what is on it. It is also not why some theses come out
+  twice as long; that cause is still to be found.
