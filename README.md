@@ -31,6 +31,20 @@ machine-read text laid invisibly over a photo. Scans are now refused with a
 plain message (`convert/scan.py`). Of digital files one is really backwards,
 `z21889411.pdf` (LaTeX, line by line), parked. See `FLAGS.md` 1.
 
+## converting a file
+
+    .venv/Scripts/python -m convert thesis.pdf              # writes thesis.docx beside it
+    .venv/Scripts/python -m convert thesis.pdf out.docx
+    .venv/Scripts/python -m convert thesis.pdf --no-wait    # do not stop to ask about fonts
+
+A scan is refused with a plain message. Before converting, it names the
+fonts the PDF uses that this computer lacks and where to get each, and waits
+while they are installed (Enter checks again, `go` carries on without them);
+a missing bold or italic whose regular face is installed is only mentioned -
+Word imitates it. `python -m convert.fonts some.pdf` gives the font list
+alone. Then it converts with Word checking which pages ran over
+(`convert/fit.py`), the same path every score is measured on.
+
 ## setup
 
     python -m venv .venv
@@ -228,7 +242,8 @@ How every text fix since 2026-09-23 was measured. Each fix has an
 environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
 `QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
 `QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE`, `QIRTAS_NEAR`, `QIRTAS_BACKFILL_TURN`,
-`QIRTAS_REPAIR_ONCE`, `QIRTAS_WITNESS_COVER`, `QIRTAS_ALLAH` = `0`).
+`QIRTAS_REPAIR_ONCE`, `QIRTAS_WITNESS_COVER`, `QIRTAS_ALLAH`, `QIRTAS_CS_STYLE`,
+`QIRTAS_NOTE_SIZE`, `QIRTAS_HEADING_OWN`, `QIRTAS_CENTRE` = `0`).
 
 **Quick run, after every fix**: 8 theses from the working set that cover
 its kinds of trouble (two read through the labels tree, one through geometry,

@@ -23,6 +23,19 @@ corpus"). Scores before this are not comparable. New baseline
 10.1%, right page 61.1%, pages 1.14x. A quick run after each fix (~10 min),
 a full run only at milestones (~25 min) - README "measuring a change".
 
+**Part 2 done 24 Sept** (missing-font message: `convert/fonts.py`,
+`python -m convert`; PLAN "Part 2"). **Now Part 3, looks** (Moaz: Parts 2
+and 3 before the text list below). Bold DONE 24 Sept (PLAN "Part 3: looks
+- bold"): shown bold 18% -> 78%. Headings' own bold and centring DONE 24
+Sept (PLAN "Part 3: headings' own bold"). Next in Part 3: text size and
+spacing on title pages (small and bunched; the page fitting?); blocks side
+by side (supervisors, pictures); no page number where the original has
+none; formatting on the tags route (`z21145041`, `z22058810`); italic drawn
+as a skew. Waiting on Moaz: footnote and page numbers as fixed text?
+List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
+only. Measure bold as Word draws it (the
+rendered PDF's fonts), never the Word file's markup.
+
 **FLAGS 29 done 24 Sept** (nothing lost 100.0%, wrong words 10.1 -> 9.0%,
 full run `flags29c` is the new baseline). **Next:** the English the tags
 reading drops inside Arabic lines (FLAGS 29, still open) - it is put back on

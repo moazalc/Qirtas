@@ -2508,6 +2508,101 @@ alone at the end instead of inside its sentence (the English put back on
 its own line), the page number reads 57 where the page shows ب, the title
 lost bold and centring.
 
+## Part 2: the missing-font message, 2026-09-24
+
+`convert/fonts.py`: the fonts a PDF uses that this computer lacks, with how
+much text each carries and where to get it; `python -m convert` asks before
+converting and waits while they are installed (Enter checks again). Tested
+on made-up PDFs (`harness.test_fonts`).
+
+**What counts as installed** is what the converter finds (`glyphs._path`)
+OR what Windows lists (the Fonts registry keys, machine and user) - which is
+what Word uses. The converter's own index reads single font files only, so
+asked alone it called Cambria Math missing: it lives in cambria.ttc on every
+Windows computer. A name Word cut at 24 characters is matched by its start
+(Times New Roman PS-Bold Ital). A bold or italic whose regular face is here
+is only mentioned (Muna Bold, `z20538636`): Word imitates it, and stopping
+for it is not worth it. Not listed: fonts under 20 characters of text,
+nameless ones (F1, GlyphLessFont) and the PDF standard's built-ins.
+
+**Where to get** is said only where it is certain: Windows' optional
+"Arabic Supplemental Fonts" (Simplified/Traditional Arabic, Sakkal
+Majalla ...), Google Fonts (Amiri, Cairo, Almarai ...), Office, Adobe's
+apps, the King Fahd Quran Printing Complex (KFGQPC), Arabeyes ("ae" fonts).
+Anything else: search its name, or ask whoever made the PDF.
+
+Across the 37 theses on this computer, 30 fonts are missing, most with a
+few hundred characters; the most text is KFGQPC Uthmanic Script Hafs (3,709
+characters, one thesis) and PT Bold Heading (1,935, six theses).
+
+## Part 3: looks - bold, 2026-09-24
+
+**Arabic bold was never written.** Word keeps bold and italic twice - w:b
+and w:i for Latin, w:bCs and w:iCs for right-to-left scripts - and Arabic in
+a right-to-left run follows only the second. python-docx's run.bold writes
+w:b alone. Size was already written both ways (w:szCs); bold and italic
+never were, so every bold Arabic word in every file came out regular.
+`writer._style` writes both, each straight after its Latin twin (schema
+order); footnotes.xml gets them too (`footnotes._rpr`). And a page's notes
+labelled as one piece and split apart (`reader._split_notes`) were set plain
+- they keep what most of the piece was, as does each note written to
+footnotes.xml (`writer._note_style`). Notes are set at the size the original
+used (`writer._note_size`, the commonest size of note text), not 0.78 of the
+body. Switches `QIRTAS_CS_STYLE`, `QIRTAS_NOTE_SIZE`.
+
+**Measured as Word draws it.** A first audit read the Word file's markup and
+could not see the change - w:b was there before as well - and it normalised
+whole lines before splitting words, so every line was one "word"; its 23%
+was meaningless. The measure that counts reads Word's own render (the
+rendered PDF carries a bold font only where Word shows bold): words bold in
+the original shown bold, on the 8 quick-set theses, 18% -> 78%; our bold on
+words the original does not bold, 47% -> 29%. Text scores unchanged, right
+page 58.5 -> 58.8%.
+
+**Left:** the two theses read through the tags route (`z21145041`,
+`z22058810`) stay at 7% and 15% - that route reads /ActualText and carries
+no formatting. Most wrong bold is headings: the writer makes a heading bold
+as a whole, and some paragraphs are taken for headings that are not
+(`z3387756`'s thanks page). Italic on Arabic headings: Word fakes it by
+skewing the text, and the PDF marks no font italic - reading the skew means
+parsing the content stream; not done. Moaz's own chapters draw every word
+as a labelled picture, so their bold is in the pictures, not in any font.
+
+### Part 3: headings' own bold, centring, digits, 2026-09-24
+
+**Headings keep their own bold** where the reading kept formatting
+(`QIRTAS_HEADING_OWN`); bold as a whole only where it did not. An author
+can style a plain sentence as a heading (`z3387756`'s thanks page). As Word
+draws the quick set: our bold on words the original does not bold 29% ->
+22%, the original's bold kept 78%. Right page 58.8 -> 53.4% - all of it
+`z15446639`, same 13 pages matching the same originals; the font repair of
+Word's render garbled it (FLAGS 30).
+
+**Centring** (`writer._centred`, `QIRTAS_CENTRE`): a heading or paragraph
+narrower than 70% of the column with its middle within 4% of the column's
+is centred. Of 37 lines centred in the quick-set originals, 11 were centred
+in ours, now 30; lines centred in ours and not in the original 9 -> 14.
+Nothing else moved. Measured on Word's render, lines matched by their words.
+
+**Digits.** Written as the page shows them already (N5a, `_show_digits`):
+the 8 theses that show ١٢٣ have them in ours, in note text too. Left: the
+numbers Word makes itself - footnote references and page numbers - take
+their digits from each reader's Word ("Numeral": Context shows ١, Arabic
+shows 1). Only typing them in as fixed text would force the look, and they
+would then not renumber on editing. Moaz to decide.
+
+**Full run** `2026-09-25-{thesis,regression}-part3a` (Parts 2 and 3 so far),
+against `flags29c`: nothing lost 100.0% (worst 99.3%), wrong words 9.0%,
+words in order 93.4%, all unchanged; right page 60.1 -> 58.0%, all of it
+`z15446639` 0.82 -> 0.30 on the same 13 matching pages (FLAGS 30), and
+`z3387756` one page longer (34 against 14, already far over). Regression
+unchanged.
+
+**Looked at** `z20782957`'s title page: centred now, but the title is far
+smaller than the original's and the page is bunched at the top (the page
+fitting shrinking a page that runs over?), the two supervisors side by side
+are stacked, and a page number is printed where the original has none.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

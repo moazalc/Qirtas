@@ -316,3 +316,37 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
     reads wrong - next on the list.
 - **Where it stands**: nothing lost 100% on the theses (one file 99.3%),
   wrong words 9.0% (was 10.1%), your chapters unchanged.
+
+- **Part 2 done: the missing-font message.** There is now one command to
+  convert a file: `python -m convert thesis.pdf`. Before converting it
+  lists the fonts the PDF uses that this computer does not have, how much
+  of the text is in each, and where to get it (Windows' Arabic fonts,
+  Google Fonts, Office, the King Fahd Quran fonts ...). The person can
+  install them and press Enter to check again, or carry on without them.
+  A missing bold whose regular font is installed is only mentioned, since
+  Word imitates it. Scans are still refused first.
+- **Next: Part 3, looks** - bold, text size, Arabic-style digits, centring
+  and list dashes first, starting from your thesis page 13.
+
+- **Part 3 started - bold.** Every bold Arabic word in every file was coming
+  out regular. Word keeps a separate "bold" setting for Arabic text, and we
+  only ever set the one for English. Fixed, and footnotes now keep their
+  bold and the size the original used. Measured as Word actually shows it:
+  of the words bold in the original, 18% were bold in ours; now 78%. Left:
+  two theses read a different way that carries no formatting, and some
+  headings bold that should not be. (A first measurement of this gave a
+  wrong 23% - my own counting fault, caught before anything was built on
+  it.)
+
+- **Headings and centring.** Headings now keep the original's bold instead
+  of all being made bold, and titles and headings drawn in the middle of
+  the page are centred (30 of 37 such lines now, was 11). Digits in the
+  text already come out as the original shows them.
+- **Seen on a title page, still to do:** the title comes out much smaller
+  than the original and the page is bunched at the top; things side by side
+  (two supervisors, two pictures) are stacked; a page number appears where
+  the original has none.
+- **Needs you:** footnote numbers and page numbers are made by Word, and
+  Word shows them as ١ or 1 depending on each reader's own Word setting. To
+  force (١) we would type them in as fixed text - but then they no longer
+  renumber if the document is edited. Which do you prefer?

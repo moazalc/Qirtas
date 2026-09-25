@@ -91,6 +91,23 @@ def main():
     check("plain written unformatted", got.get("plain"), (False, False))
     check("tail written unformatted", got.get("tail"), (False, False))
 
+    print("\n... and for Arabic too, which Word reads from bCs and iCs")
+    # Arabic in a right-to-left run follows w:bCs/w:iCs, not w:b/w:i; with
+    # only w:b every bold Arabic word showed regular (Part 3, 2026-09-24).
+    with zipfile.ZipFile(docx) as z:
+        xml = z.read("word/document.xml").decode("utf-8")
+    runs_cs = []
+    for m in re.finditer(r"<w:r>(.*?)</w:r>", xml, re.S):
+        r = m.group(1)
+        t = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", r)).strip()
+        if t:
+            v = lambda tag: (re.search(rf'<w:{tag} w:val="([^"]*)"', r) or [None, None])[1]
+            runs_cs.append((t, v("bCs"), v("iCs")))
+    cs = {t: (b, i) for t, b, i in runs_cs}
+    check("BOLDWORD bold in both", cs.get("BOLDWORD"), ("1", "0"))
+    check("italicword italic in both", cs.get("italicword"), ("0", "1"))
+    check("plain neither", cs.get("plain"), ("0", "0"))
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

@@ -20,7 +20,7 @@ from docx.shared import Emu, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
 from convert.glyphs import spell_out
-from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE
+from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE, PARAGRAPH
 from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
                                marker_numbers, RAISED, WESTERN,
                                build_xml, install, directional)
@@ -162,6 +162,31 @@ def _flag(parent, tag, val="1"):
     e = OxmlElement(tag)
     e.set(qn("w:val"), val)
     parent.append(e)
+
+
+# Word keeps bold and italic twice: w:b and w:i for Latin text, w:bCs and w:iCs
+# for right-to-left scripts, and Arabic in a right-to-left run follows only the
+# second. python-docx's run.bold writes w:b alone, so every bold Arabic word
+# came out regular: as Word drew the 8 quick-set theses, 18% of the words
+# bold in the original were bold in ours, 78% with this (Part 3, 2026-09-24).
+# Size was already written both ways (w:szCs, _rtl_run). QIRTAS_CS_STYLE=0
+# for the old behaviour.
+CS_STYLE_ON = os.environ.get("QIRTAS_CS_STYLE", "1") != "0"
+# A heading's own formatting where the reading kept it (_emit).
+HEADING_OWN_ON = os.environ.get("QIRTAS_HEADING_OWN", "1") != "0"
+
+
+def _style(run, bold, italic):
+    run.bold = bold
+    run.italic = italic
+    if CS_STYLE_ON:
+        # Each straight after its Latin twin: the schema orders them
+        # b, bCs, i, iCs, and python-docx has put b and i in their places.
+        rPr = run._r.get_or_add_rPr()
+        for latin, cs, on in (("w:b", "w:bCs", bold), ("w:i", "w:iCs", italic)):
+            e = OxmlElement(cs)
+            e.set(qn("w:val"), "1" if on else "0")
+            rPr.find(qn(latin)).addnext(e)
 
 
 # w:jc is LOGICAL, not physical, and this cost every heading in the corpus.
@@ -716,6 +741,27 @@ def _add_page_field(p, cached, run=None):
     p._p.append(fld)
 
 
+# A paragraph drawn in the middle of the text column is centred. Headings went
+# to the start of the line and body text was justified whatever the original
+# did: of 37 centred lines in the 8 quick-set theses, 11 were centred in ours
+# (Part 3, 2026-09-24) - titles, chapter headings, a verse on a page of its own.
+CENTRE_ON = os.environ.get("QIRTAS_CENTRE", "1") != "0"
+CENTRE_WIDTH = 0.7       # narrower than this share of the column
+CENTRE_SLACK = 0.04      # its middle this close to the column's
+
+
+def _centred(block, model):
+    if not CENTRE_ON or not (block.x0 or block.x1):
+        return False
+    column = model.page_width - model.margin_left - model.margin_right
+    if column <= 0:
+        return False
+    width = block.x1 - block.x0
+    mid = model.margin_left + column / 2
+    return 0 < width < CENTRE_WIDTH * column and \
+        abs((block.x0 + block.x1) / 2 - mid) < CENTRE_SLACK * column
+
+
 def _furniture_align(model, line, rtl):
     """Where the line sits across the page: the middle, or one side."""
     b = line[0].block
@@ -972,7 +1018,7 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
             for piece, prtl in directional(text, crtl):
                 run = para.add_run(piece)
                 run.font.size = Pt(body_pt)
-                run.bold = (ri == 0)
+                _style(run, ri == 0, False)
                 _rtl_run(run, body_pt, font, prtl)
     return t
 
@@ -1114,9 +1160,14 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         pf.first_line_indent = Pt(24)
 
     # One Word run per run of like-formatted text, so a bold phrase inside a
-    # paragraph stays a bold phrase. A heading is bold as a whole, so its own
-    # spans do not get to override that.
-    parts = block.spans if (block.spans and block.kind != HEADING) else \
+    # paragraph stays a bold phrase. A heading was bold as a whole whatever the
+    # original did; where the reading kept its formatting, it now keeps the
+    # original's - an author can style a plain sentence as a heading
+    # (`z3387756`'s thanks page), and a third of the bold in ours was headings
+    # the original did not bold (Part 3, 2026-09-24). Bold as a whole only
+    # where the reading has no formatting to go by.
+    own = HEADING_OWN_ON and block.kind == HEADING and block.spans
+    parts = block.spans if (block.spans and block.kind != HEADING) or own else \
         [(block.text, bold, False)]
 
     def add(text, sbold, sital, lead=False):
@@ -1124,8 +1175,7 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         for piece, prtl in directional((" " if lead else "") + text, rtl):
             run = p.add_run(piece)
             run.font.size = Pt(size)
-            run.bold = sbold
-            run.italic = sital
+            _style(run, sbold, sital)
             if block.kind == HEADING:
                 # Stated outright, not left to inherit. Word's Heading styles
                 # are blue (#2F5496), and the original document's are not.
@@ -1207,6 +1257,35 @@ def _footnote_ref(run, wid):
     ref = OxmlElement(f"w:{note}Reference")
     ref.set(qn("w:id"), str(wid))
     run._r.append(ref)
+
+
+def _note_style(block):
+    """(bold, italic) for a whole note: what most of its letters are. A note
+    goes to Word as one run of text (footnotes.build_xml), and a bold note -
+    `z18441713`'s are bold throughout - came out regular."""
+    spans = [s for s in (block.spans or []) if s[0].strip()]
+    n = sum(len(t) for t, *_ in spans)
+    if not n or not CS_STYLE_ON:
+        return False, False
+    return (sum(len(t) for t, b, *_ in spans if b) * 2 > n,
+            sum(len(t) for t, _, i, *_ in spans if i) * 2 > n)
+
+
+def _note_size(model):
+    """The size the original's notes were set at - the commonest, by letters -
+    else 0.78 of the body. The fixed share made notes far too small where a
+    thesis sets them at 12pt under a 14pt body (Moaz's page 13)."""
+    sizes = Counter()
+    for b in model.blocks:
+        if b.kind == FOOTNOTE and b.size:
+            sizes[round(b.size * 2) / 2] += len(b.text)
+    fallback = max(7.0, model.body_size * 0.78)
+    if not NOTE_SIZE_ON or not sizes:
+        return fallback
+    return max(7.0, min(sizes.most_common(1)[0][0], model.body_size))
+
+
+NOTE_SIZE_ON = os.environ.get("QIRTAS_NOTE_SIZE", "1") != "0"
 
 
 def _endnotes(pages):
@@ -1319,7 +1398,7 @@ def write(model: Doc, out_path, scale=None):
     pages = OrderedDict((i, by_page.get(i, []))
                         for i in range(max(model.pages, last + 1)))
 
-    real_notes = []          # [(w:id, text)] for footnotes.xml
+    real_notes = []          # [(w:id, text, bold, italic)] for footnotes.xml
     next_id = FIRST_ID
     end_anchors, end_notes = _endnotes(pages)
 
@@ -1342,7 +1421,7 @@ def write(model: Doc, out_path, scale=None):
                 loose.append(b)
                 continue
             anchors[num] = next_id
-            real_notes.append((next_id, RAISED.sub(r"\1", rest)))
+            real_notes.append((next_id, RAISED.sub(r"\1", rest), *_note_style(b)))
             next_id += 1
         notes = loose
         # This page's references to endnotes, where a footnote on the page
@@ -1386,6 +1465,8 @@ def write(model: Doc, out_path, scale=None):
                 para = _emit(doc, b, model.body_size * k, model.line_pitch * k, model.font,
                              first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False),
                              notes=anchors if b.kind != FOOTNOTE else None)
+                if b.kind in (HEADING, PARAGRAPH) and _centred(b, model):
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             if first and n:
                 # break BEFORE this paragraph rather than inserting an empty one:
                 # the empty paragraph ate a line on every page and the overflow
@@ -1395,14 +1476,15 @@ def write(model: Doc, out_path, scale=None):
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))
+    note_pt = _note_size(model)
     if real_notes:
         install(str(out_path), build_xml(real_notes,
                                          font=model.font or ARABIC_FONT,
-                                         size_pt=max(7.0, model.body_size * 0.78)))
+                                         size_pt=note_pt))
     if end_notes:
         install(str(out_path), build_xml(end_notes,
                                          font=model.font or ARABIC_FONT,
-                                         size_pt=max(7.0, model.body_size * 0.78),
+                                         size_pt=note_pt,
                                          note="endnote"), note="endnote")
     if model.dropped_images:
         n = len(model.dropped_images)

@@ -910,3 +910,25 @@ guard the new corpus; if any is ours, it is the first real loss on theses.
 
 **Closes when:** each lost sentence on the five is put down to the
 reference or to us, and the gate reads 100% or names a real loss.
+
+## 30. The font repair turns Word's own render to garbage on some files
+
+**Status: OPEN (raised 2026-09-24).** Right page and the page-fitting loop
+read Word's render of our file through the same font repair as the original
+(`compare.page_alignment`, `fit._spilled`: `repaired(rebuilt_pdf)`). On
+`z15446639` the two quick runs before and after headings kept their own bold
+(`2026-09-24-quick-look-on`, `-look-head`) rendered the same 13 pages, each
+matching the same original page - and right page went 0.84 -> 0.30. The
+repair judged the font Word embedded differently from one render to the
+next (a few more or fewer disputed shapes, the page image settling one or
+none) and in the second it renamed common letters: pages 3-11 read about
+10% against 87% before. The page check (OCR) did not move.
+
+**Why it matters:** right page on such a file measures the repair, not us;
+and the page-fitting loop decides which pages to shrink from the same
+reading, so a garbled render can make it shrink the wrong page or none.
+
+**Closes when:** Word's render is read without the letter repair (its tables
+are Word's own and right, apart from the reversed ligatures the fix map
+already handles), or the repair is shown stable on renders; right page
+re-scored either way.

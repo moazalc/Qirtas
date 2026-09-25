@@ -116,10 +116,13 @@ def _sep(kind, tag, wid, note="footnote"):
             f'</w:{note}>')
 
 
-def _rpr(font, size_pt, rtl, superscript=False):
+def _rpr(font, size_pt, rtl, superscript=False, bold=False, italic=False):
     half = max(2, int(round(size_pt * 2)))
     out = [f'<w:rFonts w:ascii="{escape(font)}" w:hAnsi="{escape(font)}" '
            f'w:cs="{escape(font)}"/>',
+           # Both ways, as the writer's runs: Arabic follows w:bCs and w:iCs.
+           '<w:b/><w:bCs/>' if bold else '',
+           '<w:i/><w:iCs/>' if italic else '',
            f'<w:sz w:val="{half}"/><w:szCs w:val="{half}"/>']
     if superscript:
         out.append('<w:vertAlign w:val="superscript"/>')
@@ -129,19 +132,20 @@ def _rpr(font, size_pt, rtl, superscript=False):
 
 
 def build_xml(notes, font="Arial", size_pt=9.0, rtl=True, note="footnote"):
-    """notes is [(id, text)]. -> the complete footnotes.xml document, or
-    endnotes.xml with note="endnote"."""
+    """notes is [(id, text)] or [(id, text, bold, italic)]. -> the complete
+    footnotes.xml document, or endnotes.xml with note="endnote"."""
     assert note in KINDS
     parts = [_sep("separator", "separator", 0, note),
              _sep("continuationSeparator", "continuationSeparator", 1, note)]
     bidi = "<w:bidi/>" if rtl else ""
-    for wid, text in notes:
+    for wid, text, *style in notes:
+        bold, italic = (list(style) + [False, False])[:2]
         parts.append(
             f'<w:{note} w:id="{wid}">'
             f'<w:p><w:pPr>{bidi}<w:spacing w:after="0"/></w:pPr>'
             f'<w:r>{_rpr(font, size_pt, rtl, superscript=True)}'
             f'<w:{note}Ref/></w:r>'
-            + "".join(f'<w:r>{_rpr(font, size_pt, r)}'
+            + "".join(f'<w:r>{_rpr(font, size_pt, r, bold=bold, italic=italic)}'
                       f'<w:t xml:space="preserve">{escape(t)}</w:t></w:r>'
                       for t, r in directional(" " + text, rtl)) +
             f'</w:p></w:{note}>')

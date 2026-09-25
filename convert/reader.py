@@ -963,11 +963,18 @@ def _split_notes(blk):
         out.append(head)
     for num, text in zip(parts[1::2], parts[2::2]):
         out.append(f"({num}) {text.strip()}")
+    # The notes of one piece split apart lose which letters were bold; a
+    # whole note keeps what most of the piece was. Set plain, every such note
+    # came out regular - `z18441713`'s are bold throughout.
+    n = sum(len(t) for t, *_ in blk.spans) or 1
+    bold = sum(len(t) for t, b_, *_ in blk.spans if b_) * 2 > n
+    italic = sum(len(t) for t, _, i_, *_ in blk.spans if i_) * 2 > n
     blocks = []
     for t in out:
         b = Block(kind=FOOTNOTE, text=MARKED.sub(r"(\1)", t), page=blk.page,
-                  size=blk.size, y=blk.y, y1=blk.y1, x0=blk.x0, x1=blk.x1)
-        b.spans = [(b.text, False, False)]
+                  size=blk.size, y=blk.y, y1=blk.y1, x0=blk.x0, x1=blk.x1,
+                  bold=bold)
+        b.spans = [(b.text, bold, italic)]
         blocks.append(b)
     return blocks or [_unmark(blk)]
 
