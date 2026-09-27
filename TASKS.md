@@ -33,7 +33,10 @@ by side fixed first. Side by side DONE 25 Sept (PLAN "Part 3: blocks
 side by side") - a looks fix only; it is NOT what makes pages run long, and the gaps
 above paragraphs still push pages over with it (tried again, left off).
 No header or number on unnumbered front pages DONE 26 Sept (PLAN "Part 3: no
-header or number"). Next in Part 3: three blocks across (logo between two headers); formatting on the tags route (`z21145041`, `z22058810`); italic drawn
+header or number"). Three or more across DONE 27 Sept (PLAN "Part 3: three or more across" -
+borderless tables; not yet the logo between two headers). Next in Part 3:
+tables that come out as a ladder of too many columns with their text
+written again below (`z17804101` page 14); formatting on the tags route (`z21145041`, `z22058810`); italic drawn
 as a skew. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

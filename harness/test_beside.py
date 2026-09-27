@@ -78,6 +78,21 @@ def main():
                     _b("جمهورية النيجر", 100, 190, 300, 510, PARAGRAPH)], pages=1)
     check("a lone paragraph in a cell is not justified", '"both"' in _xml(m), False)
 
+    print("a row of three read cell by cell, a table drawn without borders")
+    row = [_b("م", 100, 120, 470, 510, PARAGRAPH),
+           _b("العبارة الأولى في الجدول", 100, 140, 250, 450, PARAGRAPH),
+           _b("موافق بشدة", 100, 120, 90, 200, PARAGRAPH)]
+    m = Doc(blocks=row + [_b("نص تحت الجدول بعرض الصفحة كلها", 160, 180, 72, 510,
+                               PARAGRAPH)], pages=1)
+    xml = _xml(m)
+    table = re.search(r"<w:tbl>.*</w:tbl>", xml, re.S).group(0)
+    check("three cells", table.count("<w:tc>"), 3)
+    check("in reading order", [_text(c) for c in re.findall(r"<w:tc>.*?</w:tc>", table, re.S)],
+          ["م", "العبارة الأولى في الجدول", "موافق بشدة"])
+    widths = [int(w) for w in re.findall(r'<w:gridCol w:w="(\d+)"', table)]
+    check("the middle cell is the widest", max(widths) == widths[1], True)
+    check("the text below stays outside", "تحت" in table, False)
+
     print("a page number at the foot, read before the text at the top")
     m = Doc(blocks=[_b("54", 757, 789, 258, 493, PARAGRAPH),
                     _b("46 -", 72, 94, 511, 530, PARAGRAPH),

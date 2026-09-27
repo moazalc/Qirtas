@@ -2691,6 +2691,26 @@ wrong words 10.3 -> 9.2% (`z20973693` 22.3 -> 16.8%, `z20585114` 7.6 ->
 neither. Converter and scoring changed together here; the scoring's reading
 was checked against Word's render of `z20782957`, page by page.
 
+### Part 3: three or more across, 2026-09-27
+
+Side by side took two runs; a third was stacked under the second. Three
+or more across is nearly always a table drawn without borders, read cell by
+cell - a questionnaire's header row "م | العبارة | موافق بشدة | محايد | غير
+موافق بشدة" (`z17804101`), a committee row "name | post | role"
+(`z22828583`). `writer._beside` now takes any number of runs: a block
+clear of every run so far, starting back up above the last run's foot and
+further along the same way, starts another; the table gets a cell each,
+their edges halfway across each gap. A run that is not clear of the others
+or not level with the first goes back to the page. On the dev theses: 5
+rows of 5 cells, 7 of 3 or 4. The logo between two headers on
+`z21850164`'s title page is still not one of them.
+
+Quick set unchanged (`2026-09-27-quick-look-across`). Looked at on
+`z17804101`: the header row lies across as the original. The same page
+shows a worse problem that was there before: the questionnaire table comes
+out as a ladder of too many columns, and its text is written again below
+it as loose lines. That is table reading - Part 3's "tables" item.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

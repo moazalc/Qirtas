@@ -6,6 +6,7 @@ things every other tool we tested forgets.
 """
 import copy
 import hashlib
+import itertools
 import os
 import re
 import sys
@@ -776,12 +777,12 @@ BESIDE_SLACK = 2.0       # points two edges may overlap and still count apart
 
 
 class Beside:
-    """Two runs of blocks drawn next to each other, in reading order."""
+    """Runs of blocks drawn next to each other, in reading order."""
     kind = "beside"
 
-    def __init__(self, first, second):
-        self.first, self.second = first, second
-        self.blocks = first + second
+    def __init__(self, runs):
+        self.runs = runs
+        self.blocks = [b for r in runs for b in r]
         self.y = min(b.y for b in self.blocks)
         self.y1 = max(b.y1 for b in self.blocks)
         self.text = " ".join(b.text for b in self.blocks)
@@ -860,23 +861,46 @@ def _beside(body):
                 and out[-1].y1 > b.y + BESIDE_SLACK and _apart([out[-1]], [b]) \
                 and (not first or out[-1].y <= first[0].y + BESIDE_SLACK):
             first.insert(0, out.pop())
-        second, j = [b], i + 1
+        # Then the runs after it. A block clear of every run so far, starting
+        # back up above the last run's foot and further along the same way,
+        # starts another run - a table drawn without borders, read cell by
+        # cell ("م", "العبارة", "موافق بشدة" ...: `z17804101`); else it
+        # carries on the last run while it stays clear of the others.
+        rtl = _span(first)[0] >= _span([b])[1] - BESIDE_SLACK
+        runs, starts, j = [first, [b]], [None, i], i + 1
         bottom = max(x.y1 for x in first)
         while j < len(body) and body[j].kind in (PARAGRAPH, HEADING, LIST_ITEM, IMAGE) \
-                and _placed(body[j]) and body[j].y < bottom - BESIDE_SLACK \
-                and _apart(first, second + [body[j]]):
-            second.append(body[j])
+                and _placed(body[j]) and body[j].y < bottom - BESIDE_SLACK:
+            x, last = body[j], runs[-1]
+            if not all(_apart(r, [x]) for r in runs[:-1]):
+                break
+            onward = x.x1 <= _span(last)[0] + BESIDE_SLACK if rtl \
+                else x.x0 >= _span(last)[1] - BESIDE_SLACK
+            if onward and x.y < max(y.y1 for y in last) - BESIDE_SLACK:
+                runs.append([x])
+                starts.append(j)
+            else:
+                last.append(x)
             j += 1
+        # Every run clear of the others and level with the first; a run that
+        # is not goes back to the page, and what follows it with it.
+        while len(runs) > 2 and (
+                not all(_apart(r, q) for r, q in itertools.combinations(runs, 2))
+                or not _level(first, runs[-1])):
+            j = starts.pop()
+            runs.pop()
+        second = runs[1]
         if not _apart(first, second) or not _level(first, second):
             out.extend(first)
             out.append(b)
             i += 1
             continue
-        if len(first) == 1 and first[0].kind != IMAGE and second[0].kind != IMAGE \
+        if len(runs) == 2 and len(first) == 1 and first[0].kind != IMAGE \
+                and second[0].kind != IMAGE \
                 and MARKER_ONLY.fullmatch(first[0].text.strip() or "x"):
             out.extend(_joined(first, second))
         else:
-            out.append(Beside(first, second))
+            out.append(Beside(runs))
         i = j
     return out
 
@@ -1205,16 +1229,22 @@ def _emit_beside(doc, g, model, k, img_k, notes, first_break):
     the run read first in cell one, which sits on the right when the
     original has it on the right."""
     left, right = model.margin_left, model.page_width - model.margin_right
-    (a0, a1), (b0, b1) = _span(g.first), _span(g.second)
-    rtl = a0 >= b1 - BESIDE_SLACK
-    gutter = (a0 + b1) / 2 if rtl else (a1 + b0) / 2
-    gutter = min(right - 36.0, max(left + 36.0, gutter))
-    widths = [right - gutter, gutter - left] if rtl else [gutter - left, right - gutter]
-    t = doc.add_table(rows=1, cols=2)
+    spans = [_span(r) for r in g.runs]
+    rtl = spans[0][0] >= spans[1][1] - BESIDE_SLACK
+    # Cell edges halfway across each gap, the outer ones at the column's
+    # edges; in reading order, which runs right to left when `rtl`.
+    edges = [(a[0] + b[1]) / 2 if rtl else (a[1] + b[0]) / 2
+             for a, b in zip(spans, spans[1:])]
+    edges = [right if rtl else left] + edges + [left if rtl else right]
+    least = min(36.0, (right - left) / (2 * len(g.runs)))
+    widths = [max(least, abs(b - a)) for a, b in zip(edges, edges[1:])]
+    scale = (right - left) / sum(widths)
+    widths = [w * scale for w in widths]
+    t = doc.add_table(rows=1, cols=len(g.runs))
     _fix_columns(t, widths, [0])
     if rtl:
         _flag(t._tbl.tblPr, "w:bidiVisual")
-    for cell, run, width in zip(t.rows[0].cells, (g.first, g.second), widths):
+    for cell, run, width in zip(t.rows[0].cells, g.runs, widths):
         centre = _run_centred(run)
         for b in run:
             if b.kind == IMAGE:

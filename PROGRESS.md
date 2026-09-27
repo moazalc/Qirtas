@@ -375,3 +375,9 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   chapter's header, and so did the unnumbered pages after them. Pages the
   original leaves unnumbered at the front now have none, and numbering
   picks up at the right number on the first numbered page.
+- **Rows of three or more across.** Tables drawn without borders, read one
+  cell at a time, came out with the first cell beside the rest stacked in a
+  column. Each cell now sits beside the next, as in the original.
+- **Found while looking:** some tables come out as a tall ladder with too
+  many columns, and their text is written a second time below them. That
+  was there before; it belongs to the tables item still on the list.
