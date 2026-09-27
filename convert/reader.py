@@ -2400,6 +2400,59 @@ THIN_ON = os.environ.get("QIRTAS_TABLE_THIN", "1") != "0"
 THIN_PT = 8.0
 
 
+# A table cell's shading. 273 shaded cells on 10 of the 25 dev theses -
+# banded rows, a coloured header row - all came out white. The colour is the
+# fill drawn under most of the cell, the last one drawn where several are.
+# A dark fill is left out: it carries white text, which we write black.
+TABLE_FILL_ON = os.environ.get("QIRTAS_TABLE_FILL", "1") != "0"
+FILL_COVER = 0.6        # share of the cell the fill must cover
+FILL_DARK = 0.45        # lightness below which a fill is not copied
+
+
+def _fill_hex(fill):
+    if not fill or len(fill) < 3:
+        return None
+    r, g, b = fill[:3]
+    if min(r, g, b) >= 0.97:
+        return ""            # white: drawn over a shading, it clears it
+    if 0.299 * r + 0.587 * g + 0.114 * b < FILL_DARK:
+        return None
+    return "%02X%02X%02X" % tuple(round(c * 255) for c in (r, g, b))
+
+
+def _cell_fills(path, tables):
+    by_page = {}
+    for t in tables:
+        by_page.setdefault(t.page, []).append(t)
+    with pymupdf.open(path) as d:
+        for i, ts in by_page.items():
+            page = d[i]
+            whole = page.rect.get_area()
+            fills = [(pymupdf.Rect(g["rect"]), g["fill"]) for g in page.get_drawings()
+                     if g.get("fill") and g["rect"].get_area() < whole * 0.5]
+            if not fills:
+                continue
+            for t in ts:
+                out = {}
+                for ri, row in enumerate(t.cell_boxes or []):
+                    for ci, box in enumerate(row):
+                        if box is None:
+                            continue
+                        c = pymupdf.Rect(box)
+                        area = c.get_area()
+                        if not area:
+                            continue
+                        colour = None
+                        for r, fill in fills:
+                            if (r & c).get_area() >= area * FILL_COVER:
+                                got = _fill_hex(fill)
+                                if got is not None:
+                                    colour = got
+                        if colour:
+                            out[(ri, ci)] = colour
+                t.cell_fills = out
+
+
 def _drop_thin_columns(t):
     """Take out columns narrower than THIN_PT that hold nothing in any row;
     their width goes to the column beside them."""
@@ -2442,14 +2495,20 @@ def _drop_thin_columns(t):
     t.cell_boxes = [[row[i] for i in keep] if len(row) == n else row
                     for row in (t.cell_boxes or [])]
     t.cell_images = {(r, at[c]): p for (r, c), p in t.cell_images.items()}
-    moved = {}
+    moved, fills = {}, {}
     for (r, c), k in spans.items():
         kept = [at[j] for j in range(c, c + k) if j in at]
         if c not in at:        # its column went; the text goes to the next kept
             t.rows[r][kept[0]] = old_rows[r][c]
+        if (r, c) in t.cell_fills:      # and its shading with it
+            fills[(r, kept[0])] = t.cell_fills[(r, c)]
         if len(kept) > 1:
             moved[(r, kept[0])] = len(kept)
     t.cell_spans = moved
+    for (r, c), v in t.cell_fills.items():
+        if c in at:
+            fills.setdefault((r, at[c]), v)
+    t.cell_fills = fills
 
 
 # A paragraph inside a table whose words the table holds, every one of them.
@@ -2512,6 +2571,13 @@ def read(path, image_dir=None):
         tables = read_tables(path)
     except Exception:
         tables = []
+    # Before the thin columns go: a cell of a table drawn with double rules
+    # can start in a 5pt sliver, and its box goes with the sliver.
+    if tables and TABLE_FILL_ON:
+        try:
+            _cell_fills(path, tables)
+        except Exception:
+            pass
     for t in tables:
         _drop_thin_columns(t)
     pictures = []

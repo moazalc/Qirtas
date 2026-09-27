@@ -205,6 +205,14 @@ def main():
     check("thin columns go, the spanned text moves along", t.rows,
           [["جودة", "علاقة", "درجة"], ["تقدير", "اختبار", "ضعيفة"]])
     check("no spans left once the columns are one each", t.cell_spans, {})
+    t = Block(kind=TABLE, text="", page=0,
+              rows=[["", "جودة", "", "علاقة"], ["تقدير", "", "اختبار", ""]],
+              col_widths=[5, 145, 6, 214],
+              cell_spans={(1, 0): 2, (1, 2): 2},
+              cell_fills={(0, 1): "DEEAF6", (1, 0): "E2EFD9"})
+    _drop_thin_columns(t)
+    check("shading moves with a cell that started in a sliver (z17931421)",
+          t.cell_fills, {(0, 0): "DEEAF6", (1, 0): "E2EFD9"})
 
     print("\na right-to-left table written with column one on the right")
     import re, tempfile, zipfile
@@ -224,6 +232,25 @@ def main():
           ["2200", "4400", "3000"])
     check("row two: one cell across two columns", text[3:], ["ضعيفة", "تقدير النموذج"])
     check("merged in Word", '<w:gridSpan w:val="2"/>' in xml, True)
+
+    print("\na cell's shading kept, on the cell it was drawn under")
+    from convert.reader import _fill_hex
+    check("a light blue band", _fill_hex((0.87, 0.92, 0.96)), "DEEBF5")
+    check("white clears", _fill_hex((1.0, 1.0, 1.0)), "")
+    check("a dark fill is not copied (its text is white)", _fill_hex((0.1, 0.1, 0.3)), None)
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=100, y1=200,
+              rows=[["جودة النموذج", "علاقة السببية", "درجة المتغير"],
+                    ["تقدير النموذج", "", "ضعيفة"]],
+              col_widths=[150, 220, 110], cell_spans={(1, 0): 2},
+              cell_fills={(0, 2): "DEEAF6", (1, 0): "FADECB"})
+    with tempfile.TemporaryDirectory() as dd:
+        write(Doc(blocks=[t], pages=1), Path(dd) / "t.docx")
+        with zipfile.ZipFile(Path(dd) / "t.docx") as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    cells = re.findall(r"<w:tc>.*?</w:tc>", xml, re.S)
+    shade = [(re.search(r'w:fill="(\w+)"', c) or [None, None])[1] for c in cells]
+    check("flipped with the table: the drawn-right cell is Word's first",
+          shade, ["DEEAF6", None, None, None, "FADECB"])
 
     print("\na table's row read again below it, and its header on the caption")
     from convert.reader import _rejoin_articles

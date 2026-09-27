@@ -1322,6 +1322,7 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
     widths = [max(18.0, w) for w in block.col_widths]         if block.col_widths and len(block.col_widths) == width else []
     rows = [list(r) + [""] * (width - len(r)) for r in rows]
     pics, spans = dict(block.cell_images), dict(block.cell_spans or {})
+    fills = dict(block.cell_fills or {})
     # The table finder lists a row's cells left to right, as drawn. A mirrored
     # table puts cell one on the RIGHT, so a right-to-left table is handed to
     # Word in reverse; handed over as read, every column came out on the
@@ -1330,6 +1331,8 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
         rows = [r[::-1] for r in rows]
         widths = widths[::-1]
         pics = {(r, width - 1 - c): v for (r, c), v in pics.items()}
+        fills = {(r, width - c - spans.get((r, c), 1)): v
+                 for (r, c), v in fills.items()}
         spans = {(r, width - c - k): k for (r, c), k in spans.items()}
     elif rtl:
         widths = widths[::-1]
@@ -1352,6 +1355,8 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
             if (ri, ci) in covered:
                 continue
             cell = t.cell(ri, ci)
+            if fills.get((ri, ci)):
+                _shade(cell, fills[(ri, ci)])
             text = (row[ci] if ci < len(row) else "") or ""
             para = cell.paragraphs[0]
             pic = pics.get((ri, ci))
@@ -1370,6 +1375,26 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
                 _style(run, ri == 0, False)
                 _rtl_run(run, body_pt, font, prtl)
     return t
+
+
+def _shade(cell, colour):
+    """Fill a table cell with the original's shading (reader._cell_fills)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn("w:shd")):
+        tcPr.remove(old)
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), colour)
+    # Schema order: w:shd comes after the width, borders and merge, before
+    # the margins and alignment. Placed after whatever of those is there.
+    before = [qn(x) for x in ("w:noWrap", "w:tcMar", "w:textDirection",
+                              "w:tcFitText", "w:vAlign", "w:hideMark")]
+    nxt = next((e for e in tcPr if e.tag in before), None)
+    if nxt is not None:
+        nxt.addprevious(shd)
+    else:
+        tcPr.append(shd)
 
 
 TWIPS_PER_PT = 20

@@ -46,8 +46,13 @@ stored backwards (and so its table text written again under it; the same on
 DONE 27 Sept (PLAN "Part 3: bold on the tags route"; measure bold by letters
 in any order - these PDFs store words backwards). Italic drawn as a slant,
 and headers keeping their bold/italic, DONE 27 Sept (PLAN "Part 3: italic
-drawn as a slant"). Next in Part 3: coloured bands, footnotes' looks, the
-logo between two headers; then the tables leftovers. Found on the way, for
+drawn as a slant"). Table cells shaded DONE 27 Sept (PLAN "Part 3: table
+cells shaded"). Next in Part 3: shaded bands behind ordinary text and
+headers laid out like the original (two parts, a rule under them;
+`z20973693`, `z7456037`, `z22643426`), footnotes' looks, the logo between two
+headers; then the tables leftovers, now also: `z17931421`'s wide table off
+the page's edge and written again below it (likely its 17 pages for 14),
+`z21644412` page 12's table in many narrow empty columns. Found on the way, for
 the text list: `z18441713` writes its numbers backwards (٣١٠ as ٠١٣, ٢٧ as
 ٧٢; page 6) - its hidden text for them is garbled (`421`). Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters

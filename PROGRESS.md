@@ -462,3 +462,20 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   numbers backwards in ours - ٣١٠ comes out ٠١٣. Added to the text list.
 - **Next in Part 3:** coloured bands, how footnotes look, the logo between
   two headers; then the leftover table faults.
+
+### 27 Sept (night) — coloured table cells
+- Ten of the theses colour some table cells: striped rows, a grey or blue
+  header row, a green first column. Ours were all white. Each cell now gets
+  the colour drawn behind it in the original.
+- Checked by looking at four theses' tables: the colours match. (A count
+  was tried and could not tell shading apart reliably, so it was dropped.)
+- Nothing lost 100% on every thesis; the other scores unchanged. The thesis
+  that came out 24 pages last run is back to 17 - that was the run.
+- Runs now use 2 copies of Word at once instead of 3; the PC went down
+  twice during runs.
+- **Found on the way:** one thesis's widest table runs off the page's edge
+  and its text is written again below it - probably why that thesis is 17
+  pages against 14. Another table comes out in many narrow empty columns.
+  Both added to the table list.
+- **Next:** coloured bands behind ordinary text and headers laid out like
+  the original (two parts, a line under them), then how footnotes look.
