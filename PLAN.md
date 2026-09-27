@@ -2711,6 +2711,48 @@ shows a worse problem that was there before: the questionnaire table comes
 out as a ladder of too many columns, and its text is written again below
 it as loose lines. That is table reading - Part 3's "tables" item.
 
+### Part 3: tables drawn with double rules, and table text written twice, 2026-09-27
+
+Two faults, found looking at `z17804101` page 14.
+
+**Columns in the gap of a double rule.** A table whose rules are drawn
+double is found with a column between each pair: 5pt wide, empty in every
+row. 29 of the 79 tables on the dev theses had them; `z17804101`'s 7-column
+questionnaire came out with 19, and `z3387756`'s causality table as a
+ladder one letter wide over several pages - most of why that file ran to
+34 pages for 14. `reader._drop_thin_columns` takes out a column under 8pt
+that holds nothing in any row, its width to the column beside it
+(`QIRTAS_TABLE_THIN`). 9 tables still have one, holding text or with rows
+of different lengths.
+
+**The table's text again as loose lines.** The table's words are read as
+paragraphs too, and a paragraph was dropped only when its exact text was
+in the table. A cell the table read in pieces - a heading cell of two
+lines split over two rows - failed that, and about 3,100 words on the dev
+theses were written twice (4% of their text). Now a paragraph inside the
+table's box is dropped also when every one of its words is in the table
+(`reader._held_by`, `QIRTAS_TABLE_WORDS`) - every word, so nothing the
+table lacks goes. 1,550 of the 3,100 still stay: the table lacks a word or
+two of theirs (a cell read differently, a word split).
+
+Quick set (`2026-09-27-quick-look-tables` against `-look-across`):
+`z3387756` 34 -> 20 pages, `z21850164` 27 -> 22, `z20585114` 16 -> 15,
+`z20973693` 22 -> 21; right page 53.35 -> 53.91%; nothing lost unchanged;
+words in order 89.0 -> 88.6% (a table's text now read cell by cell only);
+wrong words 9.2 -> 9.3%. Looked at on `z3387756` page 7: the table reads,
+where it was a ladder. Still wrong there: the header row squashed into
+narrow cells a letter per line, the caption put under the table, and the
+rows the strict test kept, written again below.
+
+**Full run** (`2026-09-27-{thesis,regression}-part3b` against `part3a`,
+which also covers side by side, bare front pages and three across since):
+nothing lost 100.0% (worst `z21145041` 99.3%, as before); pages 1.14x ->
+1.07x; right page 58.0 -> 58.6%; page check wrong words 9.0 -> 8.4%, found
+91.7% unchanged; words in order 93.4 -> 92.9%. Regression unchanged (100%,
+86.7%, wrong 2.2%). Right page fell on `z22828583` (15.7 -> 12.4%) and
+`z7456037` (17.8 -> 14.3%): both still 8 and 15 pages long, one or two
+shorter, so their pages meet the original at other places.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

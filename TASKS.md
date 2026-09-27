@@ -34,16 +34,18 @@ side by side") - a looks fix only; it is NOT what makes pages run long, and the 
 above paragraphs still push pages over with it (tried again, left off).
 No header or number on unnumbered front pages DONE 26 Sept (PLAN "Part 3: no
 header or number"). Three or more across DONE 27 Sept (PLAN "Part 3: three or more across" -
-borderless tables; not yet the logo between two headers). Next in Part 3:
-tables that come out as a ladder of too many columns with their text
-written again below (`z17804101` page 14); formatting on the tags route (`z21145041`, `z22058810`); italic drawn
+borderless tables; not yet the logo between two headers). Tables: thin
+columns and doubled text DONE 27 Sept (PLAN "Part 3: tables drawn with
+double rules"). Next in Part 3: tables, what is left - a header row squashed a letter per line,
+the caption under the table, half the doubled text (the table lacks a word
+of it) (`z3387756` page 7); formatting on the tags route (`z21145041`, `z22058810`); italic drawn
 as a skew. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.
 
 **FLAGS 29 done 24 Sept** (nothing lost 100.0%, wrong words 10.1 -> 9.0%,
-full run `flags29c` is the new baseline). **Next:** the English the tags
+full run `flags29c` was the baseline; now `2026-09-27-*-part3b`: nothing lost 100.0%, wrong words 8.4%, right page 58.6%, pages 1.07x). **Next:** the English the tags
 reading drops inside Arabic lines (FLAGS 29, still open) - it is put back on
 a line of its own, which reads wrong; then the list below re-checked against
 the theses - it was drawn up on the old corpus. Pages are the plain problem

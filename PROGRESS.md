@@ -381,3 +381,10 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 - **Found while looking:** some tables come out as a tall ladder with too
   many columns, and their text is written a second time below them. That
   was there before; it belongs to the tables item still on the list.
+- **Tables fixed in part - and some theses much shorter.** Tables drawn
+  with double lines came out with a fake empty column between each pair of
+  lines, so a 3-column table became a ladder one letter wide spread over
+  several pages. And the table's text was written a second time below it.
+  Both fixed: one thesis went from 34 pages to 20 (the original has 14),
+  another from 27 to 22. Still to do on tables: the header row can come out
+  squashed, and about half of the doubled text is still there.

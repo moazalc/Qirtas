@@ -135,6 +135,38 @@ def main():
               "بعوتسي" in cells, False)
 
     d.close()
+
+    print("\na table drawn with double rules (z17804101: 7 columns found as 19)")
+    from convert.model import Block, Doc, PARAGRAPH, TABLE
+    from convert.reader import _drop_thin_columns, _drop_text_inside_tables
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=550, y=100, y1=250,
+              rows=[["", "غير موافق", "", "موافق", "", "العبارة", "", "م"],
+                    ["", "", "", "", "", "التعرف على حياة الشعوب", "", "1."]],
+              col_widths=[5, 60, 5, 60, 6, 300, 5, 30])
+    _drop_thin_columns(t)
+    check("the empty 5pt columns go, width to the next", t.col_widths, [65, 65, 306, 35])
+    check("the cells keep their text, in order", t.rows[0],
+          ["غير موافق", "موافق", "العبارة", "م"])
+    thin_text = Block(kind=TABLE, text="", page=0, rows=[["x", "نص"]], col_widths=[5, 60])
+    _drop_thin_columns(thin_text)
+    check("a thin column holding text stays", thin_text.col_widths, [5, 60])
+
+    print("\na paragraph the table holds, read in pieces")
+    doc = Doc(pages=1)
+    split = Block(kind=PARAGRAPH, text="الإشباعات والحاجات المدبلجة هي", page=0,
+                  x0=300, x1=520, y=100, y1=130)
+    more = Block(kind=PARAGRAPH, text="الإشباعات والحاجات كلمة جديدة", page=0,
+                 x0=300, x1=520, y=140, y1=160)
+    below = Block(kind=PARAGRAPH, text="الإشباعات والحاجات", page=0,
+                  x0=300, x1=520, y=400, y1=420)
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=550, y=90, y1=250,
+              rows=[["الإشباعات والحاجات"], ["المدبلجة هي"]])
+    doc.blocks = [split, more, below, t]
+    _drop_text_inside_tables(doc, [t])
+    check("every word in the table: dropped", split in doc.blocks, False)
+    check("one word the table lacks: kept", more in doc.blocks, True)
+    check("outside the table: kept", below in doc.blocks, True)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

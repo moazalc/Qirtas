@@ -1905,8 +1905,8 @@ def _drop_text_inside_tables(doc, tables):
         return
     by_page = {}
     for t in tables:
-        joined = WS.sub("", " ".join(c for row in t.rows for c in row))
-        by_page.setdefault(t.page, []).append((joined, t))
+        cells = " ".join(c for row in t.rows for c in row)
+        by_page.setdefault(t.page, []).append((WS.sub("", cells), set(cells.split()), t))
     keep = []
     for b in doc.blocks:
         if b.kind in (TABLE, IMAGE) or not b.text:
@@ -1914,10 +1914,66 @@ def _drop_text_inside_tables(doc, tables):
             continue
         flat = WS.sub("", b.text)
         if len(flat) >= 6 and any(flat in joined and _inside(b, t)
-                                  for joined, t in by_page.get(b.page, [])):
+                                  for joined, _, t in by_page.get(b.page, [])):
+            continue
+        if any(_held_by(b, t, words) for _, words, t in by_page.get(b.page, [])):
             continue
         keep.append(b)
     doc.blocks = keep
+
+
+# A table drawn with double rules is found with a column in the gap between
+# each pair: 5pt wide, empty in every row. 29 of 79 tables on the dev theses
+# had them - `z17804101`'s 7-column questionnaire came out with 19, a ladder
+# one word wide (Part 3, 2026-09-27).
+THIN_ON = os.environ.get("QIRTAS_TABLE_THIN", "1") != "0"
+THIN_PT = 8.0
+
+
+def _drop_thin_columns(t):
+    """Take out columns narrower than THIN_PT that hold nothing in any row;
+    their width goes to the column beside them."""
+    if not THIN_ON or not t.col_widths:
+        return
+    n = len(t.col_widths)
+    if any(len(r) != n for r in t.rows):
+        return
+    gone = [i for i, w in enumerate(t.col_widths)
+            if w < THIN_PT and all(not r[i].strip() for r in t.rows)
+            and not any(c == i for _, c in t.cell_images)]
+    if not gone or len(gone) == n:
+        return
+    widths = list(t.col_widths)
+    for i in gone:
+        near = next((j for j in list(range(i + 1, n)) + list(range(i - 1, -1, -1))
+                     if j not in gone), None)
+        if near is not None:
+            widths[near] += widths[i]
+    keep = [i for i in range(n) if i not in gone]
+    at = {old: new for new, old in enumerate(keep)}
+    t.col_widths = [widths[i] for i in keep]
+    t.rows = [[r[i] for i in keep] for r in t.rows]
+    t.cell_boxes = [[row[i] for i in keep] if len(row) == n else row
+                    for row in (t.cell_boxes or [])]
+    t.cell_images = {(r, at[c]): p for (r, c), p in t.cell_images.items()}
+
+
+# A paragraph inside a table whose words the table holds, every one of them.
+# The exact-text test misses a cell the table read in pieces - a heading cell
+# of two lines split over two rows - and the table's text was written twice:
+# about 3,100 words on the dev theses (Part 3, 2026-09-27). Every word must be
+# there, so nothing the table lacks is dropped.
+TABLE_WORDS_ON = os.environ.get("QIRTAS_TABLE_WORDS", "1") != "0"
+
+
+def _held_by(b, table, words):
+    if not TABLE_WORDS_ON or not b.y1 or not table.y1:
+        return False
+    mx, my = (b.x0 + b.x1) / 2, (b.y + b.y1) / 2
+    if not (table.x0 - 2 <= mx <= table.x1 + 2 and table.y - 2 <= my <= table.y1 + 2):
+        return False
+    mine = b.text.split()
+    return bool(mine) and all(w in words for w in mine)
 
 
 def _inside(b, table):
@@ -1959,6 +2015,8 @@ def read(path, image_dir=None):
         tables = read_tables(path)
     except Exception:
         tables = []
+    for t in tables:
+        _drop_thin_columns(t)
     pictures = []
     if image_dir:
         try:
