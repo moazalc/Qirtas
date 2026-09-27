@@ -252,6 +252,37 @@ def main():
     check("flipped with the table: the drawn-right cell is Word's first",
           shade, ["DEEAF6", None, None, None, "FADECB"])
 
+    print("\na band behind ordinary text: shaded, outlined, its text its own colour")
+    from convert.reader import _band_fills
+    pdf = pymupdf.open()
+    page = pdf.new_page()
+    # Word's way: one strip per line, hairlines down both sides.
+    for y in (100, 120, 140):
+        page.draw_rect(pymupdf.Rect(100, y, 400, y + 20), color=None, fill=(0.8, 0.8, 0.8))
+    for x in (99, 400):
+        page.draw_rect(pymupdf.Rect(x, 100, x + 1, 160), color=None, fill=(0, 0, 0))
+    page.draw_rect(pymupdf.Rect(100, 300, 400, 320), color=None, fill=(0, 0, 0))
+    page.insert_text((110, 315), "white on black", fontsize=11, color=(1, 1, 1))
+    with tempfile.TemporaryDirectory() as dd:
+        path = str(Path(dd) / "band.pdf")
+        pdf.save(path)
+        d = Doc(pages=1)
+        boxed = Block(kind=PARAGRAPH, text="in the box", page=0, x0=110, x1=390, y=104, y1=156)
+        dark = Block(kind=PARAGRAPH, text="white on black", page=0, x0=110, x1=190, y=304, y1=318)
+        plain = Block(kind=PARAGRAPH, text="no band", page=0, x0=110, x1=390, y=500, y1=520)
+        d.blocks = [boxed, dark, plain]
+        _band_fills(path, d, [])
+    check("strips of one colour add up to a band", (boxed.fill, boxed.boxed), ("CCCCCC", True))
+    check("a dark band keeps its white text", (dark.fill, dark.ink), ("000000", "FFFFFF"))
+    check("no band, nothing set", (plain.fill, plain.ink), ("", ""))
+    with tempfile.TemporaryDirectory() as dd:
+        write(Doc(blocks=[boxed, dark], pages=1), Path(dd) / "b.docx")
+        with zipfile.ZipFile(Path(dd) / "b.docx") as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    check("shaded in Word", 'w:fill="CCCCCC"' in xml and 'w:fill="000000"' in xml, True)
+    check("outlined in Word", xml.count("<w:pBdr>"), 1)
+    check("the dark band's text white", '<w:color w:val="FFFFFF"/>' in xml, True)
+
     print("\na table's row read again below it, and its header on the caption")
     from convert.reader import _rejoin_articles
     t = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=212, y1=298,

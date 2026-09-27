@@ -2970,6 +2970,51 @@ in small type (its spaces are stored as `ۡ`, so the words do not match the
 table's) - likely most of why it is 17 pages for 14; `z21644412` page 12's
 table is found with many narrow empty columns.
 
+### Part 3: bands behind ordinary text; italic only where the PDF says so, 2026-09-28
+
+**Bands.** Looked at first: `z14065750` a dedication in a grey outlined
+box; `z20782957` a one-column table the finder does not see (rules only
+across), its heading rows yellow and green; `z7456037` a running header
+white on a black band; `z20973693` a grey header band. All plain in ours.
+`reader._band_fills` gives a positioned paragraph, heading or list item
+outside every table the colour behind 60% of it. Word draws a shaded
+paragraph a line at a time - one strip per line, the outline as hairline
+strips (1pt wide) down both sides - so strips of one colour are added up,
+and an outline is hairlines at both edges of the whole band (or a stroked
+fill). On a band the text keeps its own colour where it is not black
+(`Block.ink`). `writer._band` writes w:pBdr (outline) and w:shd, in body
+paragraphs and in lifted headers and footers; `_ink` colours the runs. Not
+on the tags route (no positions). Switch `QIRTAS_BAND`. Looked at on the
+four: all as the original; ours stretches the dedication box to the text
+column where the original's is narrower, and `z7456037`'s white-on-black
+header is smaller and not bold.
+
+**Italic, corrected.** MuPDF marks a span italic when the font FILE says
+so. `z20973693`'s AGA-Aladdin and Sultan Medium, `z22643426`'s AF_Taif,
+`z18047321`'s Sultan, `z15446639`'s Mudir claim it, the PDF gives them
+italic angle 0 and no italic flag, and they are drawn upright - looked at:
+`z22643426`'s header is a heavy upright face. Writing headers with their
+formatting (the day before) copied that false italic onto every page, and
+the note above calling `z22643426`'s header "italic chapter line" was
+wrong. `_pdf_italic_fonts` reads the PDF's own font description (name,
+/ItalicAngle, /Flags bit 7); `_mark_slant` takes the flag off a span whose
+font it does not call italic (names matched exactly, or by prefix only when
+MuPDF cut them to 24 letters - "Helvetica" is a prefix of
+"Helvetica-Oblique"). Switch `QIRTAS_TRUE_ITALIC`.
+
+The italic check reads both sides through `_mark_slant`, so it was fooled
+the same way; re-measured (the 9 slant theses in the dev set plus the 3 with
+such fonts): the original's real italic words 92; kept 0 before any italic
+work, 62 the day before and now; italic where the original has none 111
+before, **238 the day before, 1 now**. The "16 -> 114 of 162" above counted
+false italic as real.
+
+**Full run** `2026-09-27-{thesis,regression}-part3h-2` against `part3g`:
+nothing lost 100.0% on every file; words in order 93.9%, page check (found
+91.7%, wrong 8.4%) and regression unchanged; right page 69.3 -> 69.4%. The
+first attempt (`part3h-STOPPED`) was stopped: `convert/reader.py` was
+edited while it ran.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

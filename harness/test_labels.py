@@ -181,6 +181,25 @@ def main():
     check("only the leaning line is marked italic", marked,
           {"upright words": False, "leaning words": True})
 
+    print("\nitalic only where the PDF's own font description agrees")
+    from convert.reader import _pdf_italic_fonts
+    d = pymupdf.open()
+    page = d.new_page()
+    page.insert_text((72, 100), "upright", fontname="helv", fontsize=12)
+    page.insert_text((72, 140), "oblique", fontname="heit", fontsize=12)
+    check("an Oblique font is italic, Helvetica is not",
+          sorted(_pdf_italic_fonts(page)), ["Helvetica-Oblique"])
+    got = page.get_text("dict")
+    for b in got["blocks"]:
+        for l in b["lines"]:
+            for s in l["spans"]:
+                s["flags"] |= ITALIC_FLAG       # as a font file might claim
+    _mark_slant(page, got)
+    marked = {s["text"]: bool(s["flags"] & ITALIC_FLAG)
+              for b in got["blocks"] for l in b["lines"] for s in l["spans"]}
+    check("a font only its file calls italic is upright", marked,
+          {"upright": False, "oblique": True})
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

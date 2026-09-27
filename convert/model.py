@@ -54,6 +54,12 @@ class Block:
     # rather than being text the document printed - often Word's automatic
     # "Logo Description automatically generated with medium confidence".
     from_alt: bool = False
+    # The colour of a band drawn behind this text ("RRGGBB"), and of the text
+    # on it where it is not black - a dark band carries white text. `boxed`:
+    # the band has an outline.
+    fill: str = ""
+    ink: str = ""
+    boxed: bool = False
     rows: List[List[str]] = field(default_factory=list)   # for table blocks
     col_widths: List[float] = field(default_factory=list)  # points, per column
     cell_boxes: List[List[tuple]] = field(default_factory=list)   # cell rects

@@ -995,9 +995,68 @@ def _slanted_boxes(page):
     return boxes
 
 
+# MuPDF calls a span italic when the font FILE says so. Some decorative
+# Arabic fonts do and are drawn upright - `z20973693`'s AGA-Aladdin and
+# Sultan Medium: the PDF gives them italic angle 0 and no italic flag, and
+# Word shows them upright. Italic is kept only where the PDF's own
+# description of the font agrees.
+TRUE_ITALIC_ON = os.environ.get("QIRTAS_TRUE_ITALIC", "1") != "0"
+CUT_NAME = 24            # MuPDF's spans cut font names to this many letters
+
+
+def _pdf_italic_fonts(page):
+    """Names of this page's fonts the PDF itself calls italic."""
+    doc = page.parent
+    out = set()
+    for xref, _, _, base, *_ in page.get_fonts():
+        name = base.split("+", 1)[-1]
+        if re.search("italic|oblique", name, re.I):
+            out.add(name)
+            continue
+        try:
+            desc = doc.xref_get_key(xref, "FontDescriptor")
+            if desc[0] != "xref":
+                kids = doc.xref_get_key(xref, "DescendantFonts")
+                ref = re.search(r"(\d+) 0 R", kids[1]) if kids[0] != "null" else None
+                if ref:
+                    desc = doc.xref_get_key(int(ref.group(1)), "FontDescriptor")
+            if desc[0] != "xref":
+                continue
+            dx = int(desc[1].split()[0])
+            angle = doc.xref_get_key(dx, "ItalicAngle")
+            flags = doc.xref_get_key(dx, "Flags")
+            if (angle[0] == "int" or angle[0] == "float") and float(angle[1]) != 0 \
+                    or (flags[0] == "int" and int(flags[1]) & 64):
+                out.add(name)
+        except Exception:
+            out.add(name)       # unreadable: leave MuPDF's word standing
+    return out
+
+
 def _mark_slant(page, got):
     """Set the italic flag on every span of this page's dict (or structure
-    dict) that sits within text drawn slanted."""
+    dict) that sits within text drawn slanted - and take it off a span whose
+    font only its font file calls italic."""
+    if TRUE_ITALIC_ON:
+        try:
+            italic = _pdf_italic_fonts(page)
+
+            def clear(node):
+                for b in node.get("blocks", []):
+                    if b.get("type") == 2:
+                        clear(b)
+                    for line in b.get("lines", []):
+                        for sp in line["spans"]:
+                            # MuPDF cuts long names short in its spans:
+                            # "TimesNewRomanPS-BoldItal" for ...BoldItalicMT.
+                            f = sp["font"]
+                            if sp["flags"] & ITALIC_FLAG and f and not any(
+                                    n == f or (len(f) >= CUT_NAME and n.startswith(f))
+                                    for n in italic):
+                                sp["flags"] &= ~ITALIC_FLAG
+            clear(got)
+        except Exception:
+            pass
     if not SKEW_ON:
         return
     try:
@@ -2420,6 +2479,87 @@ def _fill_hex(fill):
     return "%02X%02X%02X" % tuple(round(c * 255) for c in (r, g, b))
 
 
+# A band behind ordinary text - a boxed dedication (`z14065750`), a table of
+# one column the finder does not see, with coloured heading rows
+# (`z20782957`), a running header white on black (`z7456037`). 48 such bands
+# on 5 dev theses, all written as plain text. The paragraph takes the band's
+# colour, and on a dark band its text keeps its own light colour - black on
+# black would hide it.
+BAND_ON = os.environ.get("QIRTAS_BAND", "1") != "0"
+THIN_RULE = 1.5          # points: a strip this thin is a line, not a band
+
+
+def _band_fills(path, doc, tables):
+    by_page = {}
+    for b in doc.blocks:
+        if b.kind in (PARAGRAPH, HEADING, LIST_ITEM) and b.y1 > b.y and b.x1 > b.x0:
+            by_page.setdefault(b.page, []).append(b)
+    with pymupdf.open(path) as d:
+        for i, blocks in by_page.items():
+            if i >= len(d):
+                continue
+            page = d[i]
+            whole = page.rect.get_area()
+            fills = [g for g in page.get_drawings() if g.get("fill")
+                     and g["rect"].get_area() < whole * 0.5
+                     and min(g["fill"][:3]) < 0.97]
+            if not fills:
+                continue
+            held = [pymupdf.Rect(t.x0, t.y, t.x1, t.y1) for t in tables if t.page == i]
+            spans = None
+            for b in blocks:
+                box = pymupdf.Rect(b.x0, b.y, b.x1, b.y1)
+                if any(box.intersects(t) for t in held):
+                    continue
+                area = box.get_area()
+                # Word shades a paragraph a line at a time - one strip per
+                # line - so strips of one colour are added up.
+                cover, last = collections.Counter(), {}
+                for n, g in enumerate(fills):
+                    r = pymupdf.Rect(g["rect"])
+                    if r.width <= THIN_RULE or r.height <= THIN_RULE:
+                        continue
+                    key = tuple(round(c, 2) for c in g["fill"][:3])
+                    cover[key] += (r & box).get_area()
+                    if (r & box).get_area():
+                        last[key] = n
+                full = [k for k, a in cover.items() if a >= area * FILL_COVER]
+                if not full:
+                    continue
+                got = fills[max(last[k] for k in full)]
+                r, gg, bb = got["fill"][:3]
+                b.fill = "%02X%02X%02X" % tuple(round(c * 255) for c in (r, gg, bb))
+                # An outline: drawn as a stroke, or - Word's way - as hairline
+                # strips down both sides of the text.
+                key = tuple(round(c, 2) for c in got["fill"][:3])
+                band = pymupdf.Rect(box)
+                for g in fills:
+                    r = pymupdf.Rect(g["rect"])
+                    if tuple(round(c, 2) for c in g["fill"][:3]) == key \
+                            and r.intersects(box):
+                        band |= r
+                wide = band + (-3, -1, 3, 1)
+                sides = [pymupdf.Rect(g["rect"]) for g in fills
+                         if pymupdf.Rect(g["rect"]).width <= THIN_RULE
+                         and pymupdf.Rect(g["rect"]).intersects(wide)]
+                b.boxed = ("s" in got.get("type", "") and bool(got.get("color"))) \
+                    or (any(s.x0 < band.x0 + 2 for s in sides)
+                        and any(s.x1 > band.x1 - 2 for s in sides))
+                if spans is None:
+                    spans = [s for x in page.get_text("dict")["blocks"]
+                             for l in x.get("lines", []) for s in l["spans"]
+                             if s["text"].strip()]
+                ink = collections.Counter()
+                for s in spans:
+                    if box.contains(pymupdf.Point((s["bbox"][0] + s["bbox"][2]) / 2,
+                                                  (s["bbox"][1] + s["bbox"][3]) / 2)):
+                        ink[s["color"]] += len(s["text"])
+                if ink:
+                    c = ink.most_common(1)[0][0]
+                    if c != 0:
+                        b.ink = "%06X" % c
+
+
 def _cell_fills(path, tables):
     by_page = {}
     for t in tables:
@@ -2586,6 +2726,11 @@ def read(path, image_dir=None):
             pictures = read_images(path, image_dir)
         except Exception:
             pictures = []
+    if BAND_ON and best.source_route != "tags":
+        try:
+            _band_fills(path, best, tables)
+        except Exception:
+            pass
     if tables:
         _drop_text_inside_tables(best, tables)
         pictures = _put_images_in_cells(tables, pictures)

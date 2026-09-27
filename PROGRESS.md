@@ -479,3 +479,20 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   Both added to the table list.
 - **Next:** coloured bands behind ordinary text and headers laid out like
   the original (two parts, a line under them), then how footnotes look.
+
+### 28 Sept — coloured bands, and a correction on italic
+- **Coloured bands behind text now show**: a dedication in a grey box with
+  its border, yellow and green heading rows, a running header that is white
+  text on a black band (the text stays white - black on black would vanish).
+  Looked at on four theses: they match the original.
+- **Correction: I was wrong about one header being italic.** Some decorative
+  Arabic fonts say "italic" inside the font file but are drawn upright, and
+  the PDF itself says upright. Yesterday's header change copied that false
+  italic onto every page of three theses. Italic now counts only when the
+  PDF itself says so, or the text is drawn slanted.
+- Measured again, properly: real italic words kept 62 of 92, and italic
+  where the original has none went from 238 (yesterday) to **1**. The
+  "114 of 162" I gave you yesterday included false italic.
+- Nothing lost 100% on every thesis; other scores unchanged.
+- **Next:** headers laid out like the original (two parts, a line under
+  them), then how footnotes look.

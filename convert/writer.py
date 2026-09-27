@@ -1006,6 +1006,9 @@ def _draw_text_furniture(doc, draw, model):
                 rtl = is_rtl(text)
                 _rtl_paragraph(p, rtl)
                 p.alignment = _furniture_align(model, shown, rtl)
+                band = next((f.block for f in shown if f.block.fill), None)
+                if band is not None:
+                    _band(p, band)
                 for k, f in enumerate(shown):
                     if k:
                         _furniture_run(p, " ", f, fallback, model, rtl)
@@ -1037,6 +1040,7 @@ def _furniture_run(p, text, f, fallback, model, rtl):
     size = f.block.size if f.block.size and f.block.size >= 5 else fallback
     run = p.add_run(text)
     run.font.size = Pt(size)
+    _ink(run, f.block)
     if FURNITURE_STYLE_ON:
         bold, italic = _note_style(f.block)
         if bold or italic:
@@ -1377,6 +1381,46 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
     return t
 
 
+# What follows w:pBdr and w:shd in a paragraph's properties, in schema order.
+PPR_AFTER_SHD = ("w:tabs", "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap",
+                 "w:overflowPunct", "w:topLinePunct", "w:autoSpaceDE",
+                 "w:autoSpaceDN", "w:bidi", "w:adjustRightInd", "w:snapToGrid",
+                 "w:spacing", "w:ind", "w:contextualSpacing", "w:mirrorIndents",
+                 "w:suppressOverlap", "w:jc", "w:textDirection",
+                 "w:textAlignment", "w:textboxTightWrap", "w:outlineLvl",
+                 "w:divId", "w:cnfStyle", "w:rPr", "w:sectPr", "w:pPrChange")
+
+
+def _band(p, block):
+    """The band drawn behind this text in the original (reader._band_fills):
+    the paragraph shaded, and outlined where the band was. Word joins
+    neighbouring paragraphs shaded and outlined alike into one box."""
+    if not block.fill:
+        return
+    pPr = p._p.get_or_add_pPr()
+    if block.boxed:
+        bdr = OxmlElement("w:pBdr")
+        for side in ("top", "left", "bottom", "right"):
+            e = OxmlElement(f"w:{side}")
+            e.set(qn("w:val"), "single")
+            e.set(qn("w:sz"), "4")
+            e.set(qn("w:space"), "1")
+            e.set(qn("w:color"), "auto")
+            bdr.append(e)
+        pPr.insert_element_before(bdr, "w:shd", *PPR_AFTER_SHD)
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), block.fill)
+    pPr.insert_element_before(shd, *PPR_AFTER_SHD)
+
+
+def _ink(run, block):
+    """Text on a band in its own colour - white on a black band."""
+    if block.fill and block.ink:
+        run.font.color.rgb = RGBColor.from_string(block.ink)
+
+
 def _shade(cell, colour):
     """Fill a table cell with the original's shading (reader._cell_fills)."""
     tcPr = cell._tc.get_or_add_tcPr()
@@ -1510,6 +1554,7 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         _heading_style(p, block.level or 2)
     _rtl_paragraph(p, rtl)
     p.alignment = align
+    _band(p, block)
 
     pf = p.paragraph_format
     # Exact pitch, not a multiplier: the measured gap between lines is what the
@@ -1565,6 +1610,7 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
                 # Stated outright, not left to inherit. Word's Heading styles
                 # are blue (#2F5496), and the original document's are not.
                 run.font.color.rgb = RGBColor(0, 0, 0)
+            _ink(run, block)
             _rtl_run(run, size, font, prtl)
         return run
 
