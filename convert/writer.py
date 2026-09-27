@@ -1027,10 +1027,20 @@ def _draw_text_furniture(doc, draw, model):
                         _place(p, path, width, model.dropped_images)
 
 
+# A running header or footer as bold or italic as most of its letters were.
+# It was always written plain: `z22643426`'s italic chapter line lost its
+# slant on all nine pages that carry it.
+FURNITURE_STYLE_ON = os.environ.get("QIRTAS_FURNITURE_STYLE", "1") != "0"
+
+
 def _furniture_run(p, text, f, fallback, model, rtl):
     size = f.block.size if f.block.size and f.block.size >= 5 else fallback
     run = p.add_run(text)
     run.font.size = Pt(size)
+    if FURNITURE_STYLE_ON:
+        bold, italic = _note_style(f.block)
+        if bold or italic:
+            _style(run, bold, italic)
     _rtl_run(run, size, model.font, rtl)
 
 

@@ -442,3 +442,23 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   fault - that thesis stores its table cells backwards). The copy is now bold
   like the table's own header. It goes when that fault is fixed.
 - **Next:** italic that Word draws as slanted text (9 theses use it).
+
+### 27 Sept (evening) — slanted italic, and headers keep their looks
+- **Italic now shows.** Word has no italic for most Arabic fonts, so it
+  fakes one by drawing the ordinary letters leaning over. No font says
+  "italic", so we never saw it. We now spot the lean itself. Italic words of
+  the original shown italic: **16 -> 114 of 162** on the two theses that have
+  it (this includes the next point).
+- **Running headers and footers were always written plain.** One thesis's
+  italic chapter line at the top of nine pages came out upright. Headers
+  and footers now keep the original's bold and italic.
+- Nothing lost still 100% on every thesis; the other scores unchanged. One
+  thesis came out 24 pages in the full run; converted again it is 17, as
+  before - a one-off from Word during the run, not this change.
+- **The italic check had to be fixed first**: one thesis's hidden text
+  spells words with the wrong letters (جدوؿ for جدول), so nothing matched
+  until the check read the repaired letters.
+- **Found on the way (a text fault, not looks):** one thesis prints its
+  numbers backwards in ours - ٣١٠ comes out ٠١٣. Added to the text list.
+- **Next in Part 3:** coloured bands, how footnotes look, the logo between
+  two headers; then the leftover table faults.

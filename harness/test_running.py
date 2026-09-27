@@ -120,6 +120,25 @@ def main():
                         _xml(docx, "word/document.xml")).group(1), "273")
     check("nothing reads as lost", text_of_docx(docx).count("Volume 3"), PAGES)
 
+    print("\nan italic header keeps its slant (z22643426)")
+    m = _model()
+    line = "الإطار النظري لمتغيرات الدراسة"
+    for p in range(PAGES):
+        m.blocks.append(Block(kind=PARAGRAPH, page=p, y=35, y1=48, x0=206, x1=344,
+                              text=line, spans=[(line, False, True)]))
+        _body(m, p)
+        _body(m, p, f"خاتمة الصفحة {WORDS[p]} في آخرها.")
+    docx = tmp / "italic_header.docx"
+    write(m, str(docx))
+    rels = _xml(docx, "word/_rels/document.xml.rels")
+    head = next((_xml(docx, "word/" + t) for t in
+                 re.findall(r'Target="(header\d*\.xml)"', rels)
+                 if line in _xml(docx, "word/" + t)), "")
+    check("the header line is lifted", bool(head), True)
+    check("written italic, for Arabic too", ('<w:i/>' in head, '<w:iCs w:val="1"/>' in head),
+          (True, True))
+    check("and not bold", '<w:bCs w:val="1"/>' in head, False)
+
     print("\na year on the title page is not the first page's number")
     m = _model()
     m.blocks.append(Block(kind=PARAGRAPH, page=0, y=660, y1=680, x0=200, x1=300,

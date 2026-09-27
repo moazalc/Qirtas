@@ -916,9 +916,115 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                  x1=round(max(r[2] for r in boxes), 1))
 
 
+# ------------------------------------------------- italic drawn as a slant
+#
+# Word has no italic of most Arabic fonts, so it fakes one: the ordinary font
+# drawn with a text matrix that leans 0.33 (`1 0 0.3333 1 x y Tm`). No font
+# says italic, so the reading saw none - 9 theses use it, `z18634114` 299
+# times. The slant is found in the content stream, and the pieces drawn with
+# it are found again in MuPDF's trace of the page by where they start.
+SKEW_ON = os.environ.get("QIRTAS_SKEW", "1") != "0"
+SKEW_MIN, SKEW_MAX = 0.15, 0.6     # lean as a share of height; Word's is 0.33
+_SCRATCH = []
+
+
+def _mul(m, n):
+    a, b, c, d, e, f = m
+    A, B, C, D, E, F = n
+    return (a * A + b * C, a * B + b * D, c * A + d * C, c * B + d * D,
+            e * A + f * C + E, e * B + f * D + F)
+
+
+def _leans(m):
+    a, b, c, d = m[:4]
+    wide, high = (a * a + b * b) ** 0.5, (c * c + d * d) ** 0.5
+    if not wide or not high:
+        return False
+    return SKEW_MIN <= abs(a * c + b * d) / (wide * high) <= SKEW_MAX
+
+
+def _slant_starts(page):
+    """Where each piece of slanted text starts, in MuPDF's coordinates."""
+    if not _SCRATCH:
+        _SCRATCH.append(pikepdf.Pdf.new())
+    data = page.read_contents()
+    if b"Tm" not in data:
+        return []
+    ops = pikepdf.parse_content_stream(pikepdf.Stream(_SCRATCH[0], data))
+    ctm, stack, tm, tlm, fresh = (1, 0, 0, 1, 0, 0), [], None, None, False
+    out, to_page = [], page.transformation_matrix
+    for operands, op in ops:
+        op = str(op)
+        try:
+            nums = [float(x) for x in operands]
+        except (TypeError, ValueError):
+            nums = []
+        if op == "q":
+            stack.append(ctm)
+        elif op == "Q":
+            ctm = stack.pop() if stack else ctm
+        elif op == "cm" and len(nums) == 6:
+            ctm = _mul(tuple(nums), ctm)
+        elif op == "BT":
+            tm = tlm = (1, 0, 0, 1, 0, 0)
+            fresh = True
+        elif op == "Tm" and len(nums) == 6:
+            tm = tlm = tuple(nums)
+            fresh = True
+        elif op in ("Td", "TD") and len(nums) == 2 and tlm:
+            tm = tlm = _mul((1, 0, 0, 1, nums[0], nums[1]), tlm)
+            fresh = True
+        elif op in ("Tj", "TJ", "'", '"') and tm:
+            m = _mul(tm, ctm)
+            if fresh and _leans(m):
+                out.append(pymupdf.Point(m[4], m[5]) * to_page)
+            fresh = False
+    return out
+
+
+def _slanted_boxes(page):
+    starts = _slant_starts(page)
+    if not starts:
+        return []
+    boxes = []
+    for s in page.get_texttrace():
+        if s["chars"]:
+            x, y = s["chars"][0][2]
+            if any(abs(x - p.x) < 0.6 and abs(y - p.y) < 0.6 for p in starts):
+                boxes.append(pymupdf.Rect(s["bbox"]))
+    return boxes
+
+
+def _mark_slant(page, got):
+    """Set the italic flag on every span of this page's dict (or structure
+    dict) that sits within text drawn slanted."""
+    if not SKEW_ON:
+        return
+    try:
+        boxes = _slanted_boxes(page)
+    except Exception:
+        return
+    if not boxes:
+        return
+
+    def walk(node):
+        for b in node.get("blocks", []):
+            if b.get("type") == 2:
+                walk(b)
+            for line in b.get("lines", []):
+                for sp in line["spans"]:
+                    r = pymupdf.Rect(sp["bbox"])
+                    area = r.get_area()
+                    if area and sum((r & q).get_area() for q in boxes) * 2 > area:
+                        sp["flags"] |= ITALIC_FLAG
+    walk(got)
+
+
 def _page_rich(page, i, vocab=None):
     out = []
-    for b in sorted(get_text(page, "dict")["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
+    got = get_text(page, "dict")
+    _mark_slant(page, got)
+    for b in sorted(got["blocks"], key=lambda b: (round(b["bbox"][1]), b["bbox"][0])):
         if b.get("type") != 0:
             continue
         blk = _rich_block([b], i, vocab=vocab)
@@ -986,6 +1092,7 @@ def read_labels(path):
         for i, page in enumerate(d):
             flags = pymupdf.TEXTFLAGS_DICT | pymupdf.TEXT_COLLECT_STRUCTURE
             tree = get_text(page, "dict", flags=flags)
+            _mark_slant(page, tree)
             ends = _letter_ends(page, flags)
             units = {}           # key -> [chain, [text blocks]], in order
 

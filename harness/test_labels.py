@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, TABLE
 from convert.reader import (_label_kind, _join_same_line, _backfill, _glued,
                             _drop_text_inside_tables, _Run, _rough_spans,
-                            _fit_spans)
+                            _fit_spans, _leans, _mark_slant, ITALIC_FLAG)
 
 FAILED = []
 
@@ -163,6 +163,23 @@ def main():
     _fit_spans(b)
     check("text the spans never had is written, not lost",
           " ".join(t for t, *_ in b.spans), b.text)
+
+    print("\nitalic drawn as a slant, in no italic font")
+    check("Word's lean of 0.33 is a slant", _leans((1, 0, 0.3333, 1, 5, 5)), True)
+    check("upright text is not", _leans((12, 0, 0, 12, 5, 5)), False)
+    check("turned text is not", _leans((0, 1, -1, 0, 5, 5)), False)
+    import pymupdf
+    d = pymupdf.open()
+    page = d.new_page()
+    page.insert_text((72, 100), "upright words", fontsize=12)
+    page.insert_text((72, 200), "leaning words", fontsize=12,
+                     morph=(pymupdf.Point(72, 200), pymupdf.Matrix(1, 0, 0.3333, 1, 0, 0)))
+    got = page.get_text("dict")
+    _mark_slant(page, got)
+    marked = {s["text"]: bool(s["flags"] & ITALIC_FLAG)
+              for b in got["blocks"] for l in b["lines"] for s in l["spans"]}
+    check("only the leaning line is marked italic", marked,
+          {"upright words": False, "leaning words": True})
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

@@ -2896,8 +2896,46 @@ Seen on the way, not from this: `z22058810` page 2's shaded verse is read as
 a table with backwards cells, and the verse written again garbled below it
 - the same fault as `z21145041`'s cells.
 
-**Italic drawn as a skew** is in 9 theses (`z18634114` 299 times,
-`z18441713` 177): Word sets a text matrix with a 0.33 shear, no italic font.
+### Part 3: italic drawn as a slant; headers keep their formatting, 2026-09-27
+
+**The slant.** Word has no italic of most Arabic fonts and fakes one: the
+ordinary font under a text matrix leaning 0.33 (`1 0 0.3333 1 x y Tm`). No
+font says italic, so every reading saw none. 9 theses do it (`z18634114`
+299 times, `z18441713` 177); 4 of them are in the dev set, 5 held out.
+`reader._slant_starts` walks the content stream (q/Q/cm, BT, Tm, Td) and
+notes where each text show starts when text matrix x CTM leans 0.15-0.6 of
+its height; `_slanted_boxes` finds those shows in MuPDF's `get_texttrace()`
+by the first letter's origin (within 0.6pt) and takes their boxes;
+`_mark_slant` sets the italic flag on every dict span more than half inside
+them - before `_rich_block`, so geometry and labels both see it. Switch
+`QIRTAS_SKEW`. `z18634114` (held out) was looked at to see how Word draws
+it; no score was taken on it.
+
+**Headers and footers were always written plain.** `z22643426`'s italic
+chapter line lost its slant on all nine pages. `writer._furniture_run` now
+gives each piece what most of its letters were (`_note_style`). Switch
+`QIRTAS_FURNITURE_STYLE`.
+
+**Measured** as Word draws ours, both sides read the same way (an italic
+font, or `_mark_slant`), words compared by their letters, the original read
+through `glyphs.repaired` - without it `z18441713`'s own text (`جدوؿ` for
+جدول) matched nothing and every italic word counted as both missing and
+extra. Italic words of the original shown italic, on the two dev theses that
+have Arabic italic: 16 -> 78 of 162 with the slant, 114 with headers too.
+Italic where the original has none 0 -> 31: nearly all `z22643426`'s header
+words, which the original's broken text spells differently (`ملتغريات`),
+and Word repeating the lifted header on 11 pages where the original prints
+it on 9 - lifting's behaviour, not new. The check undercounts: `z18441713`'s
+"رسالة دكتوراه غير منشورة" is italic in our file and slanted in Word's
+render, but shares a span with upright text there. Bold kept 78 -> 81%
+(headers).
+
+**Full run** `2026-09-27-{thesis,regression}-part3f` against `part3d`:
+nothing lost 100.0% on every file; words in order 93.9% and page check
+(found 91.7%, wrong 8.4%) unchanged; regression unchanged. Right page 69.4
+-> 68.8% is one file: `z17931421` came out 24 pages in that run - converted
+again alone, with the header switch on and off, it is 17 as before. A
+one-off from Word in the run, not the change.
 
 ## Known unfinished
 
