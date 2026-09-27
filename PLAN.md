@@ -2659,6 +2659,38 @@ The gaps above paragraphs, tried again on top of it (`QIRTAS_GAP=1`): still
 worse - right page 53.4 -> 49.5%, `z20973693` 22 pages -> 24 and its right
 page 70 -> 34%. Left off until whatever makes pages run long is found.
 
+### Part 3: no header or number on unnumbered front pages, 2026-09-26
+
+Word draws the running header and footer on every page, so a thesis's
+title page got the chapter's header and a page number ("70" under
+`z20782957`'s supervisors), and so did the unnumbered pages after it. The
+pages before the first one anything was lifted from (`writer._bare_front`)
+now go into a section of their own with no header or footer
+(`writer._end_front`, `QIRTAS_BARE_FRONT`). The break is CONTINUOUS, at
+the end of the last bare page: every page keeps its own page break, which
+is where the scoring splits pages, and Word takes a page's header from the
+section in force at its top. The main section's first number moves on by
+the bare pages. Checked in Word on a four-line file before building it,
+then on `z20782957`: no number on its first three pages, 73-80 after, as
+the original.
+
+The scoring had to learn it too: `compare._furniture_texts` drew the
+header on every page. It now counts the pages before the first section
+break as having none, and numbers from the page after.
+
+On the dev theses 24 of 25 start bare, nearly all for 3 pages - the cut
+takes the front 3 pages of each thesis. Not handled: bare pages later on
+(a chapter cover). Pages 11-13 of most cuts also read as bare, but that is
+the cut: their numbers jump (80, then 13) and nothing lifts a jumping
+number. A whole thesis does not jump.
+
+Quick set (`2026-09-27-quick-look-front` against `-look-beside2`): nothing
+lost, words in order, right page and page counts unchanged; the page check's
+wrong words 10.3 -> 9.2% (`z20973693` 22.3 -> 16.8%, `z20585114` 7.6 ->
+5.4%) - the header and number no longer on pages whose original has
+neither. Converter and scoring changed together here; the scoring's reading
+was checked against Word's render of `z20782957`, page by page.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

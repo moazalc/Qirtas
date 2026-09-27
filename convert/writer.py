@@ -1053,6 +1053,57 @@ def _first_page_number(doc, model, draw, lift):
         target._element.append(copy.deepcopy(p._p))
 
 
+BARE_FRONT_ON = os.environ.get("QIRTAS_BARE_FRONT", "1") != "0"
+
+
+def _bare_front(model, lift):
+    """-> how many pages at the front the original left with no header and no
+    page number, 0 for none.
+
+    Word draws the running header and footer on every page, so a thesis's
+    title page got the chapter's header and a page number - "70" under
+    `z20782957`'s supervisors - and so did the unnumbered pages after it.
+    Those pages go into a section of their own with no header or footer
+    (`_end_front`). Counted up to the first page anything was lifted from.
+    """
+    if not BARE_FRONT_ON or not lift:
+        return 0
+    if any(b.collage and b.page == 0 for b in model.blocks):
+        return 0                        # the photo's own rule, _first_page_number
+    return min((b.page for b in model.blocks if id(b) in lift), default=0)
+
+
+def _end_front(doc, first_el):
+    """End a section with no header or footer just before `first_el`, the
+    first thing on the first numbered page.
+
+    A CONTINUOUS break, so every page still starts with its own page break -
+    the scoring splits pages there - and Word takes each page's header from
+    the section in force at its top: the front pages get none, and numbering
+    starts again where the page-number start on the main section says.
+    """
+    main = doc.sections[-1]._sectPr
+    brk = copy.deepcopy(main)
+    for tag in ("w:headerReference", "w:footerReference", "w:pgNumType", "w:titlePg"):
+        for el in brk.findall(qn(tag)):
+            brk.remove(el)
+    for el in brk.findall(qn("w:type")):
+        brk.remove(el)
+    kind = OxmlElement("w:type")
+    kind.set(qn("w:val"), "continuous")
+    brk.insert(0, kind)
+    prev = first_el.getprevious()
+    if prev is None or prev.tag != qn("w:p"):
+        # a table ends the page: the break needs a paragraph of its own
+        prev = OxmlElement("w:p")
+        first_el.addprevious(prev)
+    ppr = prev.find(qn("w:pPr"))
+    if ppr is None:
+        ppr = OxmlElement("w:pPr")
+        prev.insert(0, ppr)
+    ppr.append(brk)
+
+
 def _set_page_number_start(section, start):
     """Make Word's own numbering begin where the original's did."""
     pr = section._sectPr
@@ -1601,6 +1652,12 @@ def write(model: Doc, out_path, scale=None):
         _draw_text_furniture(doc, tdraw, model)
         _first_page_number(doc, model, tdraw, tlift)
         lift = {**lift, **tlift}
+    front = _bare_front(model, lift)
+    if front:
+        # The main section now starts at page `front`: its first number is
+        # the one printed there, not on page 0.
+        for el in doc.sections[0]._sectPr.findall(qn("w:pgNumType")):
+            el.set(qn("w:start"), str(int(el.get(qn("w:start"), "1")) + front))
     img_fit = _image_fit(model, lift)
 
     by_page = {}
@@ -1620,7 +1677,13 @@ def write(model: Doc, out_path, scale=None):
     next_id = FIRST_ID
     end_anchors, end_notes = _endnotes(pages)
 
+    body_el = doc.element.body
+    front_el = None          # the first thing written on page `front`
     for n, (page, blocks) in enumerate(pages.items()):
+        if front and n == front:
+            # Content goes in just before the body's own w:sectPr, so the
+            # last child now is the one the page's first element will follow.
+            front_at = len(body_el) - 1
         body = [b for b in blocks if b.kind not in (FOOTNOTE, IMAGE, TABLE)]
         pics = [b for b in blocks if b.kind in (IMAGE, TABLE)]
         notes = [b for b in blocks if b.kind == FOOTNOTE]
@@ -1716,6 +1779,11 @@ def write(model: Doc, out_path, scale=None):
                 # pushed pagination steadily out of step.
                 para.paragraph_format.page_break_before = True
             first = False
+
+    if front and front < len(pages):
+        front_el = body_el[front_at]
+        if front_el.tag != qn("w:sectPr"):
+            _end_front(doc, front_el)
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))

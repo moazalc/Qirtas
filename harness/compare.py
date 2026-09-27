@@ -180,6 +180,12 @@ def _furniture_texts(z):
     even_odd = re.search(r"<w:evenAndOddHeaders(?![^>]*w:val=\"(?:0|false)\")",
                          settings) is not None
     sect = doc[doc.rfind("<w:sectPr"):]
+    # Front pages the original left unnumbered are a section of their own
+    # with no header or footer (writer._end_front): Word draws the main
+    # section's only from the page after it, and numbers from there.
+    brk = doc.find("<w:sectPr")
+    front = doc[:brk].count("<w:pageBreakBefore/>") + 1 \
+        if -1 < brk < doc.rfind("<w:sectPr") else 0
     title_pg = re.search(r"<w:titlePg(?![^>]*w:val=\"(?:0|false)\")", sect) is not None
     m = re.search(r'<w:pgNumType[^>]*w:start="(\d+)"', sect)
     start = int(m.group(1)) if m else 1
@@ -203,6 +209,9 @@ def _furniture_texts(z):
         texts[(kind, typ)] = [body] if body.strip() else []
 
     def pick(where, page):
+        if page < front:
+            return []
+        page -= front
         if title_pg and page == 0:
             return texts.get((where, "first"), [])
         if even_odd and (start + page) % 2 == 0:
@@ -210,7 +219,8 @@ def _furniture_texts(z):
         return texts.get((where, "default"), [])
 
     def furniture(where, page):
-        return [t.replace(PAGE_MARK, str(start + page)) for t in pick(where, page)]
+        return [t.replace(PAGE_MARK, str(start + page - front))
+                for t in pick(where, page)]
     return furniture
 
 

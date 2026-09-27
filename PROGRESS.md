@@ -370,3 +370,8 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   own; it now leads its entry again. Scores did not change - this is how
   the page looks, not what is on it. It is also not why some theses come out
   twice as long; that cause is still to be found.
+- **No page number on the title page.** Word puts the header and page
+  number on every page, so title pages showed a number ("70") and the
+  chapter's header, and so did the unnumbered pages after them. Pages the
+  original leaves unnumbered at the front now have none, and numbering
+  picks up at the right number on the first numbered page.

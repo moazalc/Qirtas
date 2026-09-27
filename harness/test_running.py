@@ -133,8 +133,48 @@ def main():
     write(m, str(docx))
     check("numbered from the pages that agree",
           re.search(r'w:start="(\d+)"', _xml(docx, "word/document.xml")).group(1),
-          "156")
+          "157")   # page 2 is 157; the title page is a section of its own
     check("the year stays on the title page", "٥٢٠٢" in _body_text(docx), True)
+    # The title page showed no number: Word must not draw one on it ("70"
+    # under `z20782957`'s supervisors).
+    xml = _xml(docx, "word/document.xml")
+    check("a bare title page is a section of its own", xml.count("<w:sectPr"), 2)
+    front = xml[:xml.rfind("<w:sectPr")]
+    check("with no header or footer", "Reference" in front[front.rfind("<w:sectPr"):],
+          False)
+    check("the main one numbers from page 2", re.search(
+        r'w:start="(\d+)"', xml).group(1), "157")
+    pages = text_of_docx(docx, pages=True)
+    check("scoring reads no number on the title page", "156" in pages[0], False)
+    check("and 157 on the page after", "157" in pages[1], True)
+
+    print("\nthree unnumbered front pages, the last ending in a table")
+    m = _model()
+    for p in range(PAGES):
+        _body(m, p)
+        if p >= 3:
+            m.blocks.append(Block(kind=PARAGRAPH, page=p, y=660, y1=680, x0=58,
+                                  x1=77, text=str(10 + p)))
+    m.blocks.append(Block(kind=TABLE, text="", page=2, y=300, y1=340, x0=60, x1=455,
+                          rows=[["أ", "ب"]]))
+    docx = tmp / "front3.docx"
+    write(m, str(docx))
+    pages = text_of_docx(docx, pages=True)
+    check("pages kept apart", len(pages), PAGES)
+    check("no number on the front pages", [any(str(10 + q) in pages[p]
+                                               for q in range(PAGES)) for p in range(3)],
+          [False, False, False])
+    check("13 on the first numbered page", "13" in pages[3], True)
+
+    print("\na first page that shows its number keeps it")
+    m = _model()
+    for p in range(PAGES):
+        _body(m, p)
+        m.blocks.append(Block(kind=PARAGRAPH, page=p, y=660, y1=680, x0=58,
+                              x1=77, text=str(1 + p)))
+    docx = tmp / "numbered_first.docx"
+    write(m, str(docx))
+    check("one section", _xml(docx, "word/document.xml").count("<w:sectPr"), 1)
 
     print("\na page number inside a line of text")
     m = _model()
