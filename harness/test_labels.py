@@ -21,7 +21,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, TABLE
 from convert.reader import (_label_kind, _join_same_line, _backfill, _glued,
-                            _drop_text_inside_tables)
+                            _drop_text_inside_tables, _Run, _rough_spans,
+                            _fit_spans)
 
 FAILED = []
 
@@ -140,6 +141,28 @@ def main():
     d.add(Block(kind=PARAGRAPH, text=title, page=0))
     _drop_text_inside_tables(d, [band])
     check("no position: text alone decides, as before", len(d.blocks), 0)
+
+    print("\nthe tags route: each word's bold read from its letters' font")
+    b = Block(kind=PARAGRAPH, text="")
+    _rough_spans(b, [_Run("قال", (True, False)), _Run(" ", (False, False)),
+                     _Run("في", (True, False)), " ",
+                     _Run("كتب", (False, False))])
+    check("a space label joins the formatting before it",
+          [(t, bo) for t, bo, _ in b.spans], [("قال في ", True), ("كتب", False)])
+    check("mostly bold letters make the block bold", b.bold, True)
+    b = Block(kind=PARAGRAPH, text="")
+    _rough_spans(b, ["قال", _Run("في", (False, False))])
+    check("no bold or italic anywhere: no spans", b.spans, [])
+    b = Block(kind=PARAGRAPH, text="قال في الكتاب",
+              spans=[("قال ", True, False), ("فيالكتاب", False, False)])
+    _fit_spans(b)
+    check("spans laid over the finished text, word by word", b.spans,
+          [("قال", True, False), ("في الكتاب", False, False)])
+    b = Block(kind=PARAGRAPH, text="- قال في",
+              spans=[("قال", True, False), ("في", False, False)])
+    _fit_spans(b)
+    check("text the spans never had is written, not lost",
+          " ".join(t for t, *_ in b.spans), b.text)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

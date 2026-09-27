@@ -423,3 +423,22 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   table headings; one thesis's table cells stored backwards in the PDF.
 - **Next:** bold and italic on the two theses read through the PDF's hidden
   labels, then italic drawn as slanted text.
+
+### 27 Sept (later) — bold on the two theses read through hidden labels
+- Two theses (`z21145041`, `z22058810`) are read from text hidden behind
+  each word, which says nothing about bold. Their bold titles, headings and
+  table headers came out plain. The letters drawn for each word are still in
+  a bold or plain font, even though they spell the word backwards, so each
+  word now takes its bold from its own letters.
+- Bold words of the original shown bold: **76 -> 91 of 150** on one thesis,
+  **28 -> 64 of 79** on the other. Nothing lost still 100%, and every other
+  score unchanged.
+- **The bold check had a fault** (the ninth in the measuring tools): on
+  these two files the original's words read backwards, so it could never
+  match them, and reported 6% and 15% whatever we did. It now compares
+  words by their letters, whichever way round.
+- **Some bold where the original has none** went up on one thesis. Looked at:
+  it is the table's text written a second time under the table (an old
+  fault - that thesis stores its table cells backwards). The copy is now bold
+  like the table's own header. It goes when that fault is fixed.
+- **Next:** italic that Word draws as slanted text (9 theses use it).

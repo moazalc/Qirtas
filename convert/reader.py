@@ -358,8 +358,10 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         inner = []
         _walk(node.get("/K"), doc, pages, inner, depth + 1,
               kind if kind in (FOOTNOTE,) else ctx, state)
-        doc.add(Block(kind=kind, text=_clean(text + "".join(inner)), page=pg,
-                      from_alt=not text and _all_alt(inner)))
+        blk = Block(kind=kind, text=_clean(text + "".join(inner)), page=pg,
+                    from_alt=not text and _all_alt(inner))
+        _rough_spans(blk, [text] + inner)
+        doc.add(blk)
         return
 
     ref = node.get("/Pg")
@@ -367,7 +369,9 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         state["page"] = pages.get(ref.objgen, state["page"])
     actual = node.get("/ActualText")
     if actual is not None:
-        pending.append(str(actual))
+        look = state.get("fonts")
+        fmt = look(state["page"], _mcids(node.get("/K"))) if look else None
+        pending.append(_Run(str(actual), fmt) if fmt else str(actual))
     elif node.get("/Alt") is not None:
         pending.append(_Alt(str(node.get("/Alt"))))
     elif "signs" in state:
@@ -453,9 +457,162 @@ def _flush(doc, pending, page=0):
     """Loose text kept defaulting to page 0, piling a whole document onto the
     first page and leaving later pages empty. Carry the current page."""
     if pending:
-        doc.add(Block(kind=PARAGRAPH, text=_clean("".join(pending)), page=page,
-                      from_alt=_all_alt(pending)))
+        blk = Block(kind=PARAGRAPH, text=_clean("".join(pending)), page=page,
+                    from_alt=_all_alt(pending))
+        _rough_spans(blk, pending)
+        doc.add(blk)
         pending.clear()
+
+
+# ------------------------------------------------ tags route: bold and italic
+#
+# The tags route reads /ActualText, which carries no formatting, so bold on
+# the two theses read that way stayed at 7% and 15% (Part 3, bold). Each word
+# there is a label of its own pointing at the letters drawn for it, and those
+# letters are drawn in a font that says whether it is bold - the letters spell
+# the word backwards, the font is still right. So each word's formatting is
+# looked up from the fonts its letters are drawn in.
+TAGS_FORMAT_ON = os.environ.get("QIRTAS_TAGS_FORMAT", "1") != "0"
+
+
+class _Run(str):
+    """Text from a label, with (bold, italic) read from its letters' fonts."""
+    def __new__(cls, text, fmt):
+        s = super().__new__(cls, text)
+        s.fmt = fmt
+        return s
+
+
+def _font_style(f):
+    """(bold, italic) of a PDF font, by its name and its descriptor."""
+    name = str(f.get("/BaseFont", "")).lower()
+    desc = f.get("/FontDescriptor")
+    if desc is None and f.get("/DescendantFonts") is not None:
+        try:
+            desc = f["/DescendantFonts"][0].get("/FontDescriptor")
+        except Exception:
+            desc = None
+    flags = int(desc.get("/Flags", 0)) if desc is not None else 0
+    weight = float(desc.get("/FontWeight", 0)) if desc is not None else 0
+    bold = "bold" in name or "black" in name or "heavy" in name \
+        or weight >= 600 or bool(flags & (1 << 18))
+    italic = "italic" in name or "oblique" in name or bool(flags & (1 << 6))
+    return bold, italic
+
+
+def _font_reader(pdf):
+    """page, [mcid] -> (bold, italic) of most of the letters drawn there, or
+    None where nothing was drawn in a known font."""
+    cache = {}
+
+    def read_page(i):
+        page = pdf.pages[i]
+        fonts = page.obj.get("/Resources", {}).get("/Font", {})
+        style = {}
+        for name, f in fonts.items():
+            try:
+                style[name] = (_font_style(f),
+                               2 if f.get("/Subtype") == "/Type0" else 1)
+            except Exception:
+                continue
+        out, stack, font = {}, [], None
+        for operands, op in pikepdf.parse_content_stream(page):
+            op = str(op)
+            if op == "BDC":
+                m = operands[1].get("/MCID") if len(operands) > 1 and \
+                    isinstance(operands[1], pikepdf.Dictionary) else None
+                stack.append(int(m) if m is not None else
+                             (stack[-1] if stack else None))
+            elif op == "BMC":
+                stack.append(stack[-1] if stack else None)
+            elif op == "EMC":
+                if stack:
+                    stack.pop()
+            elif op == "Tf":
+                font = style.get(str(operands[0]))
+            elif op in ("Tj", "TJ", "'", '"') and font and stack \
+                    and stack[-1] is not None:
+                parts = operands[0] if op == "TJ" else [operands[-1]]
+                n = sum(len(bytes(p)) for p in parts
+                        if isinstance(p, pikepdf.String)) // font[1]
+                c = out.setdefault(stack[-1], [0, 0, 0])
+                c[0] += n
+                c[1] += n if font[0][0] else 0
+                c[2] += n if font[0][1] else 0
+        return out
+
+    def look(page, mcids):
+        if page not in cache:
+            try:
+                cache[page] = read_page(page)
+            except Exception:
+                cache[page] = {}
+        got = [cache[page][m] for m in mcids if m in cache[page]]
+        n = sum(c[0] for c in got)
+        if not n:
+            return None
+        return (sum(c[1] for c in got) * 2 > n, sum(c[2] for c in got) * 2 > n)
+    return look
+
+
+def _rough_spans(blk, parts):
+    """Formatting per piece as the labels gave it, before any repair of the
+    text. `_fit_spans` lays it over the finished text at the end."""
+    if not any(getattr(p, "fmt", None) and any(p.fmt) for p in parts):
+        return
+    spans = []
+    for p in parts:
+        if not p:
+            continue
+        fmt = getattr(p, "fmt", None)
+        if fmt is None or not p.strip():
+            # A space label has no letters; it takes the formatting before it.
+            fmt = spans[-1][1:] if spans else (False, False)
+        if spans and spans[-1][1:] == tuple(fmt):
+            spans[-1] = (spans[-1][0] + p, *spans[-1][1:])
+        else:
+            spans.append((str(p), *fmt))
+    blk.spans = spans
+    n = sum(len(t.strip()) for t, *_ in spans) or 1
+    blk.bold = sum(len(t.strip()) for t, b, _ in spans if b) * 2 > n
+
+
+def _fit_spans(blk):
+    """Lay the formatting read per label over the block's finished text.
+
+    The text is repaired after it is read - lam-alef, the page's fix map,
+    list markers taken off - and the writer writes the spans, not the text,
+    so spans that had drifted would write words the checker never saw. The
+    text is the authority: each of its words takes the formatting most of
+    its letters had, and like words are joined into one span."""
+    if not blk.spans or not blk.text:
+        return
+    marks, fmts = [], []
+    for t, b, i in blk.spans:
+        for ch in t:
+            if not ch.isspace():
+                marks.append(ch)
+                fmts.append((b, i))
+    want = [ch for ch in blk.text if not ch.isspace()]
+    got = [None] * len(want)
+    if marks == want:
+        got = fmts
+    else:
+        sm = difflib.SequenceMatcher(None, want, marks, autojunk=False)
+        for a, b, n in sm.get_matching_blocks():
+            got[a:a + n] = fmts[b:b + n]
+    spans, k = [], 0
+    for w in blk.text.split():
+        mine = [f for f in got[k:k + len(w)] if f is not None]
+        k += len(w)
+        fmt = (sum(f[0] for f in mine) * 2 > len(mine),
+               sum(f[1] for f in mine) * 2 > len(mine)) if mine else \
+            (spans[-1][1:] if spans else (False, False))
+        if spans and spans[-1][1:] == fmt:
+            spans[-1] = (spans[-1][0] + " " + w, *fmt)
+        else:
+            spans.append((w, *fmt))
+    blk.spans = spans if any(b or i for _, b, i in spans) else []
 
 
 def read_tags(path):
@@ -466,6 +623,8 @@ def read_tags(path):
         pages = _page_index(pdf)
         doc.pages = len(pdf.pages)
         pending, state = [], {"page": 0, "signs": _sign_reader(pdf)}
+        if TAGS_FORMAT_ON:
+            state["fonts"] = _font_reader(pdf)
         _walk(pdf.Root["/StructTreeRoot"].get("/K"), doc, pages, pending, state=state)
         _flush(doc, pending, state["page"])
     return doc
@@ -2331,6 +2490,10 @@ def read(path, image_dir=None):
     # top of them is how geometry turned a third of prose into lists.
     if best.source_route != "labels":
         best = detect_lists(best)
+    if best.source_route == "tags":
+        for b in best.blocks:
+            if b.kind != TABLE:
+                _fit_spans(b)
     measure_layout(path, best)
     with pymupdf.open(path) as d:
         r = d[0].rect

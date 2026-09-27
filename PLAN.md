@@ -2865,6 +2865,40 @@ flipped, the columns sit as the original's. That PDF's own text reads the
 table left to right, so words in order marks the right answer down. A
 limit of the score for tables, not a fault; left as it is.
 
+### Part 3: bold on the tags route, 2026-09-27
+
+The two theses read through /ActualText (`z21145041`, `z22058810`) carried
+no formatting. Each word there is a /Span with its own /ActualText and one
+MCID, and the glyphs under that MCID are drawn in a font that says bold
+(`SimplifiedArabic-Bold`, `TraditionalArabic-Bold`) though they spell the
+word backwards. `reader._font_reader` parses each page's content stream once
+and counts, per MCID, glyphs drawn in a bold / italic font (by name, weight,
+or descriptor flags); `_walk` tags each /ActualText piece with that as a
+`_Run`; `_rough_spans` builds spans per block. The text is repaired after
+reading (lam-alef, the fix map, list markers) and the writer writes spans,
+not text, so the spans are laid over the FINISHED text last thing in `read`
+(`_fit_spans`: letters aligned, each word takes most of its letters'
+formatting). Switch `QIRTAS_TAGS_FORMAT`.
+
+**The bold measure was broken on these files** (the ninth instrument bug).
+It matched words between the original and Word's render of ours, and the
+original's words read backwards there (`هعماج`), so nothing could match:
+6% and 15% before and after alike. Compared by letters in any order: bold
+kept `z21145041` 76 -> 91 of 150, `z22058810` 28 -> 64 of 79 (quick run
+`tagsfmt` against `thesis-part3d`). Bold where the original has none
+21 -> 53 and 27 -> 72: looked at, the first is `z21145041`'s table text
+written again under the table (its cells stored backwards, so the copy is
+not recognised) now bold like the header it copies; the rest is words split
+or glued differently in the two renders. Text scores identical on all 10
+quick-set files, nothing lost 100%.
+
+Seen on the way, not from this: `z22058810` page 2's shaded verse is read as
+a table with backwards cells, and the verse written again garbled below it
+- the same fault as `z21145041`'s cells.
+
+**Italic drawn as a skew** is in 9 theses (`z18634114` 299 times,
+`z18441713` 177): Word sets a text matrix with a 0.33 shear, no italic font.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

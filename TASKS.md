@@ -41,8 +41,11 @@ by position, the rest of the doubled text, and spaces stored as U+200C DONE
 27 Sept (PLAN "Part 3: tables the right way round"). Tables, still: the
 table finder's pieces of one big table found as small tables of their own
 (`z3387756` page 12); a stray `ا` in header cells; `z21145041`'s cells
-stored backwards. Next in Part 3: formatting on the tags route (`z21145041`,
-`z22058810`); italic drawn as a skew. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+stored backwards (and so its table text written again under it; the same on
+`z22058810` page 2, a shaded verse read as a table). Bold on the tags route
+DONE 27 Sept (PLAN "Part 3: bold on the tags route"; measure bold by letters
+in any order - these PDFs store words backwards). Next in Part 3: italic
+drawn as a skew (9 theses, a 0.33 shear in the text matrix). Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.
