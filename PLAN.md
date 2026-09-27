@@ -2753,6 +2753,118 @@ nothing lost 100.0% (worst `z21145041` 99.3%, as before); pages 1.14x ->
 `z7456037` (17.8 -> 14.3%): both still 8 and 15 pages long, one or two
 shorter, so their pages meet the original at other places.
 
+### Part 3: tables the right way round, cells across columns, 2026-09-27
+
+Looked at four table pages in three theses before touching anything; every
+one had the same faults.
+
+**Every right-to-left table was mirrored.** The table finder lists a row's
+cells left to right, as drawn. The writer marks an Arabic table
+`w:bidiVisual`, which puts cell one on the RIGHT - so the original's
+rightmost column came out leftmost, on every Arabic table. Seen on
+`z20276275` on 24 Sept ("mirrored wrong") and never fixed; the widths were
+reversed, the cells were not. `writer._emit_table` now hands a right-to-left
+table over in reverse, with its widths, cell pictures and spans
+(`QIRTAS_TABLE_FLIP`). No score can see it: the words are the same either
+way round.
+
+**A cell across several columns was written into the first.** The table
+finder gives such a cell at its first column and None for the columns it
+covers. On a table drawn with double rules the first is often a 5pt gap
+column, so the cell's text went into a sliver, one letter a line - the
+"header row squashed" of the last section. `reader._spans` reads the span
+off the geometry (a None whose column the cell to its left reaches), the
+writer merges the cells (`gridSpan`), and widths now come from every row's
+edges, not the first row's alone, which missed a column whenever it held a
+merged cell (`QIRTAS_TABLE_SPAN`). A None the cell to its left does not
+reach is the row above reaching down, and stays an empty cell.
+`_drop_thin_columns` moves a span's text along when its first column goes,
+and drops a thin column whose only text is a copy of the cell beside it
+(a 5pt clip catching its neighbour, `z21145041`).
+
+Two traps on the way, both found by a file getting longer:
+- A frame drawn round a whole page (`z20782957` page 11) is found as a
+  "table" whose cells lie inside each other. Read as a grid, a 6pt column got
+  the page's text: 13 pages -> 19. Rejecting every table with overlapping
+  cells then threw out a real one in `z3387756` (15 -> 18 pages) that has one
+  nested cell. What works: a cell inside another of its row whose text the
+  outer one already has is the same text read twice - blanked, and the outer
+  cell spans (`reader._unnest`). An inner cell with text of its own leaves
+  the table as it was found.
+
+**The table put into the middle of a paragraph.** Pictures and tables went
+in at the same share of the way down the page's list of paragraphs as they
+sit down the page. That assumes the paragraphs are spread evenly; a table
+whose rows are also read as paragraphs below it is not, and the table landed
+mid-paragraph, its caption after it. Where 80% of a page's blocks carry a
+position, a table or picture now goes after the last block that STARTS above
+it (`writer._by_y`, `QIRTAS_PLACE_BY_Y`) - starts, because a caption read
+together with the header row below it ends inside the table. The tags route
+has no positions and keeps the old way.
+
+**The rest of the doubled table text** (`QIRTAS_TABLE_JOINED`), three causes:
+- The page stores a cell's word broken over two lines (`ال` / `مطلوب`); alone
+  at a line's end `ال` reads as a lam-alef stored backwards, and the cell said
+  `لا مطلوب`. `reader._rejoin_articles`: where the page's paragraphs have
+  `المطلوب` and never `مطلوب`, so does the cell. A real `لا يوجد` is left.
+- A row read as a paragraph with the source line below it (`ممتازة ...
+  المصدر :`): the leading words the table holds are cut off
+  (`reader._trim_held`), by letters, so the formatting runs stay in step.
+- The caption read together with the header row: the trailing words the
+  first row holds are cut off (`reader._trim_header`).
+A paragraph's word counts as the table's only when a cell has that whole
+word. Also matching it inside the table's text with the spaces taken out
+(for `ل مطلوب`) passed the quick set and failed the gate on the full run:
+`z17931421` stores its spaces as `ۡ` and a cell read `المجموعةۡالضابطةۡم`,
+so `المجموعةۡالضابطة` looked held, its only copy as printed was dropped,
+and nothing lost fell to 97.9%. Taken out; `_rejoin_articles` covers the
+broken word it was for.
+
+**Spaces stored as U+200C** (`QIRTAS_ZWNJ`). `z21850164` stores a zero-width
+non-joiner between every pair of words - 2,636 in 14 pages; `z22643426` 132.
+Word draws it as nothing and the whole thesis came out glued
+(`البعدالقيميوالروحي`). `reader._clean` now writes a space.
+**The instrument hid it, then misread the fix** (the eighth measuring bug):
+`harness/loss.py` counted U+200C as a space, but `compare.WORD` and
+`compare.ALLWS` did not, so words in order fell 91% -> 4% the moment the
+converter wrote spaces. Fixed there, it still read 76%: the original's side
+was repaired with the joiners in, and the repair of words stored backwards
+(`يف` for في) needs whole words, so the reference kept `يف` while ours,
+correctly, said في. `compare.text_of` now reads U+200C as a space always.
+Scored both ways on the fixed instrument: `z21850164` words in order 76.2 ->
+97.1%, right page 62.3 -> 87.2%; `z22643426` right page 90.0 -> 91.7%;
+nothing lost 100% both ways.
+
+Quick set (`2026-09-27-quick-look-span3` against `-look-tables`; `z21850164`
+also moved by the instrument): right page 53.9 -> 67.1%; words in order
+88.6 -> 90.5%; pages 1.036x -> 1.000x; nothing lost 100% on every file (was
+99.3% worst); page-check wrong words 9.3% unchanged. `z3387756` 20 -> 15
+pages, right page 32.0 -> 78.7%; `z20973693` 21 -> 15, 69.6 -> 90.1%;
+`z21850164` 22 -> 14, 22.8 -> 87.2%. No file worse. Looked at on
+`z3387756` pages 4 and 6: the tables read as the original, caption above.
+Still wrong:
+- `z3387756` page 12: the 17-column table reads and is the right way round,
+  but the table finder also finds five pieces of it as tables of their own,
+  and they come out as small tables and loose lines under it.
+- A stray `ا` in some header cells (the clip catching a letter beside it).
+- `z21145041`'s cells stored backwards (`ارشؤم`), as before.
+
+**Full run** (`2026-09-27-{thesis,regression}-part3d` against `part3b`):
+nothing lost 100.0% on EVERY thesis - worst file 100.0%, the first time
+(`z21145041` was 99.3%); pages 1.07x -> 1.00x; right page 58.6 -> 69.4%,
+11 of 25 files better and none worse; words in order 92.9 -> 93.9%; page
+check wrong words 8.4% and found 91.7% unchanged. Regression unchanged
+(100%, 86.7%, wrong 2.2%). Largest: `z14714045` 16 -> 14 pages, right page
+15.7 -> 94.6%; `z7456037` 29 -> 15, 14.3 -> 30.1%; `z18037898` 26 -> 13,
+68.6 -> 80.6%; `z22828583` 22 -> 15, 12.4 -> 23.0%; `z21644412` 20 -> 15;
+`z20306213` 17 -> 14. (`part3c`, the run before, failed the gate on
+`z17931421` - see above.)
+**One file reads worse, and is not:** `z21728839` words in order 97.8 ->
+95.6%. With the flip off it is 98.5% - and its table mirrored. Looked at:
+flipped, the columns sit as the original's. That PDF's own text reads the
+table left to right, so words in order marks the right answer down. A
+limit of the score for tables, not a fault; left as it is.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

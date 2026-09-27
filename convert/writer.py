@@ -1202,6 +1202,9 @@ def _interleave(body, pics, model):
     top = model.margin_top
     bottom = model.page_height - model.margin_bottom
     span = max(1.0, bottom - top)
+    placed = [i for i, b in enumerate(body) if b.y1 > 0]
+    if BY_Y_ON and len(placed) * 5 >= len(body) * 4:
+        return _by_y(body, pics, placed)
     out = list(body)
     for pic in sorted(pics, key=lambda b: b.y, reverse=True):
         if pic.y <= 0:
@@ -1209,6 +1212,31 @@ def _interleave(body, pics, model):
             continue
         frac = min(1.0, max(0.0, (pic.y - top) / span))
         out.insert(int(round(frac * len(body))), pic)
+    return out
+
+
+# Where the text carries its place on the page, a picture or table goes after
+# the last paragraph that starts above it - starts, since a caption read
+# together with the table's header row runs down into the table. The share of the way down the list put a table
+# into the middle of a paragraph when the page's text is not spread evenly -
+# a table whose rows are also read as paragraphs below it (`z3387756` page 5).
+BY_Y_ON = os.environ.get("QIRTAS_PLACE_BY_Y", "1") != "0"
+Y_SLACK = 4.0
+
+
+def _by_y(body, pics, placed):
+    at = {}
+    for pic in pics:
+        if pic.y <= 0:
+            at.setdefault(len(body), []).append(pic)
+            continue
+        above = [i for i in placed if body[i].y < pic.y - Y_SLACK]
+        at.setdefault(max(above) + 1 if above else 0, []).append(pic)
+    out = []
+    for i in range(len(body) + 1):
+        out.extend(sorted(at.get(i, []), key=lambda b: b.y))
+        if i < len(body):
+            out.append(body[i])
     return out
 
 
@@ -1266,6 +1294,9 @@ def _emit_beside(doc, g, model, k, img_k, notes, first_break):
     return t
 
 
+FLIP_ON = os.environ.get("QIRTAS_TABLE_FLIP", "1") != "0"
+
+
 def _emit_table(doc, block, body_pt, font, dropped=None):
     """A real Word table, mirrored so column one sits on the right."""
     if dropped is None:
@@ -1278,24 +1309,44 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
     rtl = is_rtl(flat)
     t = doc.add_table(rows=len(rows), cols=width)
     t.style = "Table Grid"
-    if block.col_widths and len(block.col_widths) == width:
-        order = [max(18.0, w) for w in block.col_widths]
-        if rtl:
-            order = list(reversed(order))
-        _fix_columns(t, order, rows)
+    widths = [max(18.0, w) for w in block.col_widths]         if block.col_widths and len(block.col_widths) == width else []
+    rows = [list(r) + [""] * (width - len(r)) for r in rows]
+    pics, spans = dict(block.cell_images), dict(block.cell_spans or {})
+    # The table finder lists a row's cells left to right, as drawn. A mirrored
+    # table puts cell one on the RIGHT, so a right-to-left table is handed to
+    # Word in reverse; handed over as read, every column came out on the
+    # wrong side (seen on every table page looked at, 2026-09-27).
+    if rtl and FLIP_ON:
+        rows = [r[::-1] for r in rows]
+        widths = widths[::-1]
+        pics = {(r, width - 1 - c): v for (r, c), v in pics.items()}
+        spans = {(r, width - c - k): k for (r, c), k in spans.items()}
+    elif rtl:
+        widths = widths[::-1]
+    if widths:
+        _fix_columns(t, widths, rows)
     # Mirror the columns only for a table that is actually right-to-left. An
     # English table was being mirrored too, which reversed a table that was
     # never right-to-left.
     if rtl:
         _flag(t._tbl.tblPr, "w:bidiVisual")
+    covered = set()
+    for (ri, ci), k in spans.items():
+        if ri < len(rows) and 0 <= ci and ci + k <= width:
+            text = " ".join(x for x in rows[ri][ci:ci + k] if x.strip())
+            rows[ri][ci:ci + k] = [text] + [""] * (k - 1)
+            t.cell(ri, ci).merge(t.cell(ri, ci + k - 1))
+            covered.update((ri, j) for j in range(ci + 1, ci + k))
     for ri, row in enumerate(rows):
         for ci in range(width):
+            if (ri, ci) in covered:
+                continue
             cell = t.cell(ri, ci)
             text = (row[ci] if ci < len(row) else "") or ""
             para = cell.paragraphs[0]
-            pic = block.cell_images.get((ri, ci))
+            pic = pics.get((ri, ci))
             if pic:
-                w = (block.col_widths[ci] if ci < len(block.col_widths) else 90) - 6
+                w = (widths[ci] if ci < len(widths) else 90) - 6
                 _place(para, pic, max(24.0, w), dropped)
                 if not text.strip():
                     continue

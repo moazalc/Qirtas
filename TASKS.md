@@ -36,20 +36,24 @@ No header or number on unnumbered front pages DONE 26 Sept (PLAN "Part 3: no
 header or number"). Three or more across DONE 27 Sept (PLAN "Part 3: three or more across" -
 borderless tables; not yet the logo between two headers). Tables: thin
 columns and doubled text DONE 27 Sept (PLAN "Part 3: tables drawn with
-double rules"). Next in Part 3: tables, what is left - a header row squashed a letter per line,
-the caption under the table, half the doubled text (the table lacks a word
-of it) (`z3387756` page 7); formatting on the tags route (`z21145041`, `z22058810`); italic drawn
-as a skew. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+double rules"). Tables the right way round, cells across columns, placed
+by position, the rest of the doubled text, and spaces stored as U+200C DONE
+27 Sept (PLAN "Part 3: tables the right way round"). Tables, still: the
+table finder's pieces of one big table found as small tables of their own
+(`z3387756` page 12); a stray `ا` in header cells; `z21145041`'s cells
+stored backwards. Next in Part 3: formatting on the tags route (`z21145041`,
+`z22058810`); italic drawn as a skew. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.
 
 **FLAGS 29 done 24 Sept** (nothing lost 100.0%, wrong words 10.1 -> 9.0%,
-full run `flags29c` was the baseline; now `2026-09-27-*-part3b`: nothing lost 100.0%, wrong words 8.4%, right page 58.6%, pages 1.07x). **Next:** the English the tags
+full run `flags29c` was the baseline; now `2026-09-27-*-part3d`: nothing lost 100.0% on every file, wrong words 8.4%, right page 69.4%, pages 1.00x). **Next:** the English the tags
 reading drops inside Arabic lines (FLAGS 29, still open) - it is put back on
 a line of its own, which reads wrong; then the list below re-checked against
-the theses - it was drawn up on the old corpus. Pages are the plain problem
-on the theses: 11 of 25 come out 3+ pages long.
+the theses - it was drawn up on the old corpus. Pages were the plain problem
+on the theses (11 of 25 came out 3+ pages long); since the table fixes,
+1.00x overall, longest `z17931421` 17 for 14.
 
 **Old corpus, for the record** - full run `2026-09-24-{dev,regression}-fonts-baseline`:
 page-truth wrong words 7.8% on the 48 dev files (floor: Moaz's theses 2.8%),

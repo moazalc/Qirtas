@@ -58,6 +58,7 @@ class Block:
     col_widths: List[float] = field(default_factory=list)  # points, per column
     cell_boxes: List[List[tuple]] = field(default_factory=list)   # cell rects
     cell_images: dict = field(default_factory=dict)               # (row,col) -> path
+    cell_spans: dict = field(default_factory=dict)       # (row,col) -> columns it covers
 
     def __bool__(self):
         return bool(self.text.strip()) or bool(self.image) or bool(self.rows)

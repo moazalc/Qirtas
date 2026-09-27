@@ -39,9 +39,18 @@ ARABIC = re.compile(r"[؀-ۿ]")
 WS = re.compile(r"[ \t ]+")
 
 
+# A zero-width non-joiner (U+200C) where the space belongs: `z21850164`
+# stores one between every pair of words, 2,636 in 14 pages, and Word draws
+# it as nothing - the whole thesis came out glued (`البعدالقيميوالروحي`).
+# The scoring already read it as a space (harness/loss.py), so no score saw.
+ZWNJ_ON = os.environ.get("QIRTAS_ZWNJ", "1") != "0"
+
+
 def _clean(s):
     # Every route's text passes through here, which makes it the one place the
     # lam-alef repair has to go - see convert/arabic.py.
+    if ZWNJ_ON and s:
+        s = s.replace("‌", " ")
     s = repair_lam_alef(s)
     s = WS.sub(" ", (s or "").replace("\r", " ").replace("\n", " ")).strip()
     # A sign read from its own label is set apart by spaces (_sign_reader);
@@ -1790,10 +1799,91 @@ def read_tables(path):
                     boxes = [[c for c in row.cells] for row in t.rows]
                 except Exception:
                     boxes = []
+                grid = SPAN_ON and _unnest(rows, boxes) and _is_grid(boxes)
+                spans = _spans(boxes) if grid else {}
+                if grid:
+                    widths = _grid_widths(boxes, r[2]) or widths
                 blocks.append(Block(kind=TABLE, text="", page=i, rows=rows,
                                     col_widths=widths, cell_boxes=boxes,
+                                    cell_spans=spans,
                                     x0=r[0], y=r[1], x1=r[2], y1=r[3]))
     return blocks
+
+
+# A cell across several columns. The table finder gives the cell at its first
+# column and None for the columns it covers, and the text was written into
+# the first column alone - on a table drawn with double rules often a 5pt
+# sliver, one letter a line (`z3387756` page 5). A None whose column the cell
+# to its left does not reach is the row above reaching down; left empty.
+SPAN_ON = os.environ.get("QIRTAS_TABLE_SPAN", "1") != "0"
+
+
+def _unnest(rows, boxes):
+    """A cell inside another of its row, holding nothing the outer one does
+    not, is the table finder reading the same text twice: blanked, so the
+    outer cell spans the columns. -> False if an inner cell has text of its
+    own, and the table is left as found."""
+    boxes[:] = [list(r) for r in boxes]
+    for ri, row in enumerate(boxes):
+        for i, a in enumerate(row):
+            for j, b in enumerate(row):
+                if i == j or a is None or b is None or ri >= len(rows):
+                    continue
+                if a[0] <= b[0] + 1 and b[2] <= a[2] + 1 and (a[0], a[2]) != (b[0], b[2]):
+                    inner = "".join(rows[ri][j].split())
+                    if inner and inner not in "".join(rows[ri][i].split()):
+                        return False
+                    row[j] = None
+                    rows[ri][j] = ""
+    return True
+
+
+def _is_grid(boxes):
+    """No two cells of a row overlap. A frame drawn round a whole page is
+    found as a "table" whose cells lie inside each other (`z20782957` page
+    11: 85-548 and 91-548 in one row); read as a grid, a 6pt column got the
+    page's text and ran over six pages."""
+    for row in boxes:
+        cells = [c for c in row if c is not None]
+        if any(b[0] < a[2] - 1 for a, b in zip(cells, cells[1:])):
+            return False
+    return True
+
+
+def _edges(boxes):
+    """Each column's left edge, from any row where it has a cell of its own."""
+    n = max((len(r) for r in boxes), default=0)
+    edges = [None] * n
+    for row in boxes:
+        for j, c in enumerate(row):
+            if c is not None and edges[j] is None:
+                edges[j] = c[0]
+    return edges
+
+
+def _spans(boxes):
+    edges = _edges(boxes)
+    spans = {}
+    for ri, row in enumerate(boxes):
+        for ci, c in enumerate(row):
+            if c is None:
+                continue
+            k = 1
+            while ci + k < len(row) and row[ci + k] is None                     and edges[ci + k] is not None and c[2] > edges[ci + k] + 1:
+                k += 1
+            if k > 1:
+                spans[(ri, ci)] = k
+    return spans
+
+
+def _grid_widths(boxes, right):
+    """Column widths off every row's edges; the first row alone misses a
+    column when it holds a cell across two."""
+    edges = _edges(boxes)
+    if not edges or None in edges:
+        return []
+    w = [round(b - a, 1) for a, b in zip(edges, edges[1:] + [right])]
+    return w if all(x > 1 for x in w) else []
 
 
 def _col_widths(table):
@@ -1903,6 +1993,8 @@ def _drop_text_inside_tables(doc, tables):
     """
     if not tables:
         return
+    if TABLE_JOINED_ON:
+        _rejoin_articles(doc, tables)
     by_page = {}
     for t in tables:
         cells = " ".join(c for row in t.rows for c in row)
@@ -1916,10 +2008,122 @@ def _drop_text_inside_tables(doc, tables):
         if len(flat) >= 6 and any(flat in joined and _inside(b, t)
                                   for joined, _, t in by_page.get(b.page, [])):
             continue
-        if any(_held_by(b, t, words) for _, words, t in by_page.get(b.page, [])):
+        if any(_held_by(b, t, words, joined) for joined, words, t in by_page.get(b.page, [])):
             continue
+        for joined, words, t in by_page.get(b.page, []):
+            _trim_held(b, t, words, joined)
+            _trim_header(b, t)
         keep.append(b)
     doc.blocks = keep
+
+
+LA_WORD = re.compile(r"(?<!\S)لا (\S+)")
+
+
+def _rejoin_articles(doc, tables):
+    """A cell's word broken after its article (`ال` / `مطلوب`) comes back as
+    `لا مطلوب`: alone at a line's end, `ال` reads as a lam-alef stored
+    backwards. The page's paragraphs read the same words whole; where they
+    have `المطلوب` and never `مطلوب`, so does the cell."""
+    seen = {}
+    for b in doc.blocks:
+        if b.text and b.kind not in (TABLE, IMAGE):
+            seen.setdefault(b.page, set()).update(b.text.split())
+    for t in tables:
+        words = seen.get(t.page, set())
+
+        def fix(m):
+            w = m.group(1)
+            return "ال" + w if "ال" + w in words and w not in words else m.group(0)
+        t.rows = [[LA_WORD.sub(fix, c) for c in row] for row in t.rows]
+
+
+def _has(w, words, joined):
+    # Whole words only. Matching inside the table's text with the spaces out
+    # took `المجموعةۡالضابطة` as held by a cell reading `المجموعةۡالضابطةۡم`,
+    # dropped the only copy as printed, and the gate lost 2.1% of
+    # `z17931421` (full run, 2026-09-27). The broken word it was for
+    # (`ال` / `مطلوب`) is joined back by `_rejoin_articles` instead.
+    return w in words
+
+
+def _trim_held(b, table, words, joined):
+    """A paragraph that starts in the table's last row and runs on below it:
+    the row's words lead the text below (`ممتازة ... المصدر :`). The leading
+    words the table holds go; the rest stays."""
+    if not TABLE_JOINED_ON or not b.y1 or not table.y1:
+        return
+    if not (table.y < b.y < table.y1 < b.y1) or not (table.x0 - 2 <= b.x0 and b.x1 <= table.x1 + 2):
+        return
+    mine = b.text.split()
+    n = 0
+    while n < len(mine) and _has(mine[n], words, joined):
+        n += 1
+    if not 2 <= n < len(mine):
+        return
+    # Cut by letters, not characters: the formatting runs need not carry the
+    # same spaces as the text.
+    need = sum(len(w) for w in mine[:n])
+    b.text = _after_letters(b.text, need)
+    if b.spans:
+        spans = []
+        for t, *rest in b.spans:
+            have = len("".join(t.split()))
+            if need >= have:
+                need -= have
+                continue
+            spans.append((_after_letters(t, need) if need else t, *rest))
+            need = 0
+        b.spans = spans
+
+
+def _trim_header(b, table):
+    """A caption read together with the table's header row below it: the
+    row's words end the caption (`... الانحدارية درجة خارجية المتغير علاقة
+    السببية`). Trailing words the first row holds go."""
+    if not TABLE_JOINED_ON or not b.y1 or not table.y1 or not table.rows:
+        return
+    if not (b.y < table.y < b.y1 < table.y1):
+        return
+    head = " ".join(table.rows[0])
+    words, joined = set(head.split()), WS.sub("", head)
+    mine = b.text.split()
+    n = 0
+    while n < len(mine) and _has(mine[-1 - n], words, joined):
+        n += 1
+    if not 2 <= n < len(mine):
+        return
+    keep = sum(len(w) for w in mine[:-n])
+    b.text = _before_letters(b.text, keep)
+    if b.spans:
+        spans = []
+        for t, *rest in b.spans:
+            if keep <= 0:
+                break
+            have = len("".join(t.split()))
+            spans.append((t if have <= keep else _before_letters(t, keep), *rest))
+            keep -= have
+        b.spans = spans
+
+
+def _before_letters(text, n):
+    """The text up to its first n non-space characters, trailing space gone."""
+    for i, c in enumerate(text):
+        if not c.isspace():
+            if n <= 0:
+                return text[:i].rstrip()
+            n -= 1
+    return text.rstrip()
+
+
+def _after_letters(text, n):
+    """The text after its first n non-space characters, leading space gone."""
+    for i, c in enumerate(text):
+        if n <= 0:
+            return text[i:].lstrip()
+        if not c.isspace():
+            n -= 1
+    return ""
 
 
 # A table drawn with double rules is found with a column in the gap between
@@ -1938,9 +2142,24 @@ def _drop_thin_columns(t):
     n = len(t.col_widths)
     if any(len(r) != n for r in t.rows):
         return
+    spans = t.cell_spans or {}
+
+    def held(r, i):
+        # Text a thin column holds only as the start of a cell across wider
+        # ones moves along with that cell; it does not keep the column. Nor
+        # does a copy of the cell beside it, which a 5pt clip can catch
+        # (`z21145041` page 5, written a letter a line).
+        row = t.rows[r]
+        text = row[i].strip()
+        twin = any(0 <= j < n and row[j].strip() == text for j in (i - 1, i + 1))
+        return text and spans.get((r, i), 1) == 1 and not twin
     gone = [i for i, w in enumerate(t.col_widths)
-            if w < THIN_PT and all(not r[i].strip() for r in t.rows)
+            if w < THIN_PT and not any(held(r, i) for r in range(len(t.rows)))
             and not any(c == i for _, c in t.cell_images)]
+    # A cell across only dropped columns would have nowhere to go.
+    gone = [i for i in gone if not any(
+        c <= i < c + k and all(j in gone for j in range(c, c + k))
+        for (r, c), k in spans.items())]
     if not gone or len(gone) == n:
         return
     widths = list(t.col_widths)
@@ -1952,10 +2171,19 @@ def _drop_thin_columns(t):
     keep = [i for i in range(n) if i not in gone]
     at = {old: new for new, old in enumerate(keep)}
     t.col_widths = [widths[i] for i in keep]
+    old_rows = t.rows
     t.rows = [[r[i] for i in keep] for r in t.rows]
     t.cell_boxes = [[row[i] for i in keep] if len(row) == n else row
                     for row in (t.cell_boxes or [])]
     t.cell_images = {(r, at[c]): p for (r, c), p in t.cell_images.items()}
+    moved = {}
+    for (r, c), k in spans.items():
+        kept = [at[j] for j in range(c, c + k) if j in at]
+        if c not in at:        # its column went; the text goes to the next kept
+            t.rows[r][kept[0]] = old_rows[r][c]
+        if len(kept) > 1:
+            moved[(r, kept[0])] = len(kept)
+    t.cell_spans = moved
 
 
 # A paragraph inside a table whose words the table holds, every one of them.
@@ -1966,14 +2194,17 @@ def _drop_thin_columns(t):
 TABLE_WORDS_ON = os.environ.get("QIRTAS_TABLE_WORDS", "1") != "0"
 
 
-def _held_by(b, table, words):
+TABLE_JOINED_ON = os.environ.get("QIRTAS_TABLE_JOINED", "1") != "0"
+
+
+def _held_by(b, table, words, joined=""):
     if not TABLE_WORDS_ON or not b.y1 or not table.y1:
         return False
     mx, my = (b.x0 + b.x1) / 2, (b.y + b.y1) / 2
     if not (table.x0 - 2 <= mx <= table.x1 + 2 and table.y - 2 <= my <= table.y1 + 2):
         return False
     mine = b.text.split()
-    return bool(mine) and all(w in words for w in mine)
+    return bool(mine) and all(_has(w, words, joined) for w in mine)
 
 
 def _inside(b, table):

@@ -20,7 +20,11 @@ from convert.pdftext import apply_fixes, fix_map
 from convert.footnotes import WESTERN
 from convert.order import get_text
 
-WORD = re.compile(r"\S+")
+# A zero-width joiner or non-joiner ends a word, as a space does: `z21850164`
+# stores U+200C for every space, so a sentence read as one "word", and the
+# converter writing real spaces there scored 91% -> 4% in order (2026-09-27).
+# harness/loss.py has counted them as space since FLAGS 29.
+WORD = re.compile(r"[^\s\u200b-\u200d\u2060\ufeff]+")
 TASHKEEL = re.compile(r"[ً-ْٰـ]")   # harakat + tatweel
 
 
@@ -52,6 +56,12 @@ def text_of(pdf_path, pages=False):
         fixes = {}
     with pymupdf.open(pdf_path) as d:
         texts = [get_text(pg, "text") for pg in d]
+    # A zero-width non-joiner stands where the page prints a space
+    # (`z21850164`), and the repairs of words stored backwards (`يف` for
+    # في) look for whole words: left in, they never fired on this side, and
+    # the converter writing it as a space - and so the word turned round -
+    # read as a loss. Always a space here, whatever the converter does.
+    texts = [t.replace(chr(0x200C), " ") for t in texts]
     if pages:
         # One string per page, for finding which page a sentence is on.
         return [spell_out(apply_fixes(repair_lam_alef(t), fixes)).translate(WESTERN)
@@ -239,7 +249,7 @@ def _footnote_texts(z, note="footnote"):
     return out
 
 
-ALLWS = re.compile(r"\s+")
+ALLWS = re.compile(r"[\s\u200b-\u200d\u2060\ufeff]+")   # zero-width ones too, as WORD
 SENT = re.compile(r"[.؟!؛:\n]+|،")
 BIG_DOC = 20000          # sentences; beyond this fall back to a cheap estimate
 

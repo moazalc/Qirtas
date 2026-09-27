@@ -147,6 +147,11 @@ def main():
     check("the empty 5pt columns go, width to the next", t.col_widths, [65, 65, 306, 35])
     check("the cells keep their text, in order", t.rows[0],
           ["غير موافق", "موافق", "العبارة", "م"])
+    twin = Block(kind=TABLE, text="", page=0, rows=[["نص", "كلمة", "كلمة"], ["أ", "", "ب"]],
+                 col_widths=[60, 5, 60])
+    _drop_thin_columns(twin)
+    check("a thin column copying its neighbour goes (z21145041)", twin.rows,
+          [["نص", "كلمة"], ["أ", "ب"]])
     thin_text = Block(kind=TABLE, text="", page=0, rows=[["x", "نص"]], col_widths=[5, 60])
     _drop_thin_columns(thin_text)
     check("a thin column holding text stays", thin_text.col_widths, [5, 60])
@@ -166,6 +171,90 @@ def main():
     check("every word in the table: dropped", split in doc.blocks, False)
     check("one word the table lacks: kept", more in doc.blocks, True)
     check("outside the table: kept", below in doc.blocks, True)
+
+    print("\na cell across several columns (z3387756 page 5)")
+    from convert.reader import _spans, _grid_widths
+    edges = [[(50, 55), (55, 200), (200, 206), (206, 420), (420, 425), (425, 530)],
+             [(50, 200), None, (200, 420), None, (420, 530), None],
+             [None, None, (200, 420), None, (420, 530), None]]
+    boxes = [[None if c is None else (c[0], 100 + 20 * r, c[1], 120 + 20 * r) for c in row]
+             for r, row in enumerate(edges)]
+    check("each row-2 cell covers two columns", _spans(boxes),
+          {(1, 0): 2, (1, 2): 2, (1, 4): 2, (2, 2): 2, (2, 4): 2})
+    check("the row above reaching down is not a span", (2, 0) in _spans(boxes), False)
+    check("widths from every row", _grid_widths(boxes, 530), [5, 145, 6, 214, 5, 105])
+    from convert.reader import _is_grid
+    check("a real grid is one", _is_grid(boxes), True)
+    frame = [[(85, 72, 91, 80), (91, 72, 554, 80), None],
+             [(85, 80, 548, 700), (91, 80, 548, 700), None]]
+    check("a page frame, cells inside each other, is not (z20782957)", _is_grid(frame), False)
+    from convert.reader import _unnest
+    rows = [["", "الفصل", ""], ["الفصل الخامس", "الفصل الخامس", ""]]
+    check("the same text read twice, nested: unnested", _unnest(rows, frame), True)
+    check("the inner cell blanked, so the outer spans", (frame[1][1], rows[1][1]), (None, ""))
+    check("and the outer spans it", _spans(frame), {(1, 0): 2})
+    own = [[(85, 72, 548, 80), (91, 72, 300, 80)]]
+    check("a nested cell with text of its own: not a grid",
+          _unnest([["أ", "ب"]], own), False)
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=100, y1=200,
+              rows=[["", "جودة", "", "علاقة", "", "درجة"],
+                    ["تقدير", "", "اختبار", "", "ضعيفة", ""]],
+              col_widths=[5, 145, 6, 214, 5, 105],
+              cell_spans={(1, 0): 2, (1, 2): 2, (1, 4): 2})
+    _drop_thin_columns(t)
+    check("thin columns go, the spanned text moves along", t.rows,
+          [["جودة", "علاقة", "درجة"], ["تقدير", "اختبار", "ضعيفة"]])
+    check("no spans left once the columns are one each", t.cell_spans, {})
+
+    print("\na right-to-left table written with column one on the right")
+    import re, tempfile, zipfile
+    from convert.writer import write
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=100, y1=200,
+              rows=[["جودة النموذج", "علاقة السببية", "درجة المتغير"],
+                    ["تقدير النموذج", "", "ضعيفة"]],
+              col_widths=[150, 220, 110], cell_spans={(1, 0): 2})
+    with tempfile.TemporaryDirectory() as dd:
+        write(Doc(blocks=[t], pages=1), Path(dd) / "t.docx")
+        with zipfile.ZipFile(Path(dd) / "t.docx") as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    cells = re.findall(r"<w:tc>.*?</w:tc>", xml, re.S)
+    text = ["".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", c)) for c in cells]
+    check("cell one is the rightmost as drawn", text[0], "درجة المتغير")
+    check("widths flipped with it", re.findall(r'<w:gridCol w:w="(\d+)"', xml),
+          ["2200", "4400", "3000"])
+    check("row two: one cell across two columns", text[3:], ["ضعيفة", "تقدير النموذج"])
+    check("merged in Word", '<w:gridSpan w:val="2"/>' in xml, True)
+
+    print("\na table's row read again below it, and its header on the caption")
+    from convert.reader import _rejoin_articles
+    t = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=212, y1=298,
+              rows=[["جودة النموذج", "علاقة السببية"],
+                    ["في الاتجاه لا مطلوب", "قوية"], ["عدم وجود", "ممتازة"]])
+    cap = Block(kind=PARAGRAPH, text="الجدول رقم (11) يوضح أنواع علاقة السببية جودة النموذج",
+                page=0, x0=69, x1=492, y=190, y1=214)
+    row = Block(kind=PARAGRAPH, text="قوية في الاتجاه المطلوب", page=0,
+                x0=80, x1=487, y=256, y1=280)
+    tail = Block(kind=PARAGRAPH, text="ممتازة عدم وجود المصدر : إعداد الطالب", page=0,
+                 x0=60, x1=490, y=277, y1=321)
+    no = Block(kind=PARAGRAPH, text="لا يوجد", page=0, x0=60, x1=490, y=400, y1=420)
+    doc = Doc(pages=1, blocks=[cap, row, tail, no, t])
+    _drop_text_inside_tables(doc, [t])
+    check("the cell's broken article joined back", t.rows[1][0], "في الاتجاه المطلوب")
+    check("the row read again: dropped", row in doc.blocks, False)
+    check("the row leading the source line: cut off", tail.text, "المصدر : إعداد الطالب")
+    check("the header row off the caption", cap.text, "الجدول رقم (11) يوضح أنواع")
+    t2 = Block(kind=TABLE, text="", page=0, rows=[["لا يوجد"]])
+    _rejoin_articles(Doc(pages=1, blocks=[no]), [t2])
+    check("a real لا is left alone", t2.rows[0][0], "لا يوجد")
+
+    print("\na table placed after the paragraph above it, not by share of the list")
+    from convert.writer import _interleave
+    m = Doc(pages=1, blocks=[])
+    body = [Block(kind=PARAGRAPH, text=str(i), page=0, x0=50, x1=500, y=y, y1=y + 20)
+            for i, y in enumerate([70, 90, 110, 190, 256, 277, 300])]
+    tb = Block(kind=TABLE, text="", page=0, x0=50, x1=530, y=212, y1=298, rows=[["x"]])
+    got = _interleave(body, [tb], m)
+    check("right after the caption", got.index(tb), 4)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

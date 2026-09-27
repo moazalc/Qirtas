@@ -388,3 +388,38 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   Both fixed: one thesis went from 34 pages to 20 (the original has 14),
   another from 27 to 22. Still to do on tables: the header row can come out
   squashed, and about half of the doubled text is still there.
+- **Tables now read like the original - and the theses come out the right
+  length.** Four things were wrong on every table page looked at:
+  - Every Arabic table came out **mirrored** - the original's first column
+    on the left. It had been like that all along; no score can see it,
+    because the words are the same either way round.
+  - A cell stretching across several columns was written into the first of
+    them, often a sliver 5pt wide - the **header row one letter a line**.
+    Such cells are now merged across their columns, as in the original.
+  - The table was placed by guessing how far down the page it sat, and
+    landed **in the middle of a paragraph**, with its title after it. It now
+    goes after the last paragraph above it.
+  - Most of the **table text still written twice** below the table is gone.
+- **A thesis whose text came out glued together** (`z21850164`,
+  "البعدالقيميوالروحي"): the PDF stores every space as an invisible
+  character that Word shows as nothing. It now gets real spaces.
+  **The scores had hidden this, and then misjudged the fix** - two of them
+  did not treat that character as a space. That is the eighth bug found in
+  the measuring tools rather than the converter. Fixed and re-checked both
+  ways: that thesis's words in order 76% -> 97%.
+- **A word lost on the way, and caught.** The first full run found one
+  thesis losing a table heading (nothing lost 97.9%) - a rule for spotting
+  doubled table text was too loose. Taken out, and the second full run is
+  clean.
+- **Full run**: nothing lost is now 100% on **every** thesis - the first
+  time; one file had always shown 99.3%. Theses are now the original's
+  length overall (they were 7% too long); right page 58.6% -> **69.4%**,
+  11 theses better and none worse. One thesis went from 29 pages to 15 (the
+  original has 14), another from 26 to 13 (exact). Your chapters unchanged.
+  One thesis reads slightly worse on "words in order", and looking at it,
+  ours is right: the PDF itself reads that table in the wrong direction.
+- **Still to do on tables:** one very large table is also found in pieces,
+  which come out as small extra tables under it; a stray letter "ا" in some
+  table headings; one thesis's table cells stored backwards in the PDF.
+- **Next:** bold and italic on the two theses read through the PDF's hidden
+  labels, then italic drawn as slanted text.
