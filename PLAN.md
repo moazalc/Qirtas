@@ -2937,6 +2937,39 @@ nothing lost 100.0% on every file; words in order 93.9% and page check
 again alone, with the header switch on and off, it is 17 as before. A
 one-off from Word in the run, not the change.
 
+### Part 3: table cells shaded as in the original, 2026-09-27
+
+Counted first: shaded boxes holding text on 15 of the 25 dev theses - 273
+inside tables (banded rows, coloured header rows, a coloured first column)
+on 10 theses, 48 behind ordinary text, several of those running-header
+bands. Tables first. Every table cell came out white.
+
+`reader._cell_fills` takes, for each cell box, the last fill drawn under at
+least 60% of it (white clears; a fill darker than 0.45 lightness is left
+out - it carries white text, which we write black). It runs BEFORE the thin
+columns are dropped: on a table drawn with double rules a cell can start in
+the 5pt sliver, and its box went with the sliver - `z17931421`'s green first
+column came out white until `_drop_thin_columns` moved the shading with the
+cell as it moves the text. `writer._shade` writes w:shd on the cell, through
+the same right-to-left flip as the spans. Switch `QIRTAS_TABLE_FILL`.
+
+**Measured** by looking: `z21145041`'s blue bands, `z17931421`'s grey header
+and green first column, `z21850164`'s blue header and grey first column,
+`z21644412`'s grey section rows all as in the original. A count of shaded
+boxes in Word's render against the original was tried and is not usable:
+it read `z21145041` as 0 though the render shows the bands (Word's shading
+box does not contain the word boxes), and the original's as 0 on
+`z21644412`, which has them. Full run `2026-09-27-{thesis,regression}-part3g`
+(2 Word jobs - the PC went down twice under 3): nothing lost 100.0% on every
+file, every score unchanged; `z17931421` back to 17 pages, confirming the
+24 in `part3f` was the run, not the change.
+
+Seen on the way, older faults: `z17931421` page 6's widest table runs off
+the page's left edge by one column, and its text is written again below it
+in small type (its spaces are stored as `ۡ`, so the words do not match the
+table's) - likely most of why it is 17 pages for 14; `z21644412` page 12's
+table is found with many narrow empty columns.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
