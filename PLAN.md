@@ -3015,6 +3015,48 @@ nothing lost 100.0% on every file; words in order 93.9%, page check (found
 first attempt (`part3h-STOPPED`) was stopped: `convert/reader.py` was
 edited while it ran.
 
+### Part 3: headers laid out like the original - the line under, the two parts, 2026-09-28
+
+**The line under the header**, on 7 of the 25 dev theses, was dropped.
+`reader._header_rule` takes each page's wide (40% of the width) thin
+(under 4.5pt) horizontal lines in the top 15%, keeps the pattern repeated
+on half the pages, and makes it a border: one line single, two within 6pt
+double / thinThickSmallGap / thickThinSmallGap by their thicknesses, two
+groups apart a top and a bottom border (`z20973693`'s double lines above
+and below its band). Colour and width kept (`z20585114`'s orange). A page
+with a tall vertical line is framed all round and left out (`z3387756`'s
+top line is the frame's). `writer._header_rules` puts it on Word's header
+paragraphs (both headers where odd and even differ), or on an empty one if
+the header has no text; the front pages' own section keeps none. Found on
+exactly the 7: `z17804101`, `z18037898`, `z18048055`, `z20585114`,
+`z20973693`, `z21850164`, `z22643426`. A 3pt line was first missed (a limit
+of 3pt): `z22643426` is thin over thick. Switch `QIRTAS_HEADER_RULE`.
+
+**Two parts at the edges.** A chapter at one edge and its title at the
+other came out one centred line (`z22643426`, `z7456037`, `z20585114`) -
+authors push the parts apart with spaces or a tab, which cleaning makes one
+space - and on `z22643426` the wrong way round. `reader._header_parts`: for
+a one-line block in the top or bottom 15%, the page's words inside it are
+clustered by gaps of 30pt; with 2 or 3 clusters, the block's OWN words are
+cut into runs matching each cluster's characters in any order (the hidden
+text spells them garbled - `ملتغريات` - and in the wrong order), right to
+left. Nothing is taken from the page. Only lifted headers and footers use
+`Block.parts`; body lines near the edges get them too and ignore them.
+`writer._draw_parts` sets an end tab stop at the text width (and a centre
+one for three parts) and writes the parts tab-separated from the line's
+start. Two traps: Word's positional tab (w:ptab) wrapped the second part
+onto its own line in a right-to-left header; and Word's Header style brings
+stops of its own (centre 4680, right 9360), so the tab went to the centre
+one - cleared per paragraph. Switch `QIRTAS_HEADER_PARTS`.
+
+Looked at on `z22643426`, `z7456037`, `z20585114`, `z18037898`,
+`z20973693`: lines and parts as in the original. Header text is still
+larger and less bold than the original on `z7456037` and `z20973693`.
+
+**Full run** `2026-09-27-{thesis,regression}-part3i` against `part3h-2`:
+nothing lost 100.0% on every file; every score unchanged (right page 69.35
+-> 69.33%, two files by 0.003).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

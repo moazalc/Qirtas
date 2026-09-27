@@ -2560,6 +2560,165 @@ def _band_fills(path, doc, tables):
                         b.ink = "%06X" % c
 
 
+# A line ruled under the running header - single, coloured, thin over thick,
+# or double lines above and below a header band - on 7 of the 25 dev theses,
+# dropped every time. Found as the same pattern of wide thin horizontal
+# lines near the top of at least half the pages; a page framed all round is
+# left alone (its top edge is the frame, `z3387756`).
+HEADER_RULE_ON = os.environ.get("QIRTAS_HEADER_RULE", "1") != "0"
+RULE_TOP = 0.15          # share of the page height the rules sit within
+RULE_WIDE = 0.4          # share of the page width a rule spans
+RULE_PAIR = 6.0          # points: two lines this close are one double rule
+RULE_THICK = 4.5        # points: anything thicker is a band, not a line
+
+
+def _page_rules(page):
+    """[(y, thickness, colour)] of this page's header rules, top down."""
+    H, W = page.rect.height, page.rect.width
+    rules, tall = [], False
+    for g in page.get_drawings():
+        r = pymupdf.Rect(g["rect"])
+        if r.height > H * 0.5 and r.width < 3:
+            tall = True
+        if r.width < W * RULE_WIDE or r.height >= RULE_THICK or not (0.02 * H < r.y0 < RULE_TOP * H):
+            continue
+        if g.get("fill") and "s" not in g["type"]:
+            thick, colour = max(r.height, 0.25), g["fill"]
+        elif g.get("color"):
+            thick, colour = max(g.get("width") or 0.75, 0.25), g["color"]
+        else:
+            continue
+        rules.append((round((r.y0 + r.y1) / 2, 1), round(thick, 2),
+                      "%02X%02X%02X" % tuple(round(c * 255) for c in colour[:3])))
+    if tall:
+        return []
+    # A hairline drawn twice, or a fill and its outline, is one line.
+    out = []
+    for r in sorted(rules):
+        if out and abs(r[0] - out[-1][0]) < 0.6:
+            continue
+        out.append(r)
+    return out
+
+
+def _rule_style(group):
+    """Word's border for one group of lines: (style, eighths of a point)."""
+    if len(group) == 1:
+        return "single", group[0][1]
+    a, b = group[0][1], group[-1][1]
+    if abs(a - b) < 0.3:
+        return "double", a
+    return ("thinThickSmallGap" if a < b else "thickThinSmallGap"), max(a, b)
+
+
+def _header_rule(path, doc):
+    with pymupdf.open(path) as d:
+        pages = [_page_rules(p) for p in d]
+    seen = collections.Counter()
+    for rules in pages:
+        if rules:
+            seen[tuple((round(y), t, c) for y, t, c in rules)] += 1
+    if not seen:
+        return
+    shape, n = seen.most_common(1)[0]
+    # Lines at the same heights on half the pages: the header's own.
+    if n < max(2, len(pages) // 2):
+        near = sum(1 for rules in pages if rules and len(rules) == len(shape) and all(
+            abs(r[0] - s[0]) <= 3 for r, s in zip(rules, shape)))
+        if near < max(2, len(pages) // 2):
+            return
+    groups = []
+    for y, t, c in shape:
+        if groups and y - groups[-1][-1][0] <= RULE_PAIR:
+            groups[-1].append((y, t, c))
+        else:
+            groups.append([(y, t, c)])
+    sides = [("bottom", groups[-1])] if len(groups) == 1 else \
+        [("top", groups[0]), ("bottom", groups[-1])]
+    out = []
+    for side, g in sides:
+        style, thick = _rule_style(g)
+        eighths = max(2, min(96, round(thick * 8)))
+        out.append((side, style, eighths, g[0][2]))
+    doc.header_rules = out
+
+
+# A header in two parts at the page's two edges - the chapter at one, its
+# title at the other (`z22643426`, `z7456037`, `z20585114`). The author put
+# them apart with spaces or a tab, which cleaning makes one space, and the
+# line came out as one centred sentence - on `z22643426` with its parts the
+# wrong way round. The parts are found by position; each is matched to the
+# block's own words by its letters, which survives the hidden text spelling
+# them garbled (`ملتغريات` for لمتغيرات). Nothing is taken from the page:
+# the parts are the block's words, cut and put in order.
+PARTS_ON = os.environ.get("QIRTAS_HEADER_PARTS", "1") != "0"
+PART_GAP = 30.0         # points of empty line between two parts
+EDGE_ZONE = 0.15        # share of the page height at top and bottom
+
+
+def _letters(s):
+    return collections.Counter(ch for ch in s if not ch.isspace())
+
+
+def _parts_of(words, clusters):
+    """Cut `words` into len(clusters) runs matching the clusters' letters,
+    in any order. -> the runs in cluster order, or None."""
+    k = len(clusters)
+    want = [_letters(c) for c in clusters]
+    total = sum(sum(w.values()) for w in want) or 1
+    best, cut = None, None
+    import itertools
+    for cuts in itertools.combinations(range(1, len(words)), k - 1):
+        runs = [" ".join(words[a:b]) for a, b in
+                zip((0,) + cuts, cuts + (len(words),))]
+        have = [_letters(r) for r in runs]
+        for order in itertools.permutations(range(k)):
+            miss = sum(sum(((have[i] - want[j]) + (want[j] - have[i])).values())
+                       for i, j in zip(range(k), order))
+            if best is None or miss < best:
+                best, cut = miss, (runs, order)
+    if cut is None or best > 0.2 * total:
+        return None
+    runs, order = cut
+    out = [None] * k
+    for i, j in zip(range(k), order):
+        out[j] = runs[i]
+    return out
+
+
+def _header_parts(path, doc):
+    with pymupdf.open(path) as d:
+        pages = {}
+        for b in doc.blocks:
+            if b.kind not in (PARAGRAPH, HEADING) or not (b.x1 > b.x0 and b.y1 > b.y):
+                continue
+            if b.page >= len(d) or b.y1 - b.y > 2.2 * (b.size or 12):
+                continue
+            H = d[b.page].rect.height
+            if not (b.y1 < EDGE_ZONE * H or b.y > (1 - EDGE_ZONE) * H):
+                continue
+            if b.page not in pages:
+                pages[b.page] = d[b.page].get_text("words")
+            box = pymupdf.Rect(b.x0 - 1, b.y - 1, b.x1 + 1, b.y1 + 1)
+            ws = sorted((w for w in pages[b.page]
+                         if box.contains(pymupdf.Point((w[0] + w[2]) / 2, (w[1] + w[3]) / 2))),
+                        key=lambda w: w[0])
+            clusters = []
+            for w in ws:
+                if clusters and w[0] - clusters[-1][-1][2] < PART_GAP:
+                    clusters[-1].append(w)
+                else:
+                    clusters.append([w])
+            words = b.text.split()
+            if not 2 <= len(clusters) <= 3 or len(words) < len(clusters):
+                continue
+            # right to left, as the page is read
+            texts = ["".join(w[4] for w in c) for c in reversed(clusters)]
+            got = _parts_of(words, texts) if len(words) <= 40 else None
+            if got and all(got):
+                b.parts = got
+
+
 def _cell_fills(path, tables):
     by_page = {}
     for t in tables:
@@ -2813,6 +2972,16 @@ def read(path, image_dir=None):
             if b.kind != TABLE:
                 _fit_spans(b)
     measure_layout(path, best)
+    if HEADER_RULE_ON:
+        try:
+            _header_rule(path, best)
+        except Exception:
+            pass
+    if PARTS_ON:
+        try:
+            _header_parts(path, best)
+        except Exception:
+            pass
     with pymupdf.open(path) as d:
         r = d[0].rect
         best.page_width, best.page_height = r.width, r.height

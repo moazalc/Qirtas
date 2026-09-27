@@ -57,6 +57,9 @@ class Block:
     # The colour of a band drawn behind this text ("RRGGBB"), and of the text
     # on it where it is not black - a dark band carries white text. `boxed`:
     # the band has an outline.
+    # A header or footer line in parts at the two edges (and the middle) of
+    # the page, as drawn from right to left: ["الفصل الثاني", "الإطار ..."].
+    parts: List[str] = field(default_factory=list)
     fill: str = ""
     ink: str = ""
     boxed: bool = False
@@ -88,6 +91,10 @@ class Doc:
     digits: str = ""
     line_spacing: float = 1.15
     line_pitch: float = 0.0     # measured distance between lines, in points
+    # Lines ruled above and under the running header on most pages:
+    # [(side "top"/"bottom", Word border style, width in eighths of a point,
+    # colour "RRGGBB")].
+    header_rules: List[tuple] = field(default_factory=list)
     # (path, reason) for every picture the writer could not place. Filled by
     # write(); a silent drop is how one lost picture went unnoticed for weeks.
     dropped_images: List[tuple] = field(default_factory=list)

@@ -139,6 +139,58 @@ def main():
           (True, True))
     check("and not bold", '<w:bCs w:val="1"/>' in head, False)
 
+    print("\na line ruled under the header, thin over thick (z22643426)")
+    from convert.reader import _rule_style
+    check("one line: single", _rule_style([(55, 0.7, "000000")]), ("single", 0.7))
+    check("thin over thick", _rule_style([(53, 0.7, "000000"), (56, 3.0, "000000")]),
+          ("thinThickSmallGap", 3.0))
+    check("two alike: double", _rule_style([(35, 0.5, "000000"), (36.5, 0.5, "000000")]),
+          ("double", 0.5))
+    m.header_rules = [("bottom", "thinThickSmallGap", 24, "000000")]
+    docx = tmp / "header_rule.docx"
+    write(m, str(docx))
+    rels = _xml(docx, "word/_rels/document.xml.rels")
+    head = next((_xml(docx, "word/" + t) for t in
+                 re.findall(r'Target="(header\d*\.xml)"', rels)
+                 if line in _xml(docx, "word/" + t)), "")
+    check("the header paragraph ruled underneath",
+          '<w:bottom w:val="thinThickSmallGap" w:sz="24"' in head, True)
+    m = _model()
+    for p in range(PAGES):
+        _body(m, p)
+    m.header_rules = [("bottom", "single", 6, "C45911")]
+    docx = tmp / "rule_only.docx"
+    write(m, str(docx))
+    heads = [_xml(docx, "word/" + t) for t in
+             re.findall(r'Target="(header\d*\.xml)"', _xml(docx, "word/_rels/document.xml.rels"))]
+    check("a line with no header text still drawn",
+          any('<w:bottom w:val="single" w:sz="6" w:space="1" w:color="C45911"/>' in h
+              for h in heads), True)
+
+    print("\na header in two parts, at the two edges (z22643426)")
+    from convert.reader import _parts_of
+    check("parts matched by letters, garbled and in any order",
+          _parts_of("الإطار النظري لمتغيرات الدراسة الفصل الثاني".split(),
+                    ["لفصلالثانيا", "اإلطارالنظريملتغرياتالدراسة"]),
+          ["الفصل الثاني", "الإطار النظري لمتغيرات الدراسة"])
+    m = _model()
+    for p in range(PAGES):
+        m.blocks.append(Block(kind=PARAGRAPH, page=p, y=35, y1=48, x0=71, x1=510,
+                              text="الإطار النظري الفصل الثاني",
+                              parts=["الفصل الثاني", "الإطار النظري"]))
+        _body(m, p)
+        _body(m, p, f"خاتمة الصفحة {WORDS[p]} في آخرها.")
+    docx = tmp / "parts.docx"
+    write(m, str(docx))
+    rels = _xml(docx, "word/_rels/document.xml.rels")
+    head = next((_xml(docx, "word/" + t) for t in
+                 re.findall(r'Target="(header\d*\.xml)"', rels)
+                 if "الفصل" in _xml(docx, "word/" + t)), "")
+    check("an end tab stop", '<w:tab w:val="end"' in head, True)
+    check("the chapter first, the title after a tab",
+          re.sub(r"<[^>]+>", "", head.replace("<w:tab/>", "|")).strip(),
+          "الفصل الثاني|الإطار النظري")
+
     print("\na year on the title page is not the first page's number")
     m = _model()
     m.blocks.append(Block(kind=PARAGRAPH, page=0, y=660, y1=680, x0=200, x1=300,

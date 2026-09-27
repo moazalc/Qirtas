@@ -49,8 +49,10 @@ and headers keeping their bold/italic, DONE 27 Sept (PLAN "Part 3: italic
 drawn as a slant"). Table cells shaded DONE 27 Sept (PLAN "Part 3: table
 cells shaded"). Bands behind ordinary text, and italic only where the PDF
 itself says so, DONE 28 Sept (PLAN "Part 3: bands behind ordinary text").
-Next in Part 3: headers laid out like the original (two parts, a rule under them;
-`z20973693`, `z7456037`, `z22643426`), footnotes' looks, the logo between two
+Headers laid out like the original (the line under, two parts at the
+edges) DONE 28 Sept (PLAN "Part 3: headers laid out like the original");
+header text still bigger and less bold on `z7456037`, `z20973693`.
+Next in Part 3: footnotes' looks, the logo between two
 headers; then the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Found on the way, for

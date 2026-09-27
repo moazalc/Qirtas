@@ -1009,6 +1009,11 @@ def _draw_text_furniture(doc, draw, model):
                 band = next((f.block for f in shown if f.block.fill), None)
                 if band is not None:
                     _band(p, band)
+                one = shown[0]
+                if PARTS_OUT_ON and len(shown) == 1 and 2 <= len(one.block.parts) <= 3 \
+                        and not one.run and one.shown is None:
+                    _draw_parts(p, one, fallback, model, rtl, section)
+                    continue
                 for k, f in enumerate(shown):
                     if k:
                         _furniture_run(p, " ", f, fallback, model, rtl)
@@ -1034,6 +1039,33 @@ def _draw_text_furniture(doc, draw, model):
 # It was always written plain: `z22643426`'s italic chapter line lost its
 # slant on all nine pages that carry it.
 FURNITURE_STYLE_ON = os.environ.get("QIRTAS_FURNITURE_STYLE", "1") != "0"
+
+
+# A header in parts at the page's edges (reader._header_parts): the first
+# part at the line's start, the last against its end, a middle one centred -
+# by tab stops at the middle and the far end of the text width. An end tab is
+# the far side in either direction; Word's positional tab, tried first,
+# wrapped the second part onto a line of its own in a right-to-left header.
+PARTS_OUT_ON = os.environ.get("QIRTAS_HEADER_PARTS", "1") != "0"
+
+
+def _draw_parts(p, f, fallback, model, rtl, section):
+    width = int((section.page_width - section.left_margin - section.right_margin) / 635)
+    tabs = OxmlElement("w:tabs")
+    # Word's Header and Footer styles bring stops of their own, centre 4680
+    # and right 9360; the first tab went to the centre one, leaving the
+    # title in the middle of the line. Cleared here.
+    stops = [("clear", 4680), ("clear", 9360)]
+    stops += ([("center", width // 2)] if len(f.block.parts) == 3 else []) + [("end", width)]
+    for val, pos in sorted(stops, key=lambda s: s[1]):
+        t = OxmlElement("w:tab")
+        t.set(qn("w:val"), val)
+        t.set(qn("w:pos"), str(pos))
+        tabs.append(t)
+    p._p.get_or_add_pPr().insert_element_before(tabs, *PPR_AFTER_SHD[1:])
+    p.alignment = ALIGN_START
+    for k, part in enumerate(f.block.parts):
+        _furniture_run(p, ("\t" if k else "") + part, f, fallback, model, rtl)
 
 
 def _furniture_run(p, text, f, fallback, model, rtl):
@@ -1413,6 +1445,49 @@ def _band(p, block):
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), block.fill)
     pPr.insert_element_before(shd, *PPR_AFTER_SHD)
+
+
+def _border(p, side, style, eighths, colour):
+    """One side of a paragraph's border, added to any it already has."""
+    pPr = p._p.get_or_add_pPr()
+    bdr = pPr.find(qn("w:pBdr"))
+    if bdr is None:
+        bdr = OxmlElement("w:pBdr")
+        pPr.insert_element_before(bdr, "w:shd", *PPR_AFTER_SHD)
+    for old in bdr.findall(qn(f"w:{side}")):
+        bdr.remove(old)
+    e = OxmlElement(f"w:{side}")
+    e.set(qn("w:val"), style)
+    e.set(qn("w:sz"), str(eighths))
+    e.set(qn("w:space"), "1")
+    e.set(qn("w:color"), colour)
+    # Schema order inside w:pBdr: top, left, bottom, right, between, bar.
+    order = ["top", "left", "bottom", "right", "between", "bar"]
+    later = [x for x in bdr if x.tag.split("}")[1] in order[order.index(side) + 1:]]
+    if later:
+        later[0].addprevious(e)
+    else:
+        bdr.append(e)
+
+
+# The line ruled under the running header (reader._header_rule), as a border
+# on Word's header paragraph - on an empty one where the header has no text.
+HEADER_RULE_OUT_ON = os.environ.get("QIRTAS_HEADER_RULE", "1") != "0"
+
+
+def _header_rules(doc, model):
+    if not HEADER_RULE_OUT_ON or not model.header_rules:
+        return
+    section = doc.sections[0]
+    parts = [section.header]
+    if doc.settings.odd_and_even_pages_header_footer:
+        parts.append(section.even_page_header)
+    for part in parts:
+        part.is_linked_to_previous = False
+        paras = part.paragraphs or [part.add_paragraph()]
+        for side, style, eighths, colour in model.header_rules:
+            p = paras[0] if side == "top" else paras[-1]
+            _border(p, side, style, eighths, colour)
 
 
 def _ink(run, block):
@@ -1814,6 +1889,7 @@ def write(model: Doc, out_path, scale=None):
         _draw_text_furniture(doc, tdraw, model)
         _first_page_number(doc, model, tdraw, tlift)
         lift = {**lift, **tlift}
+    _header_rules(doc, model)
     front = _bare_front(model, lift)
     if front:
         # The main section now starts at page `front`: its first number is

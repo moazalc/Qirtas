@@ -496,3 +496,17 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 - Nothing lost 100% on every thesis; other scores unchanged.
 - **Next:** headers laid out like the original (two parts, a line under
   them), then how footnotes look.
+
+### 28 Sept (later) — headers laid out like the original
+- **The line under the header** is back on the 7 theses that draw one -
+  single, thin over thick, orange, or double lines above and below a band,
+  as the original has it.
+- **Headers in two parts** (the chapter at one edge, its title at the
+  other) came out as one centred line - on one thesis the wrong way round.
+  They now sit at the two edges, in the right order.
+- Checked by looking at five theses. Nothing lost 100% on every thesis;
+  other scores unchanged.
+- **Still different:** on two theses the header text is bigger and less
+  bold than the original.
+- **Next:** how footnotes look (centred instead of starting from the right),
+  then the logo between two headers, then the leftover table faults.
