@@ -610,4 +610,30 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   changed; nothing lost 100%.
 - **Still not done there:** that English's headings are not centred, and
   web addresses are plain text, not links.
+
+### 28 Sept (night) — paragraphs written twice, backwards
+- **Moaz asked for this next.** On the two theses above, some paragraphs
+  came out twice: once right, then again with every word backwards. The
+  step that fills in text one reading missed from another did not
+  recognise them as already there, because backwards storage also moves
+  letters around a little. It now does - but only for a paragraph that
+  reads backwards; one the right way round (a missing title) is still put
+  back.
+- **The "nothing lost" check needed fixing too.** Once the backwards copies
+  were gone it reported two sentences lost on one thesis - both are in our
+  file; it was the check reading the PDF's own backwards text. While fixing
+  it I tested it by deleting a paragraph on purpose: the check did not
+  notice. That is fixed as well - it now also needs the sentence's words to
+  be together in our file, not scattered. It catches the deleted paragraph,
+  and reads the same as before on every other thesis.
+- **Result:** wrong words (checked against the page image) 7.9% -> 7.2%;
+  one thesis went from 19% wrong words to 2%. `z21145041` now has as many
+  words as the original, and its first 11 pages end where the original's
+  do.
+- **Not improved on paper:** right page 70.3% -> 70.0%. That score compares
+  against the PDF's hidden text, which on these two theses is itself
+  backwards - our backwards copies were matching it.
+- **Still wrong:** one Quran verse on `z22058810` page 2 is still written a
+  second time backwards; `z21145041` is still a page long, from its
+  results table (a table fault).
 - **Next:** the leftover table faults, unless Moaz says otherwise.

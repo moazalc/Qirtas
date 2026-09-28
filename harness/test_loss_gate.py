@@ -78,6 +78,23 @@ def main():
     scattered = " ... ".join(A.split())
     check("words present but spread out", coverage(A, scattered)[0], 1.0)
 
+    print("\na sentence the reference stores backwards (judge, 2026-09-28)")
+    from harness.loss import _together, LETTERS, TASHKEEL
+    # `z21145041`: excused only where its words, turned round, stand
+    # together in ours - a thesis's common words are everywhere else.
+    ref = "تراطإ ةحورطألا هذه مدختساًً يليلحتاًً يدصراًً"
+    ours = ("في الفصل الثالث تستخدم هذه الأطروحة إطاراً تحليلياً رصدياً "
+            "لمحاكاة ظروف دراسة مستقبلية")
+    elsewhere = ("الأطروحة في مقدمتها. ثم إطار عام. " + "كلام آخر " * 40 +
+                 "وتستخدم الدراسة منهجا تحليليا. " + "كلام آخر " * 40 +
+                 "هذه نتائج رصدية.")
+
+    def bare(t):
+        return LETTERS.sub("", TASHKEEL.sub("", t))
+    check("in ours, together: excused", _together(ref, bare(ours)), True)
+    check("its words only scattered through ours: not",
+          _together(ref, bare(elsewhere)), False)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

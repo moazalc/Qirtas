@@ -81,10 +81,13 @@ numbers read backwards, DONE 28 Sept, asked for by Moaz ahead of the tables
 (PLAN "English in the theses' Arabic lines"): nothing lost 100%, page truth
 wrong 8.3 -> 7.9%; years were backwards in seven theses. That English set
 at its own size, font, line height and alignment DONE the same day (PLAN
-"The English set as drawn"): `z21145041` 17 -> 15 pages. Left: its page 11
-writes one paragraph again backwards (older - the page over); "COVID19."
-drawn with the full stop on the word's left; headings in that English not
-centred; web addresses not links.
+"The English set as drawn"): `z21145041` 17 -> 15 pages. Backwards second
+copies from the backfill DONE the same day (PLAN "Backwards second copies
+from the backfill"; the gate's excuse for backwards sentences now needs
+their words together in ours): page truth wrong 7.9 -> 7.2%. Left: a
+backwards verse on `z22058810` page 2; `z21145041`'s page over starts at its
+page 12 results table (tables); "COVID19." drawn with the full stop on the
+word's left; headings in that English not centred; web addresses not links.
 Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).

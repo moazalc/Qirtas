@@ -95,6 +95,7 @@ TURN_ON = os.environ.get("QIRTAS_BACKFILL_TURN", "1") != "0"
 TURN_WORD = re.compile("[\u0621-\u064A]{4,}")
 LATIN_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]+")
 TURNED_AT = 0.8     # share of a block's words already there, either way round
+LOOSE_ON = os.environ.get("QIRTAS_BACKFILL_LOOSE", "1") != "0"
 
 
 def _present(sent, have):
@@ -174,6 +175,28 @@ def _backfill(chosen, results, path, fix=None):
                      for b in chosen.blocks)
     words = set(TURN_WORD.findall(every))
     latin = set(LATIN_WORD.findall(every))
+    # A word stored backwards is not always ours turned round: the alef
+    # carrying a tanween lands at the other end (مراصا for صارماً), and two
+    # words run together (نامضلتانايبلا). Asked only by the exact word, turned
+    # or not, `z21145041`'s paragraph at page 11 found 37 of its 47 words,
+    # short of the 80%, and was written a second time backwards - seven
+    # paragraphs there, four on `z22058810` (QIRTAS_BACKFILL_LOOSE).
+    loose = LOOSE_ON
+    same = {"".join(sorted(w)) for w in words}
+
+    def exact(w):
+        return w in words or w[::-1] in words or \
+            (loose and "".join(sorted(w)) in same)
+
+    def known(w):
+        # A letter of the next word taken in, or its own left behind, at
+        # either end (تراطإ: إطار and the ت of تستخدم; يدصر for رصدياً).
+        return exact(w) or (loose and len(w) >= 5 and (
+            exact(w[1:]) or exact(w[:-1]) or exact(w + "ا") or exact("ا" + w)))
+
+    def there(w):
+        return known(w) or (loose and any(
+            known(w[:k]) and known(w[k:]) for k in range(4, len(w) - 3)))
     added = False
     for _, other in results:
         if other is chosen:
@@ -198,7 +221,15 @@ def _backfill(chosen, results, path, fix=None):
             # and marks land differently. English is not asked - a reference
             # list entry missing from the chosen reading is all English.
             ws = TURN_WORD.findall(text) if TURN_ON else []
-            if len(ws) >= 3 and sum(1 for w in ws if w in words or w[::-1] in words) \
+            # The loose match only for a paragraph that reads backwards - more
+            # of its words ours only turned round than only as they stand. A
+            # paragraph the right way round has its words in the rest of the
+            # thesis too: `z21145041`'s title, missing from the chosen
+            # reading, matched loosely and was not put back.
+            turned = sum(1 for w in ws if w[::-1] in words and w not in words) \
+                > sum(1 for w in ws if w in words and w[::-1] not in words)
+            if len(ws) >= 3 and sum(1 for w in ws if (there(w) if turned else
+                                                      w in words or w[::-1] in words)) \
                     >= TURNED_AT * len(ws):
                 # Its English and numbers are put back on their own: the
                 # chosen reading of z21145041 drops the English inside Arabic
@@ -220,6 +251,7 @@ def _backfill(chosen, results, path, fix=None):
             chosen.add(Block(kind=PARAGRAPH, text=text, page=b.page))
             have += _bare(text)
             words |= set(TURN_WORD.findall(text))
+            same |= {"".join(sorted(w)) for w in TURN_WORD.findall(text)}
             latin |= set(LATIN_WORD.findall(text))
             added = True
     if added:

@@ -138,6 +138,25 @@ def main():
     check("text really missing is still put back",
           len(_backfill(chosen, results, None, fix).blocks), 2)
 
+    # `z21145041` page 11: the other reading has the paragraph backwards, the
+    # tanween's alef at the wrong end and two words run together - only five
+    # of its eight words are ours exactly turned round.
+    right = ("تتبع عملية التحليل مساراً صارماً لمعالجة البيانات لضمان دقة "
+             "التنبؤات التشخيصية")
+    wrong = ("تراسم ليلحتلا ةيلمع عبت اً مراصاً ةيصيخشتلا تاؤبنتلا ةقد "
+             "نامضلتانايبلا ةجلاعمل")
+    chosen, results = docs(right)
+    results[1][1].blocks[0].text = wrong
+    check("a backwards copy, words distorted, is not added again",
+          len(_backfill(chosen, results, None).blocks), 1)
+    # The title the chosen reading missed, its words used in the body too:
+    # the right way round, so asked strictly, and put back.
+    chosen, results = docs("المؤشرات الحيوية الحديثة في البول " * 3)
+    results[1][1].blocks[0].text = ("تقييم المؤشرات الحيوية الحديثة في البول "
+                                    "كأدوات تنبؤية للتشخيص المبكر")
+    check("a paragraph the right way round is still put back",
+          len(_backfill(chosen, results, None).blocks), 2)
+
     print("\na word the PDF cut between two pieces")
     import collections
 

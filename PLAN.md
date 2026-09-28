@@ -3360,6 +3360,56 @@ else unchanged. Looked at: `z21145041` page 13, `z22058810` page 13 (the
 abstract in Times New Roman, justified, as printed). Left: the abstract's
 heading is not centred (no positions to tell), web addresses are not links.
 
+### Backwards second copies from the backfill, 2026-09-28
+
+Moaz's pick after the English layout. The backfill puts back what the chosen
+reading missed and skips a paragraph whose Arabic words are 80% ours
+already, either way round (FLAGS 29). The other readings of `z21145041` and
+`z22058810` store paragraphs backwards, and backwards storage does more than
+turn words round: the tanween's alef lands at the other end (مراصا for
+صارماً), a letter of the next word is taken in or one left behind (تراطإ
+for إطار, يدصر for رصدياً), two words run together (نامضلتانايبلا). Asked
+by the exact word, `z21145041`'s page-11 paragraph found 37 of its 47 words
+and was written again backwards - seven paragraphs there, four on
+`z22058810`. Now a paragraph that reads backwards - more of its words ours
+only turned round than only as they stand - is asked loosely
+(`QIRTAS_BACKFILL_LOOSE`): the same letters in another order, a letter off
+either end or an alef on, or two words run together. Loose for all, it
+skipped `z21145041`'s Arabic title, missing from the chosen reading, whose
+words the body uses too; a paragraph the right way round is asked strictly,
+as before. Ignoring vowel marks as well was tried, to catch a verse on
+`z22058810` page 2: it let two other paragraphs back in; left.
+
+**The gate, then.** Without its backwards copy `z21145041` read 98.5%: two
+sentences the reference stores backwards, with the same distortions, had
+been matched by our backwards copy, and the gate's excuse for them failed -
+the page was asked for the turned word exactly (the OCR reads إطار, not
+اطارت), and (غلم/درتليسي)لوبلا turned whole put its three words in the wrong
+order. Asking the page with the stray letter off, and turning a word cut by
+marks piece by piece, excused them - and a paragraph cut out of ours on
+purpose was excused too: the backwards branch only asked whether each word
+was somewhere in ours, and a thesis's common words are everywhere. So an
+excuse there now also needs the sentence's words, each either way round,
+together in ours (`loss._together`: 80% within twice the sentence's length).
+Turning the sentence whole was tried first: the reference turns some lines
+and not others (وقد أفيد بأن مساحة تحت منحنى التشغيل لقبلتسملل), 93.3%.
+Word fragments of three letters (الب, غال) filled the places looked at before
+the right one - only four letters or more; splitting a glued word at any
+point matched three-letter pieces inside anything - only where the reference
+has marks between them. Checked on every thesis's Word file against the
+gate before: the same on all but `z21145041` (98.5 -> 100%); the cut-out
+paragraph is caught (98.5%, 97.0% with two).
+
+**Full run** `2026-09-28-{thesis,regression}-bwdup` (the converter as
+committed; scored by the gate before its change - `z21145041` read 98.5%
+there, 100% re-scored): page truth wrong 7.9 -> 7.2% (`z22058810` 19.3 ->
+2.2%); `z21145041` words 2,924 -> 2,711 (the original 2,688) and pages 1-11
+end where the original's do - the page over starts at page 12's results
+table. Right page 70.3 -> 70.0%, words in order 94.2 -> 94.0%: both read the
+two files' backwards hidden text, which our backwards copies had matched
+(`z21145041` 33.6 -> 28.7%, `z22058810` 57.4 -> 54.6%). Left: the verse on
+`z22058810` page 2.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

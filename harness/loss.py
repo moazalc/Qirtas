@@ -126,6 +126,49 @@ def _turn_round(w):
     return w[::-1]
 
 
+LETTERS = re.compile(r"[^ء-يA-Za-z0-9]+")
+RUN_AT = 0.8         # share of a backwards sentence's words found together
+
+
+def _together(raw, ours_bare):
+    """Are a backwards-stored sentence's words in ours close together - each
+    as it stands or turned round - not only each somewhere? Each somewhere
+    was too little: a thesis's common words are everywhere, and a paragraph
+    cut out of ours on purpose was still excused (`z21145041`, 2026-09-28).
+    Not the sentence turned whole: the reference turns some of its lines and
+    not others (وقد أفيد بأن مساحة تحت منحنى التشغيل لقبلتسملل). `raw`: the
+    sentence as written, spaces kept."""
+    # Split at punctuation too: (غلم/درتليسي)لوبلا is three words.
+    words = [w for w in LETTERS.split(TASHKEEL.sub("", raw)) if len(w) >= MIN_WORD]
+    if len(words) < 3:
+        return True                   # too short to ask; as before
+    span = 2 * sum(len(w) for w in words)
+    places = []
+    for w in words:
+        at = set()
+        t = _turn_round(w)
+        # A stray letter off either end, as in judge() - only where four
+        # letters are left: الب and غال are everywhere, and filled the
+        # places looked at before the right one was reached.
+        for f in {w, t} | {f for f in (w[1:], w[:-1], t[1:], t[:-1])
+                           if len(f) >= 4}:
+            k = ours_bare.find(f)
+            while k >= 0 and len(at) < 2000:
+                at.add(k)
+                k = ours_bare.find(f, k + 1)
+        places.append(sorted(at))
+    import bisect
+    for p in {x for at in places for x in at}:
+        got = 0
+        for at in places:
+            i = bisect.bisect_left(at, p - span)
+            if i < len(at) and at[i] <= p + span:
+                got += 1
+        if got >= RUN_AT * len(words):
+            return True
+    return False
+
+
 def judge(pdf, out, marks=True):
     """Nothing lost, with the original's page as the tie-breaker (FLAGS 25).
 
@@ -160,6 +203,7 @@ def judge(pdf, out, marks=True):
     # (هداعايلع, الاصليan) is there when ours keeps them apart. The gate
     # ignores spacing everywhere else (norm) - here too.
     ours_run = "".join(_norm(w) for w in WS.split(out))
+    ours_bare = LETTERS.sub("", TASHKEEL.sub("", out))
     excused = []
     for s in gone:
         page = next((i for i, t in enumerate(by_page) if s[5:45] in t), None)
@@ -180,6 +224,11 @@ def judge(pdf, out, marks=True):
                             for i in range(len(seq) - k + 1)}
         words = [w for w in (_norm(x) for x in WS.split(raw_of.get(s, "")))
                  if len(w) >= MIN_WORD]
+        # A word as written, cut where marks stand inside it (see flip).
+        PUNCT_PARTS = {_norm(x): ARABIC_RUN.findall(x)
+                       for x in WS.split(raw_of.get(s, ""))
+                       if len(ARABIC_RUN.findall(x)) > 1}
+
         def there(w):
             if w in ours or w in ours_run:
                 return True
@@ -187,10 +236,36 @@ def judge(pdf, out, marks=True):
             parts = SCRIPTS.findall(w)
             return len(parts) > 1 and all(p in ours or p in ours_run for p in parts)
 
-        def turned_round(f):
+        def forms(f):
             # A backwards-stored word carries a stray letter or digit of its
-            # neighbour at one end (هباصاداهجا0, اهيجولويبلا).
-            return there(f) or (len(f) >= 4 and (there(f[1:]) or there(f[:-1])))
+            # neighbour at one end (هباصاداهجا0, اهيجولويبلا, تراطإ for إطار).
+            return [f] + ([f[1:], f[:-1]] if len(f) >= 4 else [])
+
+        def turned_round(f):
+            return f in split or any(there(g) for g in forms(f))
+
+        def on_page(f):
+            # Asked of the page the same way: the OCR reads إطار, not the
+            # stray-lettered اطارت (`z21145041`, once our backwards second
+            # copy of its paragraph was gone).
+            return all(any(g in shown or g in joined for g in forms(p))
+                       for p in split.get(f, [f]))
+
+        split = {}
+
+        def flip(w):
+            # Words run together behind a slash or bracket, each backwards:
+            # (غلم/درتليسي)لوبلا is ملغ, ديسيلتر, البول - turned whole, the
+            # three come out in the wrong order. Each turned in place - only
+            # where the reference itself has the marks between them.
+            f = _turn_round(w)
+            if turned_round(f):
+                return f
+            parts = [_norm(x)[::-1] for x in PUNCT_PARTS.get(w, ())]
+            if len(parts) > 1 and all(turned_round(x) for x in parts):
+                split["".join(parts)] = parts
+                return "".join(parts)
+            return f
 
         lacking = [w for w in words if not there(w)]
         present = [w for w in words if w not in lacking]
@@ -201,13 +276,14 @@ def judge(pdf, out, marks=True):
         # words run together aside: excused if the page shows them that way
         # and shows none of the rest. A sentence we dropped is in ours
         # neither way round.
-        flipped = [_turn_round(w) for w in lacking]
+        flipped = [flip(w) for w in lacking]
         turned = [f for f in flipped if turned_round(f)]
         if lacking and len(turned) >= TURNED * len(lacking):
             rest = [w for w, f in zip(lacking, flipped) if f not in turned]
-            if sum(1 for f in turned if f in shown or f in joined) \
+            if sum(1 for f in turned if on_page(f)) \
                     >= PAGE_READ * len(turned) \
-                    and not any(w in shown for w in rest):
+                    and not any(w in shown for w in rest) \
+                    and _together(raw_of.get(s, ""), ours_bare):
                 excused.append(s)
             continue
         if not lacking:
