@@ -64,14 +64,27 @@ def units(chars):
     return out
 
 
-def order(line):
+def order(line, arabic_page=None):
     """line: [(char, x0, x1)] as extracted. -> the order to read its units
-    in, a list of unit indices; None where nothing moves."""
+    in, a list of unit indices; None where nothing moves. `arabic_page`:
+    called to ask whether the page is mostly Arabic."""
     if os.environ.get("QIRTAS_PUNCT_ORDER", "1") == "0":
         return None                # off, to measure against
     text = [c for c, _, _ in line]
     if not any(ARABIC.match(c) for c in text):
+        # `( 40 .)`: the ` .)` a line of its own, stored as drawn left to
+        # right; on an Arabic page it reads right to left. Not a line with a
+        # number or word in it: `(2018)` after Riley is read as stored.
+        if DRAWN_ON and arabic_page is not None \
+                and any(c in BRACKETS for c in text) \
+                and not any(c.isalnum() for c in text) and arabic_page():
+            return _order_drawn(line)
         return None
+    if DRAWN_ON and any(c in BRACKETS for c in text):
+        if sum(1 for c in text if LATIN.match(c)) \
+                > sum(1 for c in text if ARABIC.match(c)):
+            return None            # an English line: see below
+        return _order_drawn(line)
     if any(LEFT_TO_RIGHT.match(c) for c in text):
         if os.environ.get("QIRTAS_PUNCT_MIXED", "1") == "0":
             return None            # off, to measure against
@@ -252,6 +265,185 @@ def _order_mixed(line):
     return [~k if k in moved else k for k in out]
 
 
+DRAWN_ON = os.environ.get("QIRTAS_DRAWN_BRACKETS", "1") != "0"
+BRACKETS = set("()[]")
+
+
+def _order_drawn(line):
+    """order() for an Arabic line holding a bracket: everything read as the
+    page draws it.
+
+    Word stores the brackets, full stops and spaces between an Arabic run and
+    a number or English word at the run's far end, as drawn: a reference
+    "ابن كثير، إسماعيل. (1999). تفسير" is stored `( .ابن كثير، إسماعيل1999`
+    then ` .)تفسير`, and came out "( ابن كثير، إسماعيل. 1999 .) تفسير" - a
+    third of the theses' brackets were out of place (PLAN "Brackets where
+    the page draws them"). Here each Arabic word, and each number or English run, stays as
+    stored, and the line's pieces are read right to left by where they are
+    drawn; a number or English run with what lies between its parts (et al.,
+    2020) is read left to right. What is drawn decides, so a reading that
+    splits the line into pieces (the structure labels, `_Whole`) puts every
+    bracket in the same place as one that reads it whole."""
+    text = [c for c, _, _ in line]
+    us = units(text)
+    base = [line[u[0]] for u in us]
+    arabic = [bool(ARABIC.match(c)) for c, _, _ in base]
+    # Any other letter or digit runs left to right: Greek (λ1) and the math
+    # letters of a formula (𝚫𝒚∕𝚫𝒙, `z3387756`) as much as Latin.
+    ltr = [not a and (bool(LEFT_TO_RIGHT.match(c)) or c.isalnum())
+           for (c, _, _), a in zip(base, arabic)]
+    xs = {round(x0, 1) for (c, x0, _), a in zip(base, arabic) if a}
+    if len(xs) < PLACED * sum(arabic):
+        return None
+    # A hamza or other small mark on a bracket is a font's broken digits
+    # (`z15446639` stores ١ as ٔ): it would move with the bracket.
+    if any(text[u[0]] in BRACKETS and any("ٓ" <= text[i] <= "ٟ"
+                                          for i in u[1:]) for u in us):
+        return None
+    # Pieces, in stored order: a run of Arabic letters, a run of other
+    # letters or digits, or one other character.
+    pieces, k = [], 0
+    while k < len(base):
+        j = k + 1
+        if arabic[k] or ltr[k]:
+            same = arabic if arabic[k] else ltr
+            while j < len(base) and same[j]:
+                j += 1
+        pieces.append([k, j, "R" if arabic[k] else "L" if ltr[k] else "N"])
+        k = j
+    steps = [base[i][1] - base[i + 1][1] for a, b, t in pieces if t == "R"
+             for i in range(a, b - 1)]
+    if sum(1 for d in steps if d > 0) < PLACED * sum(1 for d in steps if d):
+        return None                    # stored in drawing order as a whole
+
+    def span(p):
+        return (min(base[i][1] for i in range(p[0], p[1])),
+                max(base[i][2] for i in range(p[0], p[1])))
+    boxes = [span(p) for p in pieces]
+    for n, p in enumerate(pieces):
+        if p[2] != "N" or base[p[0]][0] != " ":
+            continue
+        # A space between two Arabic words stays between them, wherever the
+        # extractor put its box (PLAN "Spaces inside words").
+        if 0 < n < len(pieces) - 1 and pieces[n - 1][2] == "R" \
+                and pieces[n + 1][2] == "R":
+            boxes[n] = (boxes[n + 1][1], boxes[n - 1][0])
+    # A mark stored right after a number or Latin run and drawn at its right
+    # end is that run's: `(Evershed,` at a line's end (z21760107).
+    for n in range(1, len(pieces)):
+        p, q = pieces[n - 1], pieces[n]
+        if q[2] == "N" and p[2] == "L" and base[q[0]][0] in MARKS \
+                and abs(boxes[n][0] - boxes[n - 1][1]) <= 2 * TOL:
+            q[2] = "L+"
+            boxes[n] = (boxes[n - 1][1] - 0.001, boxes[n - 1][1])
+    order_ = sorted(range(len(pieces)),
+                    key=lambda n: (-(boxes[n][0] + boxes[n][1]) / 2, n))
+    out, i, inl = [], 0, set()
+    while i < len(order_):
+        if pieces[order_[i]][2] != "L":
+            out.append(order_[i])
+            i += 1
+            continue
+        last = i
+        for j in range(i + 1, len(order_)):
+            if pieces[order_[j]][2] == "R":
+                break
+            if pieces[order_[j]][2] == "L":
+                last = j
+        run = order_[i:last + 1]
+        # A bracket closing one opened inside the run is the run's: I(2)
+        # (`z3387756`), drawn left to right with it - at its right end, so
+        # read just before it.
+        while out and pieces[out[-1]][2] == "N":
+            n = out[-1]
+            c = base[pieces[n][0]][0]
+            left = sum(base[pieces[m][0]][0] == MIRROR.get(c) for m in run) \
+                - sum(base[pieces[m][0]][0] == c for m in run)
+            if c not in ")]" or left <= 0 or \
+                    boxes[n][0] > max(boxes[m][1] for m in run) + 2 * TOL:
+                break
+            run.append(out.pop())
+        inl.update(run)
+        out.extend(sorted(run, key=lambda n: ((boxes[n][0] + boxes[n][1]) / 2,
+                                              n)))
+        i = last + 1
+    # Arabic words never change places: only what lies between them moves.
+    # Where reading by position would move one, the positions are not to be
+    # trusted - `z21145041` stores لوبلا يف for في البول, words drawn left to
+    # right, and has a stray letter drawn far from its word; read as drawn,
+    # both turned round, and the gate lost 3% of that file.
+    words = [n for n in out if pieces[n][2] == "R"]
+    if words != sorted(words):
+        return None
+    inside = frozenset(k for n in inl for k in range(*pieces[n][:2]))
+    seq, prev = Seq(), None
+    for n in out:
+        a, b, t = pieces[n]
+        # A vowel mark stored after a bracket is the letter's before it
+        # (أنموذجاً), read first either way: see order().
+        moved = t in ("N", "L+") and (prev != (n - 1 if n else None)
+                                      or len(us[a]) > 1)
+        seq.extend(~k if moved else k for k in range(a, b))
+        prev = n
+    # Kept even where nothing moves: `_turn` may still turn a bracket.
+    seq.flip = _drawn_shapes([k for n in out for k in range(*pieces[n][:2])],
+                             base, arabic, ltr, inside)
+    seq.inside = inside
+    return seq
+
+
+class Seq(list):
+    """A unit order read as drawn (_order_drawn), with the units whose
+    bracket is to be turned round, and those inside a number or Latin run."""
+    flip = frozenset()
+    inside = frozenset()
+
+
+MIRROR = {"(": ")", ")": "(", "[": "]", "]": "["}
+# Two of the extractor's lines are one printed line when they share this
+# much of the shorter one's height.
+ROW = 0.6
+
+
+def _drawn_shapes(read, base, arabic, ltr, inside):
+    """Brackets stored as the shape drawn, not the bracket meant.
+
+    Word draws a bracket in a right-to-left line turned round, and some fonts
+    (Times New Roman in an Arabic line, most often) store the shape: "(62)"
+    is stored `)62(`, and written so Word draws it `)62(` (`z7456037`,
+    `z3387756`). Read in order, such a bracket gives itself away: a `)` with
+    a space before it and a word right after opens, a `(` after a word with
+    a space after it closes. Where a line's brackets say so and none says
+    otherwise, its brackets at the line's ends are turned round too. Asked
+    of a whole printed line (`_Whole.turns`), not only of the piece the
+    extractor cut it into: ` جدول رقم )`, `29` and `( :` are three pieces
+    (`z7456037`), and none of them alone says which way its bracket is.
+    `read`: the units in reading order; `inside`: units inside a number or
+    Latin run, drawn left to right and so as meant. -> {unit}"""
+    def word(i):
+        return 0 <= i < len(read) and (arabic[read[i]] or ltr[read[i]])
+
+    def gap(i):
+        return 0 <= i < len(read) and not word(i)
+    turned, sure, loose = set(), 0, set()
+    for i, k in enumerate(read):
+        c = base[k][0]
+        if c not in MIRROR or k in inside:
+            continue
+        opens = c in "(["
+        before, after = (word(i - 1), gap(i + 1)) if opens else (gap(i - 1), word(i + 1))
+        if before and after:
+            turned.add(k)              # `word( ` or ` )word`: turned round
+        elif (gap(i - 1) or i == 0) and word(i + 1) if opens else \
+                word(i - 1) and (gap(i + 1) or i == len(read) - 1):
+            sure += 1                  # `(word` or `word)`: as meant
+        else:
+            loose.add(k)
+    if not turned or sure:
+        return frozenset()
+    return frozenset(turned | loose)
+
+
 PERCENT = "%٪"
 
 
@@ -283,6 +475,11 @@ def _moved(us, seq):
     return {i for k in seq if k is not SPACE and k < 0 for i in us[~k]}
 
 
+def _turned(us, seq):
+    """Character indices of the brackets `seq` turns round."""
+    return {us[k][0] for k in getattr(seq, "flip", ())}
+
+
 def _indices(us, seq):
     """Character indices in the order `seq` reads the units."""
     out = []
@@ -299,23 +496,74 @@ def _chars(line):
     return [c for s in line["spans"] for c in s["chars"]]
 
 
+def _alike(a, b):
+    """May a mark moved out of span `b` join span `a`? Not across a change
+    of size: the span before it may be a raised note number, `(1)`, and a
+    comma taken into it left a `)` in the text (`z18048055`)."""
+    return abs(a.get("size", 0) - b.get("size", 0)) <= 0.1 * max(
+        a.get("size", 0), b.get("size", 0), 1)
+
+
+def _key(c):
+    """A character by where it is drawn: the same in every reading."""
+    return c["c"], round(c["bbox"][0], 1), round(c["bbox"][1], 1)
+
+
+def _turn(seq, chars, whole):
+    """`seq` with its brackets turned round as the whole printed line says
+    (`_Whole.turns`); `chars`: the rawdict line's characters. Only a line
+    read as drawn, right to left, and only a bracket outside a number or
+    Latin run: one read left to right is read as meant (`(Gobira, 2023;19)`,
+    an English piece of its own on an Arabic line, `z17366480`). And in a
+    reading by structure labels, not a bracket that is a line on its own:
+    there it is already in the order Word wrote it, `(` `Maina,` ... `249`
+    `)` (`z20306213`) - turned, it read `)Maina, ... 249(`. One with a mark
+    beside it, `(  :` after `58` (`z7456037`), is stored as drawn."""
+    if not isinstance(seq, Seq):
+        return seq
+    alone = sum(1 for c in chars if not c["c"].isspace()) <= 1
+    if whole is not None and not (whole.off and alone):
+        turns = whole.turns()
+        flip = set(seq.flip)
+        for k, u in enumerate(units([c["c"] for c in chars])):
+            said = turns.get(_key(chars[u[0]])) if k not in seq.inside else None
+            if said is True:
+                flip.add(k)
+            elif said is False:
+                flip.discard(k)
+        seq.flip = frozenset(flip)
+    # Nothing moved and nothing turned: the line is left exactly as it was.
+    # Rebuilt, a mark joins the piece before it, and the full stop after a
+    # raised note number `(1)` became part of it - a `)` was left in the
+    # text (`z18048055`).
+    if not seq.flip and list(seq) == list(range(len(seq))):
+        return None
+    return seq
+
+
 def _fix_raw(line, whole=None):
     """Reorder one rawdict line in place; -> (stored, read) or None.
     `whole`: see _Whole."""
     chars = _chars(line)
-    seq = order([(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars])
+    seq = _turn(order([(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars],
+                      whole.letterless(line) if whole else None), chars, whole)
     if seq is None or (whole and not whole.keeps(
             "".join(c["c"] for c in chars))):
         return None
     new = []
     shifted = {id(chars[i]) for i in _moved(units([c["c"] for c in chars]),
                                              seq)}
+    turned = _turned(units([c["c"] for c in chars]), seq)
+    copied = {}
     for i in _indices(units([c["c"] for c in chars]), seq):
         if i is None:                # the gap a moved mark stood in
             a = new[-1]
             new.append(dict(a, c=" ", bbox=(a["bbox"][0] - 0.01,
                                             a["bbox"][1], a["bbox"][0],
                                             a["bbox"][3])))
+        elif i in turned:
+            new.append(dict(chars[i], c=MIRROR[chars[i]["c"]]))
+            copied[id(new[-1])] = chars[i]
         else:
             new.append(chars[i])
     stored = "".join(c["c"] for c in chars)
@@ -326,9 +574,12 @@ def _fix_raw(line, whole=None):
         s["chars"] = []
     prev = None
     for c in new:
-        mine = id(c) in owner and (prev is None or (
-            c["c"] not in MARKS and id(c) not in shifted))
-        s = owner[id(c)] if mine else owner[id(prev)]
+        was = copied.get(id(c), c)   # a bracket turned round is a copy
+        before = None if prev is None else owner.get(id(copied.get(id(prev), prev)))
+        mine = id(was) in owner and (before is None or (
+            c["c"] not in MARKS and id(was) not in shifted)
+            or not _alike(before, owner[id(was)]))
+        s = owner[id(was)] if mine else before
         s["chars"].append(c)
         prev = c
     line["spans"] = [s for s in line["spans"] if s["chars"]]
@@ -341,7 +592,9 @@ def _reorder(text, seq, n):
     us = units(text)
     if len(us) != n:
         return None
-    return "".join(" " if i is None else text[i] for i in _indices(us, seq))
+    turned = _turned(us, seq)
+    return "".join(" " if i is None else MIRROR[text[i]] if i in turned
+                   else text[i] for i in _indices(us, seq))
 
 
 class _Whole:
@@ -360,8 +613,65 @@ class _Whole:
     def __init__(self, page, flags, clip):
         self.page, self.clip, self.lines = page, clip, None
         self.off = bool(flags & pymupdf.TEXT_COLLECT_STRUCTURE)
+        self._arabic = None
+        self._turns = None
+
+    def turns(self):
+        """{character by place (_key): is this bracket turned round?} for
+        every bracket on an Arabic printed line: the extractor's pieces on
+        one baseline put back together and read as drawn (_drawn_shapes).
+        From the plain reading, so a reading by structure labels, which cuts
+        lines apart, turns the same brackets."""
+        if self._turns is None:
+            self._turns = {}
+            kw = {} if self.clip is None else {"clip": self.clip}
+            rows = []
+            for b in self.page.get_text("rawdict", **kw)["blocks"]:
+                for line in b.get("lines", ()):
+                    if abs(line["dir"][1]) > 0.1:
+                        continue
+                    y0, y1 = line["bbox"][1], line["bbox"][3]
+                    for r in rows:
+                        if min(r[1], y1) - max(r[0], y0) > \
+                                ROW * min(r[1] - r[0], y1 - y0):
+                            r[0], r[1] = min(r[0], y0), max(r[1], y1)
+                            r[2].extend(_chars(line))
+                            break
+                    else:
+                        rows.append([y0, y1, _chars(line)])
+            for _, _, chars in rows:
+                if not any(c["c"] in MIRROR for c in chars):
+                    continue
+                seq = order([(c["c"], c["bbox"][0], c["bbox"][2])
+                             for c in chars], self.arabic)
+                if not isinstance(seq, Seq):
+                    continue
+                us = units([c["c"] for c in chars])
+                for k, u in enumerate(us):
+                    if chars[u[0]]["c"] in MIRROR and k not in seq.inside:
+                        self._turns[_key(chars[u[0]])] = k in seq.flip
+        return self._turns
+
+    def letterless(self, line):
+        """`arabic_page` for order(): a line with no letters is read right to
+        left on an Arabic page - but in a reading by structure labels only
+        when it is one piece (` .)` of `( 40 .)`). Pieces formatted apart
+        are already in the order Word wrote them: `)` + ` ،` after a raised
+        note number was read `)،`, the comma was taken into the number, and
+        a `)` was left in the text (`z18048055`)."""
+        return None if self.off and len(line["spans"]) > 1 else self.arabic
+
+    def arabic(self):
+        """Is the page mostly Arabic? Asked by a line with no letters."""
+        if self._arabic is None:
+            t = self.page.get_text("text")
+            self._arabic = sum(1 for c in t if ARABIC.match(c)) \
+                > sum(1 for c in t if LATIN.match(c))
+        return self._arabic
 
     def keeps(self, text):
+        if DRAWN_ON and any(c in BRACKETS for c in text):
+            return True                # read as drawn: see _order_drawn
         if self.off or not (any(ARABIC.match(c) for c in text)
                             and any(LEFT_TO_RIGHT.match(c) for c in text)):
             return True
@@ -396,8 +706,9 @@ def _line_orders(page, flags, clip):
             for line in b.get("lines", ()):
                 chars = _chars(line)
                 text = [c["c"] for c in chars]
-                seq = order([(c["c"], c["bbox"][0], c["bbox"][2])
-                             for c in chars])
+                seq = _turn(order([(c["c"], c["bbox"][0], c["bbox"][2])
+                                   for c in chars], whole.letterless(line)),
+                            chars, whole)
                 if seq is not None and whole.keeps("".join(text)):
                     out.setdefault(_bare("".join(text)), []).append(
                         (seq, len(units(text))))
@@ -461,10 +772,14 @@ def _fix_dict_line(line, orders):
     todo.pop(0)
     spans = [[] for _ in line["spans"]]
     shifted = _moved(us, seq)
+    turned = _turned(us, seq)
     prev = None
     for i in _indices(us, seq):
         k, c = (prev, " ") if i is None else owned[i]
-        if (c in MARKS or i in shifted) and prev is not None:
+        if i in turned:
+            c = MIRROR[c]
+        if (c in MARKS or i in shifted) and prev is not None \
+                and _alike(line["spans"][prev], line["spans"][k]):
             k = prev
         spans[k].append(c)
         prev = k
@@ -486,9 +801,12 @@ def get_text(page, kind="text", **kw):
         raw = page.get_text("rawdict", **kw)
         whole = _Whole(page, kw.get("flags", pymupdf.TEXTFLAGS_RAWDICT),
                        kw.get("clip"))
-        for b in raw["blocks"]:
-            for line in b.get("lines", ()):
-                _fix_raw(line, whole)
+        def walk(node):          # a structure tree nests blocks in nodes
+            for b in node.get("blocks", ()):
+                for line in b.get("lines", ()):
+                    _fix_raw(line, whole)
+                walk(b)
+        walk(raw)
         return raw
     if kind == "dict":
         # The dict is MuPDF's own - a structure tree nests its blocks

@@ -112,6 +112,18 @@ PAGE_READ = 0.5
 TURNED = 0.8
 # A word in one script: Arabic letters, or Latin letters and digits.
 SCRIPTS = re.compile(r"[\u0621-\u064A]+|[A-Za-z0-9]+")
+ARABIC_RUN = re.compile(r"[\u0621-\u064A]+")
+
+
+def _turn_round(w):
+    """A backwards-stored word the way round ours has it. Where English is
+    glued to it, only the Arabic is turned: the reference's `\u0629\u0633\u064A\u0627\u0642\u0645(ELISA)`
+    is \u0645\u0642\u0627\u064A\u0633\u0629 and ELISA in ours, not ASILE (`z21145041` - once brackets were
+    read where the page draws them, the page's own `\u0645\u0642\u0627\u064A\u0633\u0629(ELISA)`, with no
+    space, read as lost)."""
+    if ARABIC_RUN.search(w) and re.search(r"[A-Za-z]", w):
+        return ARABIC_RUN.sub(lambda m: m.group(0)[::-1], w)
+    return w[::-1]
 
 
 def judge(pdf, out, marks=True):
@@ -189,7 +201,7 @@ def judge(pdf, out, marks=True):
         # words run together aside: excused if the page shows them that way
         # and shows none of the rest. A sentence we dropped is in ours
         # neither way round.
-        flipped = [w[::-1] for w in lacking]
+        flipped = [_turn_round(w) for w in lacking]
         turned = [f for f in flipped if turned_round(f)]
         if lacking and len(turned) >= TURNED * len(lacking):
             rest = [w for w, f in zip(lacking, flipped) if f not in turned]

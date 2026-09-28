@@ -207,6 +207,13 @@ it on a finished eval:
 
     .venv/Scripts/python -m harness.truth out/runs/<date>-dev-<label>
 
+Are the brackets where the page draws them? Reads every bracket on the
+originals' Arabic lines as printed and looks for it, between the same words,
+in the Word files of a finished eval (PLAN "Brackets where the page draws
+them" says what it misreads):
+
+    .venv/Scripts/python -m harness.brackets --set thesis --work out/work/eval-thesis --show 10
+
 Finds PDFs that DISPLAY one number and STORE another - `1951` on the page,
 `1901` in the text. It reports CANDIDATES, not verdicts: on the dev set 4 of 7
 were real once rendered and read. Not our bug, but our output carries the wrong
@@ -243,7 +250,7 @@ environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
 `QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
 `QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE`, `QIRTAS_NEAR`, `QIRTAS_BACKFILL_TURN`,
 `QIRTAS_REPAIR_ONCE`, `QIRTAS_WITNESS_COVER`, `QIRTAS_ALLAH`, `QIRTAS_CS_STYLE`,
-`QIRTAS_NOTE_SIZE`, `QIRTAS_HEADING_OWN`, `QIRTAS_CENTRE`, `QIRTAS_OWN_SIZE`, `QIRTAS_BESIDE`, `QIRTAS_BARE_FRONT`, `QIRTAS_TABLE_THIN`, `QIRTAS_TABLE_WORDS`, `QIRTAS_TABLE_SPAN`, `QIRTAS_TABLE_FLIP`, `QIRTAS_TABLE_JOINED`, `QIRTAS_PLACE_BY_Y`, `QIRTAS_ZWNJ`, `QIRTAS_TAGS_FORMAT`, `QIRTAS_SKEW`, `QIRTAS_FURNITURE_STYLE`, `QIRTAS_TABLE_FILL`, `QIRTAS_BAND`, `QIRTAS_TRUE_ITALIC`, `QIRTAS_HEADER_RULE`, `QIRTAS_HEADER_PARTS`, `QIRTAS_NOTE_LOOK`, `QIRTAS_GLUE_FORMAT`, `QIRTAS_PIC_BESIDE`, `QIRTAS_FOOT_LAST` = `0`;
+`QIRTAS_NOTE_SIZE`, `QIRTAS_HEADING_OWN`, `QIRTAS_CENTRE`, `QIRTAS_OWN_SIZE`, `QIRTAS_BESIDE`, `QIRTAS_BARE_FRONT`, `QIRTAS_TABLE_THIN`, `QIRTAS_TABLE_WORDS`, `QIRTAS_TABLE_SPAN`, `QIRTAS_TABLE_FLIP`, `QIRTAS_TABLE_JOINED`, `QIRTAS_PLACE_BY_Y`, `QIRTAS_ZWNJ`, `QIRTAS_TAGS_FORMAT`, `QIRTAS_SKEW`, `QIRTAS_FURNITURE_STYLE`, `QIRTAS_TABLE_FILL`, `QIRTAS_BAND`, `QIRTAS_TRUE_ITALIC`, `QIRTAS_HEADER_RULE`, `QIRTAS_HEADER_PARTS`, `QIRTAS_NOTE_LOOK`, `QIRTAS_GLUE_FORMAT`, `QIRTAS_PIC_BESIDE`, `QIRTAS_FOOT_LAST`, `QIRTAS_DRAWN_BRACKETS` = `0`;
 `QIRTAS_GAP=1` turns ON the space above paragraphs, which is off).
 
 **Quick run, after every fix**: 8 theses from the working set that cover

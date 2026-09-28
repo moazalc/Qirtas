@@ -550,3 +550,29 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   separate small tables, a stray letter in header cells, cells stored
   backwards, a wide table off the page's edge, a table split into many
   narrow empty columns).
+
+### 28 Sept (late) — brackets where the page prints them
+- **Moaz saw brackets in the wrong place, and he was right.** A new check
+  (it reads every bracket where the page prints it and looks for it in our
+  Word file) found about a third of the theses' brackets misplaced - worse
+  than simply keeping the PDF's own order. Worst of all were reference
+  lists: "ابن كثير، إسماعيل. (1999). تفسير" came out
+  "( ابن كثير، إسماعيل. 1999 .) تفسير".
+- **Why:** the PDF stores the bracket, full stop and space next to a year
+  at the far end of the Arabic words, and a safety rule from 23 Sept had
+  switched our punctuation fixing off on exactly those lines.
+- **Now** lines with brackets are read the way they are printed. Some
+  fonts store a bracket's drawn shape, so "(62)" came out ")62(" - those
+  are turned round too. Brackets in place went from 65% to 79% (reading
+  only); reference lists are nearly all right (one thesis 53% -> 97%).
+- **Two problems found and fixed on the way:** the "nothing lost" check
+  dropped to 97% on one thesis stored backwards (a fault in the check,
+  fixed, and Arabic words are now never moved); and looking at a page
+  showed a stray ")" after the note numbers in the body text, which the
+  bracket check could not see - fixed.
+- Nothing lost 100% on every file; right page 69.6% -> 70.2%.
+- **Still wrong:** theses stored backwards; English citations and
+  formulas the PDF cuts into many pieces; one caption `)59(`.
+- **Not FLAGS 27:** that flag is about how the "right page" score reads
+  English next to Arabic, and is still open.
+- **Next:** the leftover table faults.

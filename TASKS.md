@@ -68,6 +68,14 @@ a fixed "1" on every page where the original numbers them (1-3, 21-28,
 54-55 - the sample's cut makes the numbers jump), and the footer's double
 line and the number's box are not drawn. The verse marks out of place on
 that page are the PDF's own stored text.
+Brackets where the page draws them DONE 28 Sept, asked for by Moaz ahead
+of the tables (PLAN "Brackets where the page draws them"; measure with
+`python -m harness.brackets`): 64.7 -> 78.6% of the theses' brackets in
+place. Left: files stored backwards; English citations and formulas cut
+into many pieces (`z21644412`, `z3387756`); a caption `)59(` and a URL
+`(www.globalreporting.org(` whose brackets are pieces of their own
+(`z7456037`, `z18441713`). (FLAGS 27 is not this - it is how "right page"
+reads English beside Arabic; still open.)
 Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Found on the way, for

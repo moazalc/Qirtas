@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from convert.order import _fix_text, _indices, order, units
+from convert.order import MIRROR, _fix_text, _indices, _turned, order, units
 
 FAILED = []
 
@@ -43,12 +43,14 @@ def line(*words, start=400.0, w=5.0, gap=4.0):
     return out
 
 
-def read(ln):
-    seq = order(ln)
+def read(ln, arabic_page=None):
+    seq = order(ln, arabic_page)
     if seq is None:
         return "".join(c for c, _, _ in ln)
-    return "".join(" " if i is None else ln[i][0]
-                   for i in _indices(units([c for c, _, _ in ln]), seq))
+    us = units([c for c, _, _ in ln])
+    turned = _turned(us, seq)
+    return "".join(" " if i is None else MIRROR[ln[i][0]] if i in turned
+                   else ln[i][0] for i in _indices(us, seq))
 
 
 def main():
@@ -82,7 +84,7 @@ def main():
     ln = line(("بين الجزائريين", None)) + [(".", 300, 302)]
     check("a mark already after its word", order(ln), None)
     ln = line(("والتنمية", None)) + [(")", 355, 358), ("،", 350, 352)]
-    check("a bracket between a word and its mark", order(ln), None)
+    check("a bracket between a word and its mark", read(ln), "والتنمية)،")
 
     print("\nlines with numbers or Latin")
     ln = [(".", 300, 302)] + line(("العدد 5", None))
@@ -139,6 +141,42 @@ def main():
                               for i, c in enumerate("فدهلا")]
     check("a line stored backwards as a whole", order(ln), None)
 
+    print("\nbrackets where the page draws them")
+    # A reference, `z18048055`: "إسماعيل. (1999). تفسير" is stored
+    # `( .إسماعيل1999` and ` .)تفسير` - the bracket, full stop and space at
+    # the Arabic run's far end, as drawn.
+    words = line(("ابن كثير، إسماعيل", None), start=484)
+    left = min(x0 for _, x0, _ in words)
+    ln = [("(", left - 10, left - 6), (" ", left - 6, left - 3),
+          (".", left - 3, left)] + words + [
+        (d, left - 32 + 5 * i, left - 27 + 5 * i) for i, d in enumerate("1999")]
+    check("the bracket before the year", read(ln), "ابن كثير، إسماعيل. (1999")
+    ln = [(" ", 363, 366), (".", 366, 369), (")", 369, 372)] + line(
+        ("تفسير", None), start=360)
+    check("the bracket after it", read(ln), "). تفسير")
+    ln = [(" ", 363, 366), (".", 366, 369), (")", 369, 372)]
+    check("a line of its own, on an Arabic page", read(ln, lambda: True), "). ")
+    check("... left alone on an English one", read(ln, lambda: False), " .)")
+    ln = [("(", 300, 304)] + [(d, 304 + 5 * i, 309 + 5 * i)
+                              for i, d in enumerate("2018")] + [(")", 324, 328)]
+    check("a year of its own is read as stored (Riley (2018))",
+          read(ln, lambda: True), "(2018)")
+    # `z7456037`: the font stores the shape drawn, `)62(`
+    words = line(("جدول رقم", None), start=480)
+    left = min(x0 for _, x0, _ in words)
+    ln = words + [(" ", left - 4, left), (")", left - 8, left - 4),
+                  ("6", left - 18, left - 13), ("2", left - 13, left - 8),
+                  ("(", left - 22, left - 18), (" ", left - 26, left - 22),
+                  (":", left - 29, left - 26)]
+    check("brackets stored as drawn are turned round", read(ln),
+          "جدول رقم (62) :")
+    # `z3387756`: I(2), its closing bracket drawn with it
+    words = line(("ومتغير آخر", None), start=200)
+    ln = [(" ", 118, 122)] + words + [("I", 100, 104), ("(", 104, 108),
+                                      ("2", 108, 113), (")", 113, 117)]
+    check("a bracket inside an English run stays in it", read(ln),
+          "ومتغير آخر I(2)")
+
     print("\nvowel marks")
     # ،ًمبكرا: the tanween stored after the comma is the word's
     ln = [("،", 300, 302), ("ً", 300, 302)] + line(("مبكرا", None))
@@ -177,15 +215,27 @@ def main():
     tagged = Path("corpus/wild/z20252126.pdf")
     if tagged.exists():
         # Word labels Benchmark apart, so the tagged reader never sees it on
-        # one line with معين; the plain reading must not move its bracket
-        # either, or the two disagree and the gate loses the sentence.
+        # one line with معين. Both readings must put its bracket in one
+        # place, or they disagree and the gate loses the sentence
+        # (2026-09-23): read as drawn, both put it after معين.
         import pymupdf
         from convert.glyphs import repaired
         from convert.order import get_text
         with pymupdf.open(repaired(str(tagged))) as d:
             text = get_text(d[8], "text")
-        check("a line the labels split is left alone (Benchmark)",
-              "معين (Benchmark" in text, False)
+            flags = pymupdf.TEXTFLAGS_DICT | pymupdf.TEXT_COLLECT_STRUCTURE
+            labels = []
+
+            def walk(node):
+                for b in node.get("blocks", ()):
+                    for ln in b.get("lines", ()):
+                        labels.append("".join(s["text"] for s in ln["spans"]))
+                    walk(b)
+            walk(get_text(d[8], "dict", flags=flags))
+        check("read whole: the bracket after معين (Benchmark)",
+              "معين (Benchmark" in text, True)
+        check("read by labels: the same",
+              any(t.rstrip().endswith("معين (") for t in labels), True)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

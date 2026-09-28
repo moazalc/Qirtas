@@ -3140,6 +3140,135 @@ nothing lost 100.0% on every file; right page 69.34 -> 69.64% (the foot
 numbers); every other score unchanged. Looked at on `z21850164` page 1
 and `z20585114` page 2.
 
+### Brackets where the page draws them, 2026-09-28
+
+**Moaz: "the brackets are always in the wrong place."** Measured, he was
+right: a new instrument, `harness.brackets`, found 35% of the theses'
+brackets out of place (1,530 of 2,365 right, 64.7%) - more than if we
+had kept the PDF's stored order (69.0%). The worst was every reference
+list in the APA style: `ابن كثير، إسماعيل. (1999). تفسير` came out
+`( ابن كثير، إسماعيل. 1999 .) تفسير`.
+
+**The instrument** reads each printed line as drawn - the extractor's
+pieces on one baseline joined, read right to left by position, a number or
+English run left to right - keys each bracket by the word before and after
+it, and counts the keys our Word file holds. It shares no rules with the
+converter. Arabic words are compared by length (spelling repairs change
+their letters), English words and numbers exactly. Checked by reading its
+misses: it misreads English citations with their own brackets
+(`Sari (2023)`), sometimes matches a line to the wrong paragraph, and files
+stored backwards or with broken fonts score low whatever we do.
+
+**Why they moved.** Word stores the bracket, full stop and space between an
+Arabic run and a number at the Arabic run's far end, as drawn: the reference
+above is stored `( .ابن كثير، إسماعيل1999` then ` .)تفسير`. The punctuation
+reordering (`order.py`, PLAN "Punctuation where it is drawn") moved only
+marks, never brackets, and the guard added on 23 Sept (`_Whole`, after
+`معين (Benchmark` broke the gate) turned it off on every tagged line
+mixing Arabic with numbers or English - which is where references are.
+
+**The fix** (`order._order_drawn`, switch `QIRTAS_DRAWN_BRACKETS`): an Arabic
+line holding a bracket is read as drawn. Each Arabic word, and each number
+or English run, stays as stored; the pieces between are placed by position,
+right to left, with a number or English run and what lies between its parts
+(`et al., 2020`, `I(2)` with its closing bracket) read left to right.
+Because position decides, a reading that cuts the line into pieces puts
+each bracket where one reading it whole does - so the `_Whole` guard is no
+longer needed for these lines (the Benchmark test now checks both readings
+agree). Also:
+- A line of only brackets, stops and spaces (` .)` in `( 40 .)`) is read
+  right to left on an Arabic page; one with a number in it (`(2018)`
+  after Riley) is read as stored.
+- **Brackets stored as the shape drawn.** Some fonts - Times New Roman in
+  an Arabic line most often - store the turned-round shape: `(62)` stored
+  `)62(`, which Word then draws `)62(` (`z7456037`, `z3387756`,
+  `z21644412`). Read in order such a bracket gives itself away: `)` with a
+  space before it and a word after opens. `_drawn_shapes` turns a line's
+  brackets round where one says so and none says otherwise. It asks the
+  whole printed line, not the extractor's piece: `جدول رقم )` + `29` +
+  `( :` are three pieces and none alone can tell (`_Whole.turns`, keyed by
+  where each bracket is drawn, so every reading turns the same ones).
+- Only on a piece read right to left, and not in the labels reading on a
+  piece with no word: there each bracket can be a piece of its own, already
+  in the order Word wrote it (`(` `Maina,` ... `)`, `z20306213`), and
+  turning it gave `)Maina ... (`.
+- A vowel mark stored after a bracket goes to the letter before it
+  (أنموذجاً); a line where a small hamza sits on a bracket is left alone -
+  that is `z15446639`'s broken font writing its digits as marks.
+- Any non-Arabic letter or digit counts as left to right here, so a
+  formula's math letters and Greek (`(𝚫𝒚∕𝚫𝒙)`, `λ1`) are not reversed.
+
+Two tries that failed on the way, both measured: a vote per font over the
+whole document for brackets with nothing to say (one Times bracket turned
+`z20305872`'s title `(Validation)` the wrong way, and `z3387756`'s Times
+font stores some brackets turned and others not); and applying the whole
+line's answer to an English piece read left to right (`(Gobira, 2023;19)`
+turned round).
+
+**The gate caught it once** (full run `brackets`): nothing lost 99.9%,
+`z21145041` 97.0%. Our text for that file was the same with the rule on
+or off; what changed was the reference, which is read through the same
+`get_text`. Two sentences, both in lines the file stores backwards:
+- A line with a stray letter drawn far from its word, and words drawn
+  left to right: read by position, its Arabic words changed places. Now
+  **Arabic words never change places** - where reading by position would
+  move one, the line is left as stored. It cost no bracket anywhere
+  (78.6% either way).
+- `ةسياقم(ELISA)`: the page prints the bracket against the word, the space
+  at the line's end, and the new reading follows it; the gate turns a
+  backwards word round to look for it in ours, and turned ELISA round with
+  it. **Instrument fix** (`loss._turn_round`): in a word mixing Arabic and
+  English only the Arabic is turned. It can only excuse a backwards
+  sentence whose words we have; `test_loss_gate` passes, and the old and
+  new gate give the same answer on all 25 theses judged against the old
+  reference.
+A per-page vote for "this page is stored backwards" was tried first and
+found nothing: that file mixes both kinds of line on every page.
+
+**Found by looking, not by the instrument** (it leaves out note marks):
+the rendered `z18048055` page 9 had its footnotes right and a stray `)`
+after every note number in the body - `العليم ¹ ).`. Two causes, both a
+mark or bracket taken into the raised note number `(1)`, so the number was
+no longer read whole:
+- A line where nothing moves was still rebuilt, and the rebuild puts a
+  mark into the span before it. Now a line is left exactly as it was
+  unless something moves or turns (`_turn`).
+- A moved mark joins the span before it only at the same size (`_alike`):
+  not the raised number's.
+And in the labels reading a line with no letters is read right to left only
+if it is one span (` .)` of `( 40 .)`); `)` + ` ،` after a note number are
+two, already in Word's order. A second check, paragraphs with unmatched
+brackets in our Word files, now goes with the instrument: 102 before the
+change, 89 after (`z14065750` 19 -> 3); the few new ones are broken-font
+files and pieces cut apart.
+
+**Left:** in the labels reading a bracket that is a line on its own cannot
+say whether its font stored the shape - `)` `59` `(` (`z7456037`, turned
+the wrong way) looks exactly like `(` `Maina,` ... `)` (as meant). A URL
+between two bracket pieces, `(www.globalreporting.org(` (`z18441713`; it
+was `)...(` before). And the instrument undercounts files whose letters the
+real pipeline repairs (FLAGS 23): their words no longer match the PDF's in
+length, so the full run's Word files score 70.8% against 78.6% for the
+reader alone - the brackets are the same (read by eye on `z15446639`,
+`z17366480`, `z20782957`).
+
+**Full run** `2026-09-28-{thesis,regression}-brackets3` against `part3l`:
+nothing lost 100.0% on every file; right page 69.64 -> 70.2% (`z18048055`
+78.6 -> 81.7%, `z14065750` 90.1 -> 92.8%, `z18037898`, `z20305872` up;
+`z15446639` 30.0 -> 27.9%); words in order 93.9 -> 94.0%; page truth
+wrong 8.4 -> 8.3%; the two chapters: right page 86.7 -> 87.3%, the rest
+unchanged. Brackets in the Word files 57.4 -> 70.8% (the instrument's
+undercount above). Looked at: `z18048055` page 9, `z18037898` page 13.
+
+**Reader and writer only** (`out/work/brk-{off,on}`, 25 dev theses):
+brackets right 64.7 -> 78.6%. Reference lists nearly all right now:
+`z18048055` 52.7 -> 97.3%, `z18037898` 51.6 -> 96.7%, `z21850164` 78.6 ->
+100%, `z20748757` 69.0 -> 97.6%. Lower: `z20305872` 91.7 -> 88.9%
+(read by eye, every change there is right - the instrument misreads it),
+`z22058810` 8.3 -> 5.6% (stored backwards, TASKS). Left: the files stored
+backwards; `z21644412` and `z3387756` (47%, 68%), mostly the instrument's
+English citations and formulas split into many pieces.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
