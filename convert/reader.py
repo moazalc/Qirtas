@@ -2390,11 +2390,144 @@ def _cell_text(page, box, fallback, page_flat):
     identical content differ and one correct cell in four was rejected.
     """
     if box is None:
-        return _unreverse(_clean(fallback or ""), page_flat)
+        return _cell_ends(_unreverse(_clean(fallback or ""), page_flat))
     try:
         clip = get_text(page, "text", clip=pymupdf.Rect(box))
+        unseen = _unseen(page, box) if TABLE_MARK_ON else None
     except Exception:
-        return _unreverse(_clean(fallback or ""), page_flat)
+        return _cell_ends(_unreverse(_clean(fallback or ""), page_flat))
+    # Before the direction check: `الوسط ا` was found nowhere in the page's
+    # text, and the table finder's backwards `طسولا` was written instead.
+    # Once only: stripped twice, the second pass took the article's alef too.
+    mine = _cell_ends(clip, unseen)
+    read = _cell_read(mine, fallback, page_flat)
+    return read if read == _clean(mine) else _cell_ends(read, unseen)
+
+
+# `z17931421` draws at the start of a cell's word an invisible ۡ with one to
+# three alefs or a م after it, all of no width: its header came out
+# `الاختلافۡا`, `وحدة ۡالقياسۡم` - the "stray ا in header cells". Taken off a
+# cell's end only where the page draws them with no width: inside a word a
+# zero-width alef is half of a lam-alef, and a cell's own last word can be
+# a real م (2022 م). And the probe that checks a clip's direction asks
+# without ۡ: the page's text puts it at the other end of the word
+# (`ۡضابطة` / `ضابطةۡ`), the probe failed, and the table finder's backwards
+# `ةطباض` was written instead (QIRTAS_TABLE_MARK).
+CELL_START = re.compile(r"^[ۡ\s]+")
+CELL_END = re.compile(r"[ۡ\s]+([ۡام]{1,3})\s*$")
+STRAY = set("ۡام")
+
+
+# Cells stored backwards where the page's own text is backwards too
+# (`z21145041`, read by its labels' /ActualText): `_cell_text` checks a cell's
+# direction against the page's text, which agreed, and `ارشؤمل` went into the
+# table - and its words, found nowhere in the table, were written again
+# under it. Asked of the reading the file is written from instead: a cell
+# whose Arabic words are there only turned round is turned, its English and
+# numbers kept as they read (QIRTAS_CELLS_TURN).
+CELLS_TURN_ON = os.environ.get("QIRTAS_CELLS_TURN", "1") != "0"
+
+
+def _turn_cells(tables, doc):
+    words = set(TURN_WORD.findall(" ".join(b.text for b in doc.blocks
+                                           if b.kind != TABLE)))
+    if not words:
+        return
+
+    def near(w):
+        # a letter of the next word taken in, or the tanween's alef moved
+        # (ارشؤمل for المؤشر; see _backfill)
+        return w in words or (len(w) >= 5 and (w[1:] in words or w[:-1] in words))
+
+    def known(w):
+        return near(w) or near(w[-1] + w[:-1])
+
+    def turn(cell):
+        ws = TURN_WORD.findall(cell)
+        back = sum(1 for w in ws if known(w[::-1]) and not known(w))
+        ahead = sum(1 for w in ws if known(w) and not known(w[::-1]))
+        if not ws or back <= ahead:
+            return first_back(cell)
+        # Turned whole, then brackets mirrored and English and numbers put
+        # back as they read: (Cr) -> )rC( -> (rC) -> (Cr).
+        flipped = cell[::-1].translate(BRACKET_MIRROR)
+        return first_back(LATIN_RUN.sub(lambda m: m.group(0)[::-1], flipped))
+
+    def first_back(c):
+        # Stored backwards, a cell's first letter comes last: لمؤشرا for
+        # المؤشر, لف التركيب الأنبوبيت for تلف التركيب الأنبوبي. Put back
+        # where that makes its first word one the thesis has.
+        letters = [i for i, ch in enumerate(c) if ARABIC_LETTER.match(ch)]
+        first = FIRST_WORD.search(c)
+        if not letters or not first or near(first.group(0)):
+            return c
+        i = letters[-1]
+        if i <= first.start():
+            return c
+        moved = c[:i] + c[i + 1:]
+        moved = moved[:first.start()] + c[i] + moved[first.start():]
+        now = FIRST_WORD.search(moved)
+        return moved if now and near(now.group(0)) else c
+    for t in tables:
+        t.rows = [[turn(c) for c in row] for row in t.rows]
+
+
+LATIN_RUN = re.compile(r"[A-Za-z0-9.,%/\-]*[A-Za-z0-9][A-Za-z0-9.,%/\-]*")
+BRACKET_MIRROR = str.maketrans("()[]", ")(][")
+FIRST_WORD = re.compile("[ء-ي]+")
+
+
+def _unseen(page, box):
+    """(letters the page draws inside `box` with no width, letters the
+    plain clip takes that are not the cell's), each by count.
+
+    The plain clip takes any letter touching the box: the first letter of
+    the entry beside a number, drawn over the rule, came into both cells -
+    `251ح` and `حممد` for 251 and محمد (`z18037898`), and `ا ي جودة النموذج`
+    on `z3387756`. The letter-by-letter reading takes only the cell's own;
+    the text is still the plain clip's, whose order of English inside
+    Arabic the other does not keep."""
+    zero, own = collections.Counter(), collections.Counter()
+    r = pymupdf.Rect(box)
+    for b in page.get_text("rawdict", clip=r)["blocks"]:
+        for ln in b.get("lines", ()):
+            for sp in ln["spans"]:
+                for ch in sp["chars"]:
+                    own[ch["c"]] += 1
+                    if ch["c"] in STRAY and ch["bbox"][2] - ch["bbox"][0] < 0.05:
+                        zero[ch["c"]] += 1
+    taken = collections.Counter(page.get_text("text", clip=r))
+    extra = collections.Counter({c: n - own[c] for c, n in taken.items()
+                                 if not c.isspace() and n > own[c]})
+    return zero, extra
+
+
+def _cell_ends(text, unseen=None):
+    if not TABLE_MARK_ON or not text:
+        return text
+    text = CELL_START.sub("", text)
+    if unseen is None:
+        return text
+    zero, extra = unseen
+    m = CELL_END.search(text)
+    if m and all(zero[c] >= m.group(1).count(c) for c in set(m.group(1))):
+        text = text[:m.start()]
+    # Letters not the cell's, off its two ends only, and never past the
+    # first or last word: `ا المتغير` lost its stray alef and then the
+    # article's, and `z21644412`'s table changed shape over seven pages.
+    left = collections.Counter(extra)
+    t = text.strip()
+    while t and not t[-1].isspace() and left[t[-1]] > 0:
+        left[t[-1]] -= 1
+        t = t[:-1]
+    t = t.rstrip()
+    while t and not t[0].isspace() and left[t[0]] > 0:
+        left[t[0]] -= 1
+        t = t[1:]
+    return t.lstrip()
+
+
+def _cell_read(clip, fallback, page_flat):
     a, b = WS.sub("", (clip or "").replace("\n", "")), \
         WS.sub("", (fallback or "").replace("\n", ""))
     if not a:
@@ -2408,7 +2541,12 @@ def _cell_text(page, box, fallback, page_flat):
         # table finder instead (z22639353, z20375390's header band).
         lines = [x for x in (WS.sub("", ln) for ln in clip.split("\n"))
                  if len(x) >= 6 and ARABIC.search(x)] or [a]
-        if not all(_probe(x) in page_flat for x in lines):
+        if TABLE_MARK_ON:
+            bare = page_flat.replace("ۡ", "")
+            ok = all(_probe(x.replace("ۡ", "")) in bare for x in lines)
+        else:
+            ok = all(_probe(x) in page_flat for x in lines)
+        if not ok:
             return _unreverse(_clean(fallback or ""), page_flat)
     return _clean(clip)
 
@@ -2656,6 +2794,11 @@ def _drop_text_inside_tables(doc, tables):
     for t in tables:
         cells = " ".join(c for row in t.rows for c in row)
         by_page.setdefault(t.page, []).append((WS.sub("", cells), set(cells.split()), t))
+    held = {}
+    if TABLE_MARK_ON:
+        for t in tables:
+            cells = _unmarked(" ".join(c for row in t.rows for c in row))
+            held.setdefault(t.page, []).append((WS.sub("", cells), set(cells.split()), t))
     keep = []
     for b in doc.blocks:
         if b.kind in (TABLE, IMAGE) or not b.text:
@@ -2667,6 +2810,9 @@ def _drop_text_inside_tables(doc, tables):
             continue
         if any(_held_by(b, t, words, joined) for joined, words, t in by_page.get(b.page, [])):
             continue
+        if any(_held_by(b, t, words, joined, _unmarked(b.text))
+               for joined, words, t in held.get(b.page, [])):
+            continue
         for joined, words, t in by_page.get(b.page, []):
             _trim_held(b, t, words, joined)
             _trim_header(b, t)
@@ -2675,6 +2821,18 @@ def _drop_text_inside_tables(doc, tables):
 
 
 LA_WORD = re.compile(r"(?<!\S)لا (\S+)")
+
+# A table's words read again as paragraphs, stored with U+06E1 for spaces
+# (`z17931421`: "ۡضابطة 17.600 ...", "تَحَمُّلۡالسرعة"), were not found in
+# the table's cells word for word, and its widest table was written a second
+# time under itself in small type. U+06E1 is also a Quranic sukun, so the
+# text keeps it; only the comparison with the table reads it as a space,
+# and without vowel marks, on both sides (QIRTAS_TABLE_MARK).
+TABLE_MARK_ON = os.environ.get("QIRTAS_TABLE_MARK", "1") != "0"
+
+
+def _unmarked(t):
+    return MARKS.sub("", t.replace("ۡ", " "))
 
 
 def _rejoin_articles(doc, tables):
@@ -3209,13 +3367,13 @@ TABLE_WORDS_ON = os.environ.get("QIRTAS_TABLE_WORDS", "1") != "0"
 TABLE_JOINED_ON = os.environ.get("QIRTAS_TABLE_JOINED", "1") != "0"
 
 
-def _held_by(b, table, words, joined=""):
+def _held_by(b, table, words, joined="", text=None):
     if not TABLE_WORDS_ON or not b.y1 or not table.y1:
         return False
     mx, my = (b.x0 + b.x1) / 2, (b.y + b.y1) / 2
     if not (table.x0 - 2 <= mx <= table.x1 + 2 and table.y - 2 <= my <= table.y1 + 2):
         return False
-    mine = b.text.split()
+    mine = (b.text if text is None else text).split()
     return bool(mine) and all(_has(w, words, joined) for w in mine)
 
 
@@ -3278,6 +3436,8 @@ def read(path, image_dir=None):
             _band_fills(path, best, tables)
         except Exception:
             pass
+    if tables and CELLS_TURN_ON:
+        _turn_cells(tables, best)
     if tables:
         _drop_text_inside_tables(best, tables)
         pictures = _put_images_in_cells(tables, pictures)

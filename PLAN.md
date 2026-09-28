@@ -3410,6 +3410,72 @@ two files' backwards hidden text, which our backwards copies had matched
 (`z21145041` 33.6 -> 28.7%, `z22058810` 57.4 -> 54.6%). Left: the verse on
 `z22058810` page 2.
 
+### Tables: written twice, cells backwards, stray letters, off the page, 2026-09-28
+
+Moaz: the table faults next. Started from `z17931421` page 6, 17 pages for
+14: its widest table ran off the page's left edge, and its text was written
+again below it in small type. Four causes, and each turned up on other
+files too.
+
+**A space stored as a vowel mark.** The file's Sakkal Majalla calls its
+space glyph ۡ (U+06E1, a Quranic sukun): the installed font says the shape
+is a space, and the file's own width for it is a space's. So every word
+began with a mark Word drew, and the table's rows read as paragraphs
+(`ۡضابطة 17.600 ...`) matched none of its cells. The font repair now makes
+such a glyph a space (`glyphs.diagnose`, `QIRTAS_SPACE_MARK`, repair version
+8). A second ۡ, a real zero-width sukun shape, is drawn at the start of
+words and cells, where Arabic never puts one: dropped wherever no letter or
+mark comes before it (`arabic._ORPHAN_SUKUN`, `QIRTAS_ORPHAN_SUKUN`), in
+`repair_lam_alef`, which the reader and the checker both run - so a verse's
+`عَلَقۡ` keeps it.
+
+**A cell's direction checked against text that moved the mark.** The clip
+read `ۡضابطة`, the page's text `ضابطةۡ`; the probe failed and the table
+finder's backwards `ةطباض` was written. The probe now asks without ۡ
+(`QIRTAS_TABLE_MARK`). And where the page's own text is backwards too
+(`z21145041`, read from its labels) the probe agreed with the backwards
+cells: a cell whose Arabic words are in the chosen reading only turned round
+is now turned, brackets mirrored and English and numbers kept as they read,
+and its first letter - which backwards storage moves to the end (لمؤشرا) -
+put back where that makes a word the thesis has (`_turn_cells`,
+`QIRTAS_CELLS_TURN`).
+
+**Stray letters at a cell's edge.** Two kinds: `z17931421` draws an
+invisible ۡ with one to three alefs or a م, of no width, at a header word's
+start (`الاختلافۡا`, `وحدة القياسۡم`); and the plain clip takes any letter
+touching the box, so the first letter of the entry beside a number came into
+both cells (`251ح` and `حممد`, `z18037898`; `ا ي جودة النموذج`, `z3387756`).
+The letter-by-letter reading (rawdict) takes only the cell's own; the text is
+still the plain clip's, which keeps English inside Arabic in order, and the
+letters it has over the other come off its two ends (`_unseen`,
+`_cell_ends`). Tried and dropped: judging a letter by whether its middle is
+in the box - the article's alef is drawn at the cell's edge and الدلالة came
+out لدلالة. Found by `z21644412` going 15 -> 20 pages: stripping crossed into
+the next word, and ran twice, and `ا المتغير` lost the article's alef too; a
+thin column then no longer read as a copy of its neighbour, stayed, and a
+22-column table ran over seven pages. Now never past the first or last word,
+and once.
+
+**A table wider than the text column** (`writer._table_place`,
+`QIRTAS_TABLE_PLACE`). Word sets a table from the column's start edge; the
+548pt table, drawn from 21pt to 570pt, reached past the paper by a column.
+Now indented by the original's own edge, kept 18pt inside the paper, and
+scaled to the page only if wider than it.
+
+A paragraph held by a table is also compared without ۡ and vowel marks
+(`_unmarked`), both sides alike.
+
+**Full run** `2026-09-28-{thesis,regression}-tables2` against `bwdup`:
+nothing lost 100.0% on every file; right page 70.0 -> 70.7%; page truth
+wrong 7.2 -> 7.0% (`z17931421` 15.7 -> 13.9%, `z3387756` 10.4 -> 8.2%,
+`z17804101` 8.2 -> 7.4%); words in order 94.0%. `z17931421` 17 -> 15 pages
+(words 2,824 -> 2,467, the original 2,335), `z21145041` 15 -> 14,
+`z17804101` 16 -> 15. Lower: `z22058810` right page 54.6 -> 53.8% (its
+backwards hidden text, as before). Looked at: `z17931421` page 6 - all ten
+columns on the page, the header as printed, two of its eighteen rows still
+written again below it (words the page draws with a space inside:
+`ال رجلين`, read لا رجلين).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

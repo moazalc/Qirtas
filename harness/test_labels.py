@@ -318,6 +318,44 @@ def main():
     R._drawn_look(blk, ["كلمات عربية كثيرة جدا هنا", piece("AUC", [100.0])])
     check("not a paragraph mostly Arabic", blk.text_size, 0.0)
 
+    print("\ntable cells")
+    # `z21145041`: cells stored backwards, the page's own text backwards too;
+    # the reading the file is written from settles it.
+    doc = Doc()
+    doc.add(Block(kind=PARAGRAPH, text="المجموعة الأصحاء بيلة ألبومينية "
+                  "النبيب البعيد القريب مؤشرات المؤشر"))
+    t = Block(kind=TABLE, text="", rows=[["اةعومجمل", "2.1 ±"],
+                                          ["بيرقلا/ديعبلا بيبنلا", "(Cr)"],
+                                          ["يلة ألبومينيةب", "المجموعة"]])
+    R._turn_cells([t], doc)
+    check("a backwards cell turned, its first letter put back",
+          t.rows[0], ["المجموعة", "2.1 ±"])
+    check("turned with its slash", t.rows[1][0], "النبيب البعيد/القريب")
+    check("the right way round, first letter put back", t.rows[2],
+          ["بيلة ألبومينية", "المجموعة"])
+    # `z18037898` 251ح: the entry's first letter the clip caught.
+    import collections as C
+    check("a letter not the cell's, off its end",
+          R._cell_ends("251ح", (C.Counter(), C.Counter({"ح": 1}))), "251")
+    check("a real م after a year stays",
+          R._cell_ends("2022 م", (C.Counter(), C.Counter())), "2022 م")
+    # `z17931421`: an invisible ۡ and alef at the header's edge.
+    check("zero-width marks at a header's end",
+          R._cell_ends("الاختالفۡا", (C.Counter({"ۡ": 1, "ا": 1}), C.Counter())),
+          "الاختالف")
+
+    print("\na table wider than the text column (z17931421)")
+    from convert.writer import _table_place
+    t = Block(kind=TABLE, text="", x0=21.0, x1=570.0)
+    widths, indent = _table_place(t, [54.8] * 10, True, 595.0, 72.0, 72.0)
+    check("placed by the original's right edge", round(indent), -47)
+    check("widths kept when it fits the page", round(sum(widths)), 548)
+    widths, indent = _table_place(t, [70.0] * 10, True, 595.0, 72.0, 72.0)
+    check("scaled to the page when wider", round(sum(widths)), 559)
+    check("and on the page", round(indent), -54)
+    widths, indent = _table_place(t, [40.0] * 10, True, 595.0, 72.0, 72.0)
+    check("a table within the column is left alone", indent, None)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

@@ -634,6 +634,30 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   against the PDF's hidden text, which on these two theses is itself
   backwards - our backwards copies were matching it.
 - **Still wrong:** one Quran verse on `z22058810` page 2 is still written a
-  second time backwards; `z21145041` is still a page long, from its
-  results table (a table fault).
-- **Next:** the leftover table faults, unless Moaz says otherwise.
+  second time backwards (now FLAGS 32, at Moaz's request); `z21145041` is
+  still a page long, from its results table (a table fault).
+
+### 28 Sept (night) — tables, first batch
+- **Tables written twice, and a table off the page.** One thesis
+  (`z17931421`) came out 17 pages for 14: its widest table ran off the
+  page's left edge, and the table's text was written again underneath.
+  The root cause: its font calls the space character a Quranic vowel mark,
+  so every word started with a stray mark, and the table's text never
+  matched the same text read as paragraphs. The font repair now reads it
+  as a space. The wide table is now placed where the original has it,
+  reaching into the margins but on the page. 15 pages now.
+- **Table cells written backwards** on `z21145041` and in places on
+  `z17931421` - now the right way round, checked against the text we
+  already trust.
+- **Stray letters in cells** - the "ا" at the end of header cells, and
+  reference numbers like "251ح" (a letter from the entry next to it). Now
+  taken off, only where the page shows they are not the cell's.
+- **A mistake caught on the way:** one version of the stray-letter fix also
+  took off real letters and made one thesis 5 pages longer. Found by the
+  full run, fixed, checked again.
+- Right page 70.0% -> 70.7%; wrong words 7.2% -> 7.0%; nothing lost 100%.
+  `z21145041` now exactly 14 pages.
+- **Tables still to do:** pieces of one table found as small tables
+  (`z3387756`); a table found with many empty narrow columns (`z21644412`);
+  footnotes found as a table (`z22058810`).
+- **Next:** those three.

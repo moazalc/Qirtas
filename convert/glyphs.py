@@ -95,10 +95,12 @@ def spell_out(text):
     return text
 
 
+# A space stored as a vowel mark (see diagnose). QIRTAS_SPACE_MARK=0: off.
+SPACE_MARK_ON = os.environ.get("QIRTAS_SPACE_MARK", "1") != "0"
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "7" + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
+REPAIR_VERSION = "8" + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
                         else "-fourpages") + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
-                        else "-nosymbols")
+                        else "-nosymbols") + ("" if SPACE_MARK_ON else "-nospacemark")
 
 _INDEX = None
 _MAPS = {}
@@ -615,6 +617,14 @@ def diagnose(doc, xref):
                 fixes[c] = TATWEEL
             elif text.get(c) == " ":
                 fixes[c] = " "
+        # A space stored as a vowel mark: `z17931421`'s Sakkal Majalla calls
+        # its space ۡ (U+06E1), so every word began with a mark Word drew,
+        # and a table's words read as paragraphs matched none of its cells.
+        # The installed font says the shape is a space; the file's own width
+        # for it is a space's. A real ۡ is another shape, of no width.
+        elif SPACE_MARK_ON and len(s) == 1 and unicodedata.combining(s) \
+                and text.get(c) == " ":
+            fixes[c] = " "
     if not fixes:
         return None, "fine"
     widths = _widths(doc, desc)

@@ -85,12 +85,19 @@ at its own size, font, line height and alignment DONE the same day (PLAN
 copies from the backfill DONE the same day (PLAN "Backwards second copies
 from the backfill"; the gate's excuse for backwards sentences now needs
 their words together in ours): page truth wrong 7.9 -> 7.2%. Left: a
-backwards verse on `z22058810` page 2; `z21145041`'s page over starts at its
-page 12 results table (tables); "COVID19." drawn with the full stop on the
-word's left; headings in that English not centred; web addresses not links.
-Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
-the page's edge and written again below it (likely its 17 pages for 14),
-`z21644412` page 12's table in many narrow empty columns. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+backwards verse on `z22058810` page 2 (FLAGS 32); "COVID19." drawn with the
+full stop on the word's left; headings in that English not centred; web
+addresses not links.
+Tables, first batch DONE 28 Sept (PLAN "Tables: written twice, cells
+backwards, stray letters, off the page"): `z17931421`'s wide table on the
+page and not written again (17 -> 15 pages), `z21145041`'s backwards cells
+(15 -> 14), the stray `ا` in header cells, `z18037898`'s entry numbers.
+Tables still to do: pieces of one table found as small tables of their own
+(`z3387756` page 12, five inside the big one); `z21644412` page 12's table in
+many narrow empty columns (22 columns, 14 widths - Word shares them out);
+`z22058810` pages 11-12's footnotes found as a table; words a page draws with
+a space inside (`ال رجلين`) keep two rows of `z17931421`'s table written
+again. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.

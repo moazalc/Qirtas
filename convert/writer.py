@@ -1416,7 +1416,7 @@ def _emit_beside(doc, g, model, k, img_k, notes, first_break):
 FLIP_ON = os.environ.get("QIRTAS_TABLE_FLIP", "1") != "0"
 
 
-def _emit_table(doc, block, body_pt, font, dropped=None):
+def _emit_table(doc, block, body_pt, font, dropped=None, page=None):
     """A real Word table, mirrored so column one sits on the right."""
     if dropped is None:
         dropped = []
@@ -1445,8 +1445,16 @@ def _emit_table(doc, block, body_pt, font, dropped=None):
         spans = {(r, width - c - k): k for (r, c), k in spans.items()}
     elif rtl:
         widths = widths[::-1]
+    indent = None
+    if widths and page and TABLE_PLACE_ON:
+        widths, indent = _table_place(block, widths, rtl, *page)
     if widths:
         _fix_columns(t, widths, rows)
+    if indent is not None:
+        ind = OxmlElement("w:tblInd")
+        ind.set(qn("w:w"), str(int(indent * TWIPS_PER_PT)))
+        ind.set(qn("w:type"), "dxa")
+        t._tbl.tblPr.append(ind)
     # Mirror the columns only for a table that is actually right-to-left. An
     # English table was being mirrored too, which reversed a table that was
     # never right-to-left.
@@ -1590,6 +1598,42 @@ def _shade(cell, colour):
 
 
 TWIPS_PER_PT = 20
+
+
+# A table wider than the text column, where the original has it. Word sets a
+# table from the column's start edge, so `z17931421`'s 548pt table, drawn
+# from 21pt to 570pt on a page whose column is 451pt, reached past the page's
+# left edge by a column. Placed by the original's own edge, kept on the page;
+# a table wider than the page is scaled to it (QIRTAS_TABLE_PLACE).
+TABLE_PLACE_ON = os.environ.get("QIRTAS_TABLE_PLACE", "1") != "0"
+PAGE_EDGE = 18.0      # points: nearest a table comes to the paper's edge
+
+
+def _table_place(block, widths, rtl, page_width, margin_left, margin_right):
+    """-> (widths, indent from the column's start edge in points, or None)."""
+    column = page_width - margin_left - margin_right
+    total = sum(widths)
+    if total <= column + 1:
+        return widths, None
+    room = page_width - 2 * PAGE_EDGE
+    if total > room:
+        widths = [w * room / total for w in widths]
+        total = room
+    if rtl:
+        # from the right margin inwards; negative reaches into the margin
+        right = min(block.x1, page_width - PAGE_EDGE) if block.x1 else \
+            page_width - margin_right + (total - column) / 2
+        indent = (page_width - margin_right) - right
+        # and not past the paper's left edge
+        indent = min(indent, page_width - margin_right - total - PAGE_EDGE)
+        indent = max(indent, PAGE_EDGE - margin_right)
+    else:
+        left = max(block.x0, PAGE_EDGE) if block.x0 else \
+            margin_left - (total - column) / 2
+        indent = left - margin_left
+        indent = min(indent, page_width - margin_left - total - PAGE_EDGE)
+        indent = max(indent, PAGE_EDGE - margin_left)
+    return widths, indent
 
 
 def _fix_columns(table, widths_pt, rows):
@@ -2117,7 +2161,9 @@ def write(model: Doc, out_path, scale=None):
                 above = b
             elif b.kind == TABLE:
                 tbl = _emit_table(doc, b, model.body_size * k, model.font,
-                                  model.dropped_images)
+                                  model.dropped_images,
+                                  (model.page_width, model.margin_left,
+                                   model.margin_right))
                 if tbl is None:
                     continue
                 # A w:tbl cannot carry w:pageBreakBefore itself, and the

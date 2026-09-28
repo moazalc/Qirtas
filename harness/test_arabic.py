@@ -322,6 +322,13 @@ def main():
     check("never inside a longer word",
           apply_fixes("كواإلسالميني", fixes), "كواإلسالميني")
 
+    print("\na sukun with no letter before it (z17931421)")
+    check("at a word's start: dropped", repair_lam_alef("ۡضابطة 17.600"),
+          "ضابطة 17.600")
+    check("after a number: dropped", repair_lam_alef("1ۡ"), "1")
+    check("after a letter, as in a verse: kept", repair_lam_alef("عَلَقٍۡ"),
+          "عَلَقٍۡ")
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

@@ -120,6 +120,8 @@ def repair_lam_alef(text):
     if not text:
         return text
     text = fold_display_forms(text)
+    if ORPHAN_ON:
+        text = _ORPHAN_SUKUN.sub("", text)
     text = _STANDALONE_AL.sub(LAM + ALEF, text)
     text = _STANDALONE_YF.sub(FA + YA, text)
     text = _AL_HAMZA.sub(rf"{ALEF}{LAM}\1", text)
@@ -141,6 +143,15 @@ _ALLAH_NO_HA = re.compile(
     "(?<![ء-ي])((?:[وفب]" + _MARKS + "*)?)(?:" + ALEF + LAM + LAM + "|"
     + LAM + LAM + ALEF + ")(" + _MARKS + "*ّ" + _MARKS + "*)(?![ء-ي])")
 ALLAH_ON = os.environ.get("QIRTAS_ALLAH", "1") != "0"
+
+# A Quranic sukun (ۡ, U+06E1) with no letter before it: `z17931421` draws one,
+# of no width, at the start of words and cells (`ۡضابطة`, `1ۡ`), where Arabic
+# never puts one. Word drew it on its own, a mark before the word; the page
+# shows nothing. One after a letter or another mark is kept - the verse's
+# `عَلَقۡ`. Here, because the reader and the checker both read through this
+# (QIRTAS_ORPHAN_SUKUN).
+_ORPHAN_SUKUN = re.compile("(?<![ء-يً-ْٰۡ])ۡ+")
+ORPHAN_ON = os.environ.get("QIRTAS_ORPHAN_SUKUN", "1") != "0"
 
 
 # ---------------------------------------------------------------------------
