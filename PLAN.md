@@ -3269,6 +3269,71 @@ brackets right 64.7 -> 78.6%. Reference lists nearly all right now:
 backwards; `z21644412` and `z3387756` (47%, 68%), mostly the instrument's
 English citations and formulas split into many pieces.
 
+### English in the theses' Arabic lines, and numbers read backwards, 2026-09-28
+
+Two of the text list, asked for by Moaz ahead of the tables.
+
+**English and numbers the tags route dropped (FLAGS 29).** The two theses
+read by the tags route (`z22058810`, `z21145041`) give every Arabic word a
+Span label carrying its text, and leave English words, numbers and the
+spaces between them as bare pieces of the page (an MCID straight under the
+paragraph) with no label text. The route read label text only, so all of it
+was dropped - 747 of `z22058810`'s 5,058 English words and numbers were
+there, 242 of `z21145041`'s 2,310 - and the backfill put the English back as
+a line of its own after the paragraph (COVID19 at its end), the numbers not
+at all: every note number in the body read "()". Now a bare piece under no
+label with text is read from the letters drawn in it (`reader._drawn_reader`,
+`QIRTAS_TAGS_DRAWN`): by the font's ToUnicode table, or for a simple font
+without one by its Windows encoding, which is how Word writes English. Only
+pieces with no Arabic are taken - these files draw their Arabic backwards -
+and spaces, which are pieces of their own between English words
+("Biomarkers", " ", "as"). A drawn piece touching a word is set apart from it
+(`_join_parts`): the contents page's labels have no line ends and its page
+numbers ran into the entries ("المقدمة71.1 الخلفية"). Only on a file whose
+labels carry Arabic: one with none keeps its words in the glyphs, and the
+English read this way would make the tags route - chosen first on a tie -
+look as complete as the others. Now 3,623 and 2,239 are there, in place.
+
+**Notes with no measured line height.** `z22058810` then ran a page long:
+its notes, now real notes with their numbers and web addresses, took Word's
+default line height, about twice the size in Simplified Arabic. The tags
+route has no positions, so `_note_look` measures nothing there. Where
+nothing was measured the notes now take the body's line height scaled to
+their size (`writer._note_pitch`). Back to 14 pages.
+
+**A number's digits as drawn** (`order._digits_drawn`,
+`QIRTAS_DIGIT_ORDER`). The extractor reads Arabic-Indic digits as Arabic and
+turns them round with the letters. `z18441713`'s font gives its digits the
+wrong codes; the font repair gives them back as ٠-٩, and then ٣١٠ read
+٠١٣ and was written so. Seven theses store such digits, and nearly every
+number in them was backwards - years above all (6691 for 1966, 9102 for
+2019; `z15446639`, `z18441713`, `z18615445`, `z18842416`, `z21850164`,
+`z22058810`, and `z20782957`'s licence "4.0"). Digits stored one after
+another, each drawn left of the one before, are turned back; a decimal
+separator between digits goes with them, a dash does not (`٣-٢` is two
+numbers). The checker reads through the same `order.get_text`, so the
+reference turned with us. Where the structure reading does not see a mixed
+line whole (`_Whole.keeps`), only the digits are turned - every reading
+turns them alike.
+
+**Full run** `2026-09-28-{thesis,regression}-engdig2` against `brackets3`:
+nothing lost 100.0% on every file; right page 70.2 -> 70.3%; words in order
+94.0 -> 94.2%; page truth wrong 8.3 -> 7.9% (`z15446639` 7.9 -> 3.9%,
+`z18441713` 12.9 -> 10.0%, `z21145041` 13.3 -> 10.7%); الفصل الثاني right
+page 81.7 -> 83.1%. Lower: `z21145041` right page 36.2 -> 33.5%, 17 pages
+for 14 (15 before) - 288 English words and numbers back, set as loose,
+justified English lines at the body's line height (its reference list takes
+four pages for two), and right page reads that file's backwards hidden text
+anyway. Looked at: `z18441713` page 6 (٣١٠, ٣٢٧, ٢٧ as printed),
+`z22058810` pages 3 and 12.
+
+**Left:** Word draws "COVID19." with the full stop on the left of the word,
+not after 19 (an English word ending a right-to-left sentence); the English
+the tags route reads has no size or font of its own; `z21145041` page 11
+writes one paragraph a second time backwards (there before this change);
+a web address on `z22058810` reads out of order - the page itself prints it
+so.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

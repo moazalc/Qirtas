@@ -177,6 +177,21 @@ def main():
     check("a bracket inside an English run stays in it", read(ln),
           "ومتغير آخر I(2)")
 
+    print("\na number's digits as drawn")
+    # `z18441713`: ٣١٠ drawn left to right, read back ٠١٣ by the extractor
+    ln = [("٠", 515, 522), ("١", 507, 514), ("٣", 500, 507), (" ", 495, 499)]
+    check("Arabic-Indic digits turned back", read(ln), "٣١٠ ")
+    words = line(("بنشر", None), start=340)
+    ln = [("٧", 364, 371), ("٢", 357, 364), ("٣", 349, 356)] + words
+    check("in a line with words", read(ln)[:3], "٣٢٧")
+    ln = [("٥", 520, 526), ("٫", 516, 519), ("٣", 510, 516)]
+    check("a decimal separator goes with them", read(ln), "٣٫٥")
+    # the section number ٣-٢ is two numbers: left as stored
+    ln = [("٣", 515, 522), ("-", 505, 512), ("٢", 497, 504)]
+    check("a dash parts two numbers", read(ln), "٣-٢")
+    ln = [("٣", 500, 507), ("١", 507, 514), ("٠", 515, 522)]
+    check("stored as drawn: left alone", order(ln), None)
+
     print("\nvowel marks")
     # ،ًمبكرا: the tanween stored after the comma is the word's
     ln = [("،", 300, 302), ("ً", 300, 302)] + line(("مبكرا", None))

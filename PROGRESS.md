@@ -576,3 +576,30 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
 - **Not FLAGS 27:** that flag is about how the "right page" score reads
   English next to Arabic, and is still open.
 - **Next:** the leftover table faults.
+
+### 28 Sept (evening) — English inside Arabic lines, and backwards numbers
+- **Moaz asked for these two first.** Both are wrong words, not looks.
+- **English and numbers were dropped on two theses** (`z22058810`,
+  `z21145041`). Those files attach each Arabic word's text to a hidden label,
+  but give English words and numbers no label. We read only the labels, so
+  most of the English and numbers went missing - in one thesis 4,300 of
+  5,000 - and some English was put back on a line of its own. Every note
+  number in the body read "()".
+- **Now** they are read from the letters on the page, in their place:
+  "COVID19" is back inside its sentence, the note numbers and web
+  addresses are back. Nothing Arabic is read this way.
+- **Numbers were written backwards in seven theses, not just one** - years
+  most of all (6691 for 1966, 9102 for 2019). The PDF reader treats Arabic
+  digits (٠-٩) like Arabic letters and reads them right to left; a number
+  always reads left to right. Fixed: ٣١٠ is ٣١٠ again.
+- **Found on the way:** with their note numbers back, one thesis's
+  footnotes spilled a page, because Word set their lines twice too far
+  apart. Fixed.
+- Nothing lost 100% on every file; wrong words (checked against the page
+  image) 8.3% -> 7.9%; right page 70.2% -> 70.3%; your الفصل الثاني
+  81.7% -> 83.1%.
+- **Still wrong:** `z21145041` now comes out 17 pages for 14 - its English
+  is back, but set loosely (big gaps, wide lines), so its reference list
+  takes four pages for two. One paragraph there is also written a second
+  time backwards (that was there before).
+- **Next:** the leftover table faults, unless Moaz says otherwise.

@@ -68,6 +68,66 @@ def order(line, arabic_page=None):
     """line: [(char, x0, x1)] as extracted. -> the order to read its units
     in, a list of unit indices; None where nothing moves. `arabic_page`:
     called to ask whether the page is mostly Arabic."""
+    return _digits_drawn(line, _order(line, arabic_page))
+
+
+# A number's digits in the order they are drawn (QIRTAS_DIGIT_ORDER=0 turns it
+# off). The extractor reads Arabic-Indic digits as Arabic and turns them round
+# with the letters: `z18441713` prints ٣١٠ and ٣٢٧, and once the font repair
+# gave its digits back they were read ٠١٣ and ٧٢٣ - and written so. A number
+# is drawn left to right in any line, so digits stored one after another with
+# each drawn left of the one before are turned back. A separator between two
+# digits (٣٫٥) goes with them; a dash does not - `٣-٢` is two numbers.
+DIGIT_ORDER_ON = os.environ.get("QIRTAS_DIGIT_ORDER", "1") != "0"
+IN_NUMBER = "٫٬"
+
+
+def _digits_drawn(line, seq):
+    if not DIGIT_ORDER_ON:
+        return seq
+    text = [c for c, _, _ in line]
+    if not any("٠" <= c <= "٩" or "۰" <= c <= "۹" for c in text):
+        return seq
+    us = units(text)
+    base = [line[u[0]] for u in us]
+    got = list(range(len(us))) if seq is None else list(seq)
+
+    def digit(k):
+        return k is not SPACE and k >= 0 and base[k][0].isdigit()
+
+    def part(j):
+        k = got[j]
+        if digit(k):
+            return True
+        return k is not SPACE and k >= 0 and base[k][0] in IN_NUMBER \
+            and 0 < j < len(got) - 1 and digit(got[j - 1]) and digit(got[j + 1])
+
+    out, j, changed = [], 0, False
+    while j < len(got):
+        if not part(j):
+            out.append(got[j])
+            j += 1
+            continue
+        run = [got[j]]
+        j += 1
+        while j < len(got) and part(j):
+            run.append(got[j])
+            j += 1
+        if len(run) > 1 and all(base[a][1] > base[b][1] + 0.1
+                                for a, b in zip(run, run[1:])):
+            run.reverse()
+            changed = True
+        out.extend(run)
+    if not changed:
+        return seq
+    if isinstance(seq, Seq):
+        new = Seq(out)
+        new.flip, new.inside = seq.flip, seq.inside
+        return new
+    return out
+
+
+def _order(line, arabic_page=None):
     if os.environ.get("QIRTAS_PUNCT_ORDER", "1") == "0":
         return None                # off, to measure against
     text = [c for c, _, _ in line]
@@ -545,10 +605,14 @@ def _fix_raw(line, whole=None):
     """Reorder one rawdict line in place; -> (stored, read) or None.
     `whole`: see _Whole."""
     chars = _chars(line)
-    seq = _turn(order([(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars],
-                      whole.letterless(line) if whole else None), chars, whole)
-    if seq is None or (whole and not whole.keeps(
-            "".join(c["c"] for c in chars))):
+    placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
+    seq = _turn(order(placed, whole.letterless(line) if whole else None),
+                chars, whole)
+    if seq is not None and whole and not whole.keeps(
+            "".join(c["c"] for c in chars)):
+        # Only its numbers' digits, which every reading turns alike.
+        seq = _digits_drawn(placed, None)
+    if seq is None:
         return None
     new = []
     shifted = {id(chars[i]) for i in _moved(units([c["c"] for c in chars]),
@@ -706,10 +770,11 @@ def _line_orders(page, flags, clip):
             for line in b.get("lines", ()):
                 chars = _chars(line)
                 text = [c["c"] for c in chars]
-                seq = _turn(order([(c["c"], c["bbox"][0], c["bbox"][2])
-                                   for c in chars], whole.letterless(line)),
-                            chars, whole)
-                if seq is not None and whole.keeps("".join(text)):
+                placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
+                seq = _turn(order(placed, whole.letterless(line)), chars, whole)
+                if seq is not None and not whole.keeps("".join(text)):
+                    seq = _digits_drawn(placed, None)   # see _fix_raw
+                if seq is not None:
                     out.setdefault(_bare("".join(text)), []).append(
                         (seq, len(units(text))))
             walk(b)             # a structure tree nests blocks in nodes

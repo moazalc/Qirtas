@@ -891,10 +891,10 @@ were losing"). Two causes were ours and are fixed (backwards text written
 twice, near-repeats not put back); two were the font repair, fixed; the rest
 was the reference, which the gate now sees through. Nothing lost 100.0% on
 the thesis set, worst `z21145041` 99.3% - one sentence, reference glue.
-**Still open:** the tags reading drops English inside Arabic lines, so it is
-put back on a line of its own (COVID19 at the end of a paragraph) - fix the
-reading, not the fill-in. Right page reads the backwards hidden text on
-`z21145041` and scores our right words down.
+The tags reading dropping English inside Arabic lines: FIXED 2026-09-28,
+the reading now reads them where they stand (PLAN "English in the theses'
+Arabic lines"). **Still open:** right page reads the backwards hidden text
+on `z21145041` and scores our right words down.
 
 Raised as: The first run on the thesis corpus:
 `z22058810` 94.8%, `z21145041` 95.6%, `z21850164` 97.8%, `z21644412` 98.8%,

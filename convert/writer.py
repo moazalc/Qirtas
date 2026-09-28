@@ -1907,6 +1907,17 @@ def _note_size(model):
 NOTE_SIZE_ON = os.environ.get("QIRTAS_NOTE_SIZE", "1") != "0"
 
 
+def _note_pitch(model, note_pt):
+    """The notes' line height where the original's could not be measured -
+    a reading with no positions (the tags route) has none: the body's,
+    scaled to the notes' size. Left to Word, the notes took its default,
+    which in Simplified Arabic is about twice the size: `z22058810`'s notes
+    ran a page over once their numbers and web addresses came back."""
+    if not model.line_pitch or not model.body_size:
+        return 0.0
+    return round(model.line_pitch * note_pt / model.body_size, 1)
+
+
 def _endnotes(pages):
     """Notes printed together at the END of the document, each referred to
     from an earlier page.
@@ -2141,7 +2152,8 @@ def write(model: Doc, out_path, scale=None):
     doc.save(str(out_path))
     note_pt = _note_size(model)
     # The notes' line and line height as the original has them (NOTE_LOOK_ON).
-    look = dict(pitch=model.note_pitch, rule=model.note_rule,
+    look = dict(pitch=model.note_pitch or _note_pitch(model, note_pt),
+                rule=model.note_rule,
                 width=model.page_width - model.margin_left - model.margin_right) \
         if NOTE_LOOK_ON else {}
     if real_notes:

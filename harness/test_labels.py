@@ -39,6 +39,45 @@ def field(text, x0, x1, y=275.0, kind=HEADING):
                  x0=x0, x1=x1, spans=[(text, True, False)])
 
 
+def tagged_pdf(pieces):
+    """A one-paragraph tagged PDF. Each piece is (label text, None) - a Span
+    carrying its words, drawn as nothing - or (None, drawn) - a bare piece
+    of the page drawing `drawn` in Helvetica."""
+    import pikepdf
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(300, 200))
+    page = pdf.pages[0]
+    font = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1,
+        BaseFont=pikepdf.Name.Helvetica, Encoding=pikepdf.Name.WinAnsiEncoding))
+    page.obj.Resources = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font))
+    ops, kids, x = [], [], 250
+    for n, (said, drawn) in enumerate(pieces):
+        ops.append(f"/Span << /MCID {n} >> BDC BT /F1 12 Tf {x} 100 Td "
+                   f"({drawn or ''}) Tj ET EMC")
+        x -= 40
+        if said is not None:
+            kids.append(pdf.make_indirect(pikepdf.Dictionary(
+                Type=pikepdf.Name.StructElem, S=pikepdf.Name.Span,
+                ActualText=pikepdf.String(said), Pg=page.obj, K=n)))
+        else:
+            kids.append(n)
+    page.obj.Contents = pdf.make_stream("\n".join(ops).encode())
+    page.obj.StructParents = 0
+    para = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.StructElem, S=pikepdf.Name.P, Pg=page.obj,
+        K=pikepdf.Array(kids)))
+    doc = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.StructElem, S=pikepdf.Name.Document, K=pikepdf.Array([para])))
+    pdf.Root.StructTreeRoot = pdf.make_indirect(pikepdf.Dictionary(
+        Type=pikepdf.Name.StructTreeRoot, K=doc))
+    out = Path("out/tests/labels")
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"tagged{len(list(out.glob('*.pdf')))}.pdf"
+    pdf.save(path)
+    return str(path)
+
+
 def main():
     print("what the labels say")
     check("list inside a footnote",
@@ -218,6 +257,24 @@ def main():
     check("the word bold, the rest plain", blk.spans,
           [("مدخل إلى الدراما،", True, False), ("القاهرة، الهيئة", False, False)])
     check("the text as before", blk.text, "مدخل إلى الدراما، القاهرة، الهيئة")
+
+    print("\nEnglish in an Arabic line, which the labels leave unsaid (FLAGS 29)")
+    # `z22058810`: each Arabic word a label with its text; "COVID19" a bare
+    # piece of the page between the last word and the full stop.
+    path = tagged_pdf([("جائحة ", None), (None, "COVID19"), (".", None)])
+    check("read where it stands", R.read_tags(path).blocks[0].text,
+          "جائحة COVID19.")
+    check("dropped when switched off", R.read_tags(path, drawn=False).blocks[0].text,
+          "جائحة .")
+    # `z21145041`: the space between English words is a bare piece too.
+    path = tagged_pdf([("ملخص", None), (None, "Urinary"), (None, " "), (None, "Biomarkers")])
+    check("spaces between English words kept; set apart from the Arabic",
+          R.read_tags(path).blocks[0].text, "ملخص Urinary Biomarkers")
+    # A file with no Arabic in its labels keeps its words in the glyphs; the
+    # tags route must not start reading them there.
+    path = tagged_pdf([(None, "Abstract")])
+    check("not on a file whose labels hold no Arabic",
+          [b.text for b in R.read_tags(path).blocks], [])
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

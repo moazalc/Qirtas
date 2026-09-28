@@ -336,7 +336,20 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         for k in node:
             _walk(k, doc, pages, pending, depth + 1, ctx, state)
         return
+    if isinstance(node, int) and not isinstance(node, bool):
+        # A bare piece of the page. Under a label with text, that text
+        # already speaks for it; otherwise it is read as drawn (TAGS_DRAWN_ON).
+        if "drawn" in state and not state.get("cover"):
+            pending.extend(state["drawn"](state["page"], [int(node)]))
+        return
     if not isinstance(node, pikepdf.Dictionary):
+        return
+    if node.get("/Type") == "/MCR":
+        ref = node.get("/Pg")
+        pg = state["page"] = pages.get(ref.objgen, state["page"]) \
+            if ref is not None else state["page"]
+        if "drawn" in state and not state.get("cover") and node.get("/MCID") is not None:
+            pending.extend(state["drawn"](pg, [int(node.get("/MCID"))]))
         return
 
     tag = str(node.get("/S", ""))
@@ -356,9 +369,11 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
             kind = ctx
         text = str(node.get("/ActualText") or "")
         inner = []
+        state["cover"] = state.get("cover", 0) + bool(text)
         _walk(node.get("/K"), doc, pages, inner, depth + 1,
               kind if kind in (FOOTNOTE,) else ctx, state)
-        blk = Block(kind=kind, text=_clean(text + "".join(inner)), page=pg,
+        state["cover"] -= bool(text)
+        blk = Block(kind=kind, text=_clean(text + _join_parts(inner)), page=pg,
                     from_alt=not text and _all_alt(inner))
         _rough_spans(blk, [text] + inner)
         doc.add(blk)
@@ -378,7 +393,10 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         pending.extend(state["signs"](state["page"], _mcids(node.get("/K"))))
     kids = node.get("/K")
     if kids is not None:
+        said = actual is not None or node.get("/Alt") is not None
+        state["cover"] = state.get("cover", 0) + said
         _walk(kids, doc, pages, pending, depth + 1, ctx, state)
+        state["cover"] -= said
 
 
 def _mcids(kids):
@@ -444,6 +462,108 @@ def _sign_reader(pdf):
     return signs
 
 
+# English and numbers inside the theses' Arabic lines (FLAGS 29). Word gives
+# each Arabic word a label carrying its text, and leaves English words and
+# numbers as bare pieces of the page under the paragraph, with no label text:
+# `z22058810`'s "COVID19" sits between the paragraph's last word and its full
+# stop with nothing to read it by. The tags route read labels only, so every
+# one was dropped, and the backfill put them back on a line of their own. They
+# are read from the letters drawn there, in their place. Arabic is never taken
+# this way - these files draw it backwards; its labels are where it is right.
+TAGS_DRAWN_ON = os.environ.get("QIRTAS_TAGS_DRAWN", "1") != "0"
+LATIN_OR_DIGIT = re.compile(r"[A-Za-z0-9]")
+
+
+class _Drawn(str):
+    """Text read from the letters drawn in a piece no label spoke for."""
+
+
+def _drawn_reader(pdf):
+    """page, [mcid] -> the text drawn there, except in fonts of signs (their
+    own reader has them). Fonts with a ToUnicode table by it; simple fonts
+    without one by their Windows encoding, which is how Word writes English."""
+    from convert.glyphs import SYMBOL_FONTS, _key, read_tounicode
+    cache = {}
+
+    def read_page(i):
+        page = pdf.pages[i]
+        fonts = page.obj.get("/Resources", {}).get("/Font", {})
+        tables = {}
+        for name, f in fonts.items():
+            key = _key(str(f.get("/BaseFont", "")))
+            if key in SYMBOL_FONTS or "symbol" in key or "wingding" in key:
+                continue
+            tu = f.get("/ToUnicode")
+            if tu is not None:
+                tables[name] = (read_tounicode(tu.read_bytes()),
+                                2 if f.get("/Subtype") == "/Type0" else 1)
+            elif f.get("/Subtype") in ("/TrueType", "/Type1"):
+                tables[name] = (None, 1)
+        out, stack, table = {}, [], None
+        for operands, op in pikepdf.parse_content_stream(page):
+            op = str(op)
+            if op == "BDC":
+                m = operands[1].get("/MCID") if len(operands) > 1 and \
+                    isinstance(operands[1], pikepdf.Dictionary) else None
+                stack.append(int(m) if m is not None else
+                             (stack[-1] if stack else None))
+            elif op == "BMC":
+                stack.append(stack[-1] if stack else None)
+            elif op == "EMC":
+                if stack:
+                    stack.pop()
+            elif op == "Tf":
+                table = tables.get(str(operands[0]))
+            elif op in ("Tj", "TJ", "'", '"') and table and stack \
+                    and stack[-1] is not None:
+                codes, width = table
+                parts = operands[0] if op == "TJ" else [operands[-1]]
+                s = ""
+                for part in parts:
+                    if not isinstance(part, pikepdf.String):
+                        continue
+                    b = bytes(part)
+                    if codes is None:
+                        s += b.decode("cp1252", "replace")
+                    else:
+                        s += "".join(codes.get(int.from_bytes(b[k:k + width], "big"), "")
+                                     for k in range(0, len(b) - width + 1, width))
+                out[stack[-1]] = out.get(stack[-1], "") + s
+        return out
+
+    def drawn(page, mcids):
+        if page not in cache:
+            try:
+                cache[page] = read_page(page)
+            except Exception:
+                cache[page] = {}
+        t = "".join(cache[page].get(m, "") for m in mcids)
+        # A space is a piece of its own between English words ("Biomarkers",
+        # " ", "as" in `z21145041`'s title); left out, they ran together.
+        if t and not t.strip():
+            return [_Drawn(" ")]
+        if not LATIN_OR_DIGIT.search(t) or ARABIC.search(t):
+            return []
+        return [_Drawn(t)]
+    return drawn
+
+
+def _join_parts(parts):
+    """The pieces of a label as one text. A drawn piece touching a word is
+    set apart from it: the labels of `z21145041`'s contents have no line
+    ends, and its page numbers, read as drawn, ran into the entries on either
+    side ("المقدمة71.1 الخلفية")."""
+    out, prev = "", ""
+    for p in parts:
+        if out and p and (isinstance(p, _Drawn) or isinstance(prev, _Drawn)) \
+                and out[-1].isalnum() and p[0].isalnum():
+            out += " "
+        out += p
+        if p:
+            prev = p
+    return out
+
+
 class _Alt(str):
     """Text that came from a picture's /Alt description, not from the page."""
 
@@ -457,7 +577,7 @@ def _flush(doc, pending, page=0):
     """Loose text kept defaulting to page 0, piling a whole document onto the
     first page and leaving later pages empty. Carry the current page."""
     if pending:
-        blk = Block(kind=PARAGRAPH, text=_clean("".join(pending)), page=page,
+        blk = Block(kind=PARAGRAPH, text=_clean(_join_parts(pending)), page=page,
                     from_alt=_all_alt(pending))
         _rough_spans(blk, pending)
         doc.add(blk)
@@ -628,7 +748,7 @@ def _word_spans(text, got):
     return spans
 
 
-def read_tags(path):
+def read_tags(path, drawn=TAGS_DRAWN_ON):
     doc = Doc(source_route="tags")
     with pikepdf.open(path) as pdf:
         if "/StructTreeRoot" not in pdf.Root:
@@ -638,8 +758,15 @@ def read_tags(path):
         pending, state = [], {"page": 0, "signs": _sign_reader(pdf)}
         if TAGS_FORMAT_ON:
             state["fonts"] = _font_reader(pdf)
+        if drawn:
+            state["drawn"] = _drawn_reader(pdf)
         _walk(pdf.Root["/StructTreeRoot"].get("/K"), doc, pages, pending, state=state)
         _flush(doc, pending, state["page"])
+    # Only where the labels carry the Arabic. A file with none has its words
+    # in the glyphs, and the English read here would make this route look
+    # as good as the others on it - it is chosen first on a tie.
+    if drawn and not any(ARABIC.search(b.text) for b in doc.blocks):
+        return read_tags(path, drawn=False)
     return doc
 
 

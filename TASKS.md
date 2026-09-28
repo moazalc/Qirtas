@@ -76,11 +76,17 @@ into many pieces (`z21644412`, `z3387756`); a caption `)59(` and a URL
 `(www.globalreporting.org(` whose brackets are pieces of their own
 (`z7456037`, `z18441713`). (FLAGS 27 is not this - it is how "right page"
 reads English beside Arabic; still open.)
+English and numbers in the tags route's Arabic lines (FLAGS 29), and
+numbers read backwards, DONE 28 Sept, asked for by Moaz ahead of the tables
+(PLAN "English in the theses' Arabic lines"): nothing lost 100%, page truth
+wrong 8.3 -> 7.9%; years were backwards in seven theses. Left: `z21145041`
+17 pages for 14 - the English the tags route reads is set at body size and
+line height, justified, with no font of its own; its page 11 writes one
+paragraph again backwards (older); "COVID19." drawn with the full stop on
+the word's left.
 Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
-`z21644412` page 12's table in many narrow empty columns. Found on the way, for
-the text list: `z18441713` writes its numbers backwards (٣١٠ as ٠١٣, ٢٧ as
-٧٢; page 6) - its hidden text for them is garbled (`421`). Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+`z21644412` page 12's table in many narrow empty columns. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.
