@@ -531,3 +531,22 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   the originals type "(1)" (parked with page numbers, your call on FLAGS
   31); on one thesis, three notes typed as one paragraph stay one note.
 - **Next:** the logo between two headers, then the leftover table faults.
+
+### 28 Sept (night) — the logo between two headers
+- **The logo** on one thesis's title page sits between its French and
+  Arabic headers; ours put it above them. It is now in its place between
+  them.
+- **Found on the way:** on 58 pages across 24 theses, a page number the
+  program does not move into the footer (the letters أ ب ج on front
+  pages, and numbers where the sample jumps) was written as the page's
+  first line. It now comes last, where the original has it. Right page
+  went up a little (69.3% -> 69.6%).
+- Nothing lost 100% on every thesis; other scores unchanged.
+- **Still different:** on that title page the two header columns are
+  narrower than the original's, so the Arabic line wraps onto three lines.
+  Seen on another thesis: a full-page picture with text printed over it
+  comes out as picture, text, picture - noted for later.
+- **Next:** the leftover table faults (pieces of one table found as
+  separate small tables, a stray letter in header cells, cells stored
+  backwards, a wide table off the page's edge, a table split into many
+  narrow empty columns).

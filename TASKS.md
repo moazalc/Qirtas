@@ -57,8 +57,14 @@ height, bold words inside them) DONE 28 Sept (PLAN "Part 3: footnotes as
 the original sets them"); left there: notes numbered "1 ... 2 ... 3" in
 one paragraph stay one note (`z17804101` page 5), a note's second
 paragraph joins its first (`z18048055`).
-Next in Part 3: the logo between two
-headers; then the tables leftovers, now also: `z17931421`'s wide table off
+The logo between two headers, and a page's number at its foot written at
+the top (58 pages), DONE 28 Sept (PLAN "Part 3: the logo between two
+headers"); left there: side cells narrower than the original's headers,
+which reach into the margins. Seen on the way (`z20585114` page 2): a
+full-page picture with text printed over it comes out as a small picture,
+the text, then the picture again below it, and the chapter header is drawn
+on that front page.
+Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Found on the way, for
 the text list: `z18441713` writes its numbers backwards (٣١٠ as ٠١٣, ٢٧ as

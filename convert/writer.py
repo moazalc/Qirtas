@@ -902,7 +902,80 @@ def _beside(body):
         else:
             out.append(Beside(runs))
         i = j
+    return _pics_beside(out) if PIC_BESIDE_ON else out
+
+
+# A picture between two blocks side by side - `z21850164`'s logo between its
+# French and Arabic headers. A picture is placed after the text that starts
+# above it, and nothing does, so it went first and could not join the row:
+# the logo came out above the headers. A picture next to a row, level with
+# it and clear of every run, becomes a run of its own, in its place across.
+PIC_BESIDE_ON = os.environ.get("QIRTAS_PIC_BESIDE", "1") != "0"
+
+
+def _own_runs(g):
+    """A picture sharing a run with text it sits clear of across the page -
+    read before the text beside it, it started that run (`z21850164`) -
+    becomes a run of its own; runs ordered across the page again."""
+    runs, loose = [], []
+    for r in g.runs:
+        text = [b for b in r if b.kind != IMAGE]
+        pics = [b for b in r if b.kind == IMAGE and _placed(b) and text
+                and _apart(text, [b]) and _level(text, [b])]
+        loose += pics
+        rest = [b for b in r if all(b is not p for p in pics)]
+        if rest:
+            runs.append(rest)
+    if not loose:
+        return g
+    runs += [[p] for p in loose]
+    if len(runs) < 2 or not all(_apart(r, q) for r, q in itertools.combinations(runs, 2)):
+        return g
+    return Beside(sorted(runs, key=lambda r: _span(r)[0], reverse=is_rtl(g.text)))
+
+
+def _pics_beside(out):
+    out = [_own_runs(g) if isinstance(g, Beside) else g for g in out]
+    i = 0
+    while i < len(out):
+        p = out[i]
+        if isinstance(p, Beside) or p.kind != IMAGE or not _placed(p):
+            i += 1
+            continue
+        for n in (i + 1, i - 1):
+            g = out[n] if 0 <= n < len(out) else None
+            if not isinstance(g, Beside) or not _level(g.runs[0], [p]) \
+                    or not all(_apart(r, [p]) for r in g.runs):
+                continue
+            runs = sorted(g.runs + [[p]], key=lambda r: _span(r)[0],
+                          reverse=is_rtl(g.text))
+            out[n] = Beside(runs)
+            del out[i]
+            i -= 1
+            break
+        i += 1
     return out
+
+
+# A page's own number or letter at its foot, read before the text above it
+# (`z21850164`'s title page, "أ"), was written first, above the page. A
+# short line lower on the page than all the rest goes last.
+FOOT_LAST_ON = os.environ.get("QIRTAS_FOOT_LAST", "1") != "0"
+FOOT_SHORT = 6           # letters
+
+
+def _foot_last(body):
+    if not FOOT_LAST_ON or len(body) < 2:
+        return body
+    feet = []
+    for b in body[:-1]:
+        others = [x for x in body if x is not b and _placed(x)]
+        if b.kind == PARAGRAPH and _placed(b) and others \
+                and len(b.text.strip()) <= FOOT_SHORT \
+                and b.y >= max(x.y1 for x in others) - BESIDE_SLACK:
+            feet.append(b)
+    ids = {id(b) for b in feet}
+    return [b for b in body if id(b) not in ids] + feet
 
 
 # The space the original left above a paragraph, beyond the ordinary space
@@ -1987,7 +2060,7 @@ def write(model: Doc, out_path, scale=None):
         # This page's references to endnotes, where a footnote on the page
         # has not already claimed the number.
         anchors = {**end_anchors.get(page, {}), **anchors}
-        body = _beside(_interleave(body, pics, model))
+        body = _beside(_interleave(_foot_last(body), pics, model))
         k = scale.get(page, 1.0)
         first = True
         if not blocks:

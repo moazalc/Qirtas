@@ -115,6 +115,31 @@ def main():
     m = Doc(blocks=[tbl, _b("نص إلى جانبه", 120, 140, 72, 280, PARAGRAPH)], pages=1)
     check("written, no side-by-side table", _xml(m).count("<w:tbl>"), 1)
 
+    print("a logo between two headers (z21850164's title page)")
+    from convert.writer import _beside, _foot_last, Beside
+    from convert.model import IMAGE
+    logo = Block(IMAGE, "", page=0, y=93, y1=220, x0=236, x1=368)
+    french = _b("République du Niger", 112, 195, 20, 231, PARAGRAPH)
+    arabic = [_b("جمهورية النيجر", 111, 138, 434, 507, PARAGRAPH),
+              _b("وزارة التعليم العالي", 141, 168, 375, 574, PARAGRAPH),
+              _b("جامعة الوفاق العالمية", 171, 199, 416, 524, PARAGRAPH)]
+    got = _beside([logo, french] + arabic)
+    check("one row", len(got), 1)
+    check("three cells, logo in the middle, right to left",
+          [[b.kind if b.kind == IMAGE else b.text for b in r] for r in got[0].runs]
+          if isinstance(got[0], Beside) else None,
+          [[b.text for b in arabic], [IMAGE], ["République du Niger"]])
+
+    print("a page's letter at its foot, read before the text above it")
+    letter = _b("أ", 787, 806, 276, 288, PARAGRAPH)
+    title = _b("تكوين العادات", 275, 342, 65, 492, PARAGRAPH)
+    year = _b("العام الجامعي", 583, 646, 232, 326, PARAGRAPH)
+    check("goes last", [b.text for b in _foot_last([letter, title, year])],
+          ["تكوين العادات", "العام الجامعي", "أ"])
+    check("a long last line is not moved", [b.text for b in _foot_last(
+        [_b("نص طويل في أسفل الصفحة", 787, 806, 72, 510, PARAGRAPH), title])],
+        ["نص طويل في أسفل الصفحة", "تكوين العادات"])
+
     print("blocks with no position (the tags route)")
     m = Doc(blocks=[Block(HEADING, "إلهام مصطفى عبيد"), Block(HEADING, "دعاء محمد أحمد")],
             pages=1)

@@ -3109,6 +3109,37 @@ nothing lost 100.0% on every file; every score unchanged (right page
 before; bold where the original has none 889 -> 869 words (the glue fix;
 `part3j` was the notes alone). Looked at on the six theses above.
 
+### Part 3: the logo between two headers; a foot number read first, 2026-09-28
+
+**The logo.** `z21850164`'s title page has its logo between the French and
+Arabic headers; ours put it above them. A picture is placed after the text
+that starts above it (`_by_y`), and none does, so the logo went first; side
+by side then took it as the start of the French run, and the row failed
+(the French and Arabic run overlapped the logo). `writer._pics_beside`,
+after `_beside`: a picture sharing a run with text it sits clear of and
+level with becomes a run of its own; a picture just before or after a row,
+level with it and clear of every run, joins it; the runs are put in order
+across the page. Found on that one page of the 25 dev theses. Switch
+`QIRTAS_PIC_BESIDE`.
+
+**A number at the foot, written at the top.** A page's number the header
+and footer lifting does not take - a front page's letter (أ, ب, ج), the
+last pages of a cut whose numbers jump (80, then 13) - is often read
+before the text, and was written as the page's first line. On 58 pages of
+24 of the 25 dev theses. `writer._foot_last`: a paragraph of 6 letters or
+fewer, lower on the page than all the rest, goes last. Switch
+`QIRTAS_FOOT_LAST`.
+
+**Left, on the same page:** the header cells are narrower than the
+original's - its headers reach into the page margins, the table stops at
+them - so the Arabic ministry line wraps onto three lines; the title
+page's lines are spaced wider than the original's.
+
+**Full run** `2026-09-28-{thesis,regression}-part3l` against `part3k`:
+nothing lost 100.0% on every file; right page 69.34 -> 69.64% (the foot
+numbers); every other score unchanged. Looked at on `z21850164` page 1
+and `z20585114` page 2.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
