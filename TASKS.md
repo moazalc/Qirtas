@@ -92,12 +92,14 @@ Tables, first batch DONE 28 Sept (PLAN "Tables: written twice, cells
 backwards, stray letters, off the page"): `z17931421`'s wide table on the
 page and not written again (17 -> 15 pages), `z21145041`'s backwards cells
 (15 -> 14), the stray `ا` in header cells, `z18037898`'s entry numbers.
-Tables still to do: pieces of one table found as small tables of their own
-(`z3387756` page 12, five inside the big one); `z21644412` page 12's table in
-many narrow empty columns (22 columns, 14 widths - Word shares them out);
-`z22058810` pages 11-12's footnotes found as a table; words a page draws with
-a space inside (`ال رجلين`) keep two rows of `z17931421`'s table written
-again. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+Second batch DONE 29 Sept: tables that are not tables (fills behind text:
+footnotes, a verse, reference lists, a cover title), pieces of one table
+found as tables of their own (`z3387756` 15 -> 14 pages). Tables still to
+do: `z21644412` page 12's table in many narrow empty columns (22 columns, 14
+widths - Word shares them out); stray single letters in the thin sliver
+columns of double-ruled tables (`z3387756` page 12); rows still written
+again where a word is drawn with a space inside (`ال رجلين`, `z17931421`)
+or a note reference sits in the cell (`z3387756`). Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.

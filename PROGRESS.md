@@ -657,7 +657,23 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   full run, fixed, checked again.
 - Right page 70.0% -> 70.7%; wrong words 7.2% -> 7.0%; nothing lost 100%.
   `z21145041` now exactly 14 pages.
-- **Tables still to do:** pieces of one table found as small tables
-  (`z3387756`); a table found with many empty narrow columns (`z21644412`);
-  footnotes found as a table (`z22058810`).
-- **Next:** those three.
+
+### 29 Sept — tables, second batch
+- **Things that were not tables** came out as tables: footnotes, a shaded
+  Quran verse, reference lists, a cover title. What they had in common:
+  shading behind the text but no lines at all. A real table has borders,
+  so a "table" with no line of any kind inside it is now read as text.
+  Checked on every thesis first: everything this drops was one of these.
+- **Pieces of one table found as tables of their own** (`z3387756`: one
+  big table plus five of its rows again) - pieces inside a bigger table
+  are now left out. That thesis is now exactly 14 pages, and its right
+  page went from 80% to 93%.
+- Right page 70.7% -> 71.3%; wrong words 7.0% -> 6.9%; nothing lost 100%.
+- **Still wrong:** the verse on `z22058810` is no longer a table, but its
+  backwards second copy is still written under it (FLAGS 32, still open);
+  some thin table columns still hold single stray letters; a few table rows
+  still written again below their table.
+- **Tables left:** the `z21644412` table with many empty narrow columns,
+  and the small leftovers above.
+- **Next:** that table, then the smaller leftovers - or the text list, if
+  Moaz prefers.

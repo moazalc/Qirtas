@@ -344,6 +344,21 @@ def main():
           R._cell_ends("الاختالفۡا", (C.Counter({"ۡ": 1, "ا": 1}), C.Counter())),
           "الاختالف")
 
+    print("\nwhat is a table")
+    import pymupdf
+    box = pymupdf.Rect(72, 636, 540, 720)
+    white = [{"type": "f", "rect": pymupdf.Rect(72, 654, 540, 670), "fill": (1, 1, 1)}]
+    rule = [{"type": "f", "rect": pymupdf.Rect(72, 660, 540, 660.5), "fill": (0, 0, 0)}]
+    above = [{"type": "f", "rect": pymupdf.Rect(419, 634.7, 540, 635.2), "fill": (0, 0, 0)}]
+    check("fills behind footnote lines: not a table (z22058810)",
+          R._ruled(white + above, box), False)
+    check("a hairline fill inside: a table", R._ruled(white + rule, box), True)
+    big = Block(kind=TABLE, text="", page=11, x0=32, y=91, x1=535, y1=575, rows=[["a"]])
+    piece = Block(kind=TABLE, text="", page=11, x0=39, y=97, x1=220, y1=113, rows=[["b"]])
+    other = Block(kind=TABLE, text="", page=12, x0=39, y=97, x1=220, y1=113, rows=[["c"]])
+    check("a table inside another is a piece of it (z3387756)",
+          [t.rows[0][0] for t in R._drop_pieces([big, piece, other])], ["a", "c"])
+
     print("\na table wider than the text column (z17931421)")
     from convert.writer import _table_place
     t = Block(kind=TABLE, text="", x0=21.0, x1=570.0)

@@ -3476,6 +3476,31 @@ columns on the page, the header as printed, two of its eighteen rows still
 written again below it (words the page draws with a space inside:
 `ال رجلين`, read لا رجلين).
 
+**Second batch, 2026-09-29.** *Tables that are not tables*
+(`reader._ruled`, `QIRTAS_TABLE_RULES`): the finder builds grids from filled
+boxes too, and white or tinted fills behind lines of text came out as
+tables - `z22058810`'s footnotes (pages 11-12) and its shaded opening verse,
+reference lists (`z18896740`, `z5227331`, `z15446639`), `z21644412`'s cover
+title. A found table with no rule inside its box - a stroked line, or a fill
+2pt thin or less, Word's way of drawing borders - is dropped and its text read
+as text. Listed on all 25 theses first: every one so dropped was one of
+these. *Pieces* (`_drop_pieces`, `QIRTAS_TABLE_PIECES`): a table inside
+another's box on its page is a piece of it - `z3387756` page 12's big table
+and five of its rows found again. *Rows written again*: a paragraph inside a
+table's box also counts as held where each word of four letters or more is
+in the table's letters with the spaces out (`_held_by`) - the clip breaks
+words the page draws in pieces (`المع ا لم`); whole words only had been set
+after this lost text on `z17931421` when ۡ was still in the text.
+
+Full run `2026-09-29-{thesis,regression}-tables3` against `tables2`: nothing
+lost 100.0%; right page 70.7 -> 71.3%; page truth wrong 7.0 -> 6.9%;
+`z3387756` 15 -> 14 pages, right page 79.8 -> 93.2%; `z18047321` 16 -> 15.
+Looked at: `z3387756` page 12 - one table, all its rows; thin sliver columns
+of the double rules still hold single stray letters, and six rows are still
+written again below it (note references inside them, cells read
+differently). `z22058810` page 2: the verse is no longer a table - but the
+backfill's backwards copy of it is still written under it (FLAGS 32).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

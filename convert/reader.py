@@ -2566,7 +2566,13 @@ def read_tables(path):
             except Exception:
                 continue
             page_flat = WS.sub("", get_text(page, "text"))
+            drawings = None
             for t in found:
+                if RULES_ON:
+                    if drawings is None:
+                        drawings = page.get_drawings()
+                    if not _ruled(drawings, pymupdf.Rect(t.bbox)):
+                        continue
                 try:
                     raw = t.extract()
                     cells = []
@@ -2602,7 +2608,48 @@ def read_tables(path):
                                     col_widths=widths, cell_boxes=boxes,
                                     cell_spans=spans,
                                     x0=r[0], y=r[1], x1=r[2], y1=r[3]))
-    return blocks
+    return _drop_pieces(blocks) if PIECES_ON else blocks
+
+
+# A "table" with no rule inside it is not one: the finder builds grids from
+# filled boxes too, and white or tinted fills behind lines of text - a
+# thesis's footnotes (`z22058810` pages 11-12), its shaded opening verse
+# (page 2, cells backwards and the verse written again garbled), reference
+# lists (`z18896740`, `z5227331`), a cover's title (`z21644412`) - came out
+# as tables. Word draws a table's borders as lines or as fills a hairline
+# thin; with neither inside the box it is text, read as text
+# (QIRTAS_TABLE_RULES). Checked on the 25 theses: every table so dropped
+# was one of these.
+RULES_ON = os.environ.get("QIRTAS_TABLE_RULES", "1") != "0"
+RULE_THIN = 2.0       # points: a fill this thin is a rule
+
+
+def _ruled(drawings, box):
+    inner = box + (-1, -1, 1, 1)
+    for g in drawings:
+        r = g["rect"]
+        if not inner.contains(r):
+            continue
+        if "s" in g["type"] or (g.get("fill") is not None
+                                and min(r.width, r.height) <= RULE_THIN):
+            return True
+    return False
+
+
+# A table found inside another's box on its page is a piece of it: the table
+# finder finds `z3387756` page 12's 23-column table, and five rows of it again
+# as small tables of their own, written as small tables and loose lines under
+# it. Its text is the big table's cells already (QIRTAS_TABLE_PIECES).
+PIECES_ON = os.environ.get("QIRTAS_TABLE_PIECES", "1") != "0"
+
+
+def _drop_pieces(tables):
+    def inside(a, b):
+        return a is not b and a.page == b.page and \
+            b.x0 - 2 <= a.x0 and a.x1 <= b.x1 + 2 and \
+            b.y - 2 <= a.y and a.y1 <= b.y1 + 2 and \
+            (a.x1 - a.x0) * (a.y1 - a.y) < (b.x1 - b.x0) * (b.y1 - b.y)
+    return [t for t in tables if not any(inside(t, o) for o in tables)]
 
 
 # A cell across several columns. The table finder gives the cell at its first
@@ -3374,7 +3421,17 @@ def _held_by(b, table, words, joined="", text=None):
     if not (table.x0 - 2 <= mx <= table.x1 + 2 and table.y - 2 <= my <= table.y1 + 2):
         return False
     mine = (b.text if text is None else text).split()
-    return bool(mine) and all(_has(w, words, joined) for w in mine)
+    if text is None:
+        return bool(mine) and all(_has(w, words, joined) for w in mine)
+    # Compared without the marks (`_unmarked`): a word of four letters or
+    # more is also held where the table's letters have it with the spaces
+    # out - the clip breaks words the page draws in pieces (`المع ا لم` for
+    # المعالم, `z3387756` page 12), and every row came again as loose lines.
+    # Whole words only was set after this matched `المجموعةۡالضابطة` inside a
+    # cell's `المجموعةۡالضابطةۡم` and the gate lost the text: the ۡ was the
+    # file's space, now read as one (glyphs.diagnose).
+    return bool(mine) and all(w in words or (len(w) >= 4 and w in joined)
+                              for w in mine)
 
 
 def _inside(b, table):
