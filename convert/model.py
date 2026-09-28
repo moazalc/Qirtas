@@ -25,7 +25,14 @@ class Block:
     # The size most of its letters are set at. `size` is the largest, which
     # suits finding headings and would enlarge a paragraph for one big letter.
     text_size: float = 0.0
-    bold: bool = False         # whole-block boldness, kept for joining and headings
+    # Measured on the page where no route did it for the whole document
+    # (English the tags route read from the page): the font its English is
+    # set in, its own distance between lines, and "start" where its lines
+    # are not justified. Empty/0 when unknown.
+    latin_font: str = ""
+    line_pitch: float = 0.0
+    align: str = ""
+    bold: bool = False        # whole-block boldness, kept for joining and headings
     # (text, bold, italic) per run of like-formatted text. Empty when the route
     # could not read formatting, in which case the writer falls back to `bold`.
     spans: List[tuple] = field(default_factory=list)

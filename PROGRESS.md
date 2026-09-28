@@ -602,4 +602,12 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   is back, but set loosely (big gaps, wide lines), so its reference list
   takes four pages for two. One paragraph there is also written a second
   time backwards (that was there before).
+- **Then fixed, at Moaz's request:** the English is now set the way the
+  page prints it - its own font (Calibri, Times New Roman), size, line
+  spacing, and left-aligned where the original is not justified; "Abstract"
+  bold again. The reference list is back to two pages; the file is 15 pages
+  for 14 (the extra one is the backwards paragraph above). Nothing else
+  changed; nothing lost 100%.
+- **Still not done there:** that English's headings are not centred, and
+  web addresses are plain text, not links.
 - **Next:** the leftover table faults, unless Moaz says otherwise.

@@ -15,6 +15,7 @@ import collections
 import difflib
 import os
 import re
+import statistics
 from pathlib import Path
 import pikepdf
 import pymupdf
@@ -376,6 +377,7 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         blk = Block(kind=kind, text=_clean(text + _join_parts(inner)), page=pg,
                     from_alt=not text and _all_alt(inner))
         _rough_spans(blk, [text] + inner)
+        _drawn_look(blk, [text] + inner)
         doc.add(blk)
         return
 
@@ -475,13 +477,34 @@ LATIN_OR_DIGIT = re.compile(r"[A-Za-z0-9]")
 
 
 class _Drawn(str):
-    """Text read from the letters drawn in a piece no label spoke for."""
+    """Text read from the letters drawn in a piece no label spoke for, with
+    how it is drawn: `marks` [(page, x0, x1, baseline, size, font)], one per
+    stretch of letters shown."""
+    marks = ()
+
+
+def _cid_widths(desc):
+    """code -> width in 1/1000 em from a CIDFont's /W array: `c [w ...]`
+    gives codes from c on, `c1 c2 w` one width for a range."""
+    out, w = {}, list(desc.get("/W", []))
+    k = 0
+    while k < len(w) - 1:
+        if isinstance(w[k + 1], pikepdf.Array):
+            for j, v in enumerate(w[k + 1]):
+                out[int(w[k]) + j] = float(v)
+            k += 2
+        else:
+            for c in range(int(w[k]), int(w[k + 1]) + 1):
+                out[c] = float(w[k + 2])
+            k += 3
+    return out
 
 
 def _drawn_reader(pdf):
     """page, [mcid] -> the text drawn there, except in fonts of signs (their
     own reader has them). Fonts with a ToUnicode table by it; simple fonts
-    without one by their Windows encoding, which is how Word writes English."""
+    without one by their Windows encoding, which is how Word writes English.
+    Where and how big each stretch is drawn goes with it (_drawn_look)."""
     from convert.glyphs import SYMBOL_FONTS, _key, read_tounicode
     cache = {}
 
@@ -493,13 +516,25 @@ def _drawn_reader(pdf):
             key = _key(str(f.get("/BaseFont", "")))
             if key in SYMBOL_FONTS or "symbol" in key or "wingding" in key:
                 continue
+            widths = {}
+            if f.get("/Widths") is not None:
+                first = int(f.get("/FirstChar", 0))
+                widths = {first + k: float(w) for k, w in enumerate(f["/Widths"])}
+            elif f.get("/DescendantFonts") is not None:
+                try:
+                    widths = _cid_widths(f["/DescendantFonts"][0])
+                except Exception:
+                    widths = {}
+            base = str(f.get("/BaseFont", ""))[1:]
             tu = f.get("/ToUnicode")
             if tu is not None:
                 tables[name] = (read_tounicode(tu.read_bytes()),
-                                2 if f.get("/Subtype") == "/Type0" else 1)
+                                2 if f.get("/Subtype") == "/Type0" else 1,
+                                widths, base)
             elif f.get("/Subtype") in ("/TrueType", "/Type1"):
-                tables[name] = (None, 1)
+                tables[name] = (None, 1, widths, base)
         out, stack, table = {}, [], None
+        size, scale, x, y = 0.0, 1.0, 0.0, 0.0
         for operands, op in pikepdf.parse_content_stream(page):
             op = str(op)
             if op == "BDC":
@@ -514,21 +549,35 @@ def _drawn_reader(pdf):
                     stack.pop()
             elif op == "Tf":
                 table = tables.get(str(operands[0]))
+                size = float(operands[1])
+            elif op == "Tm":
+                a, _, _, _, x, y = (float(v) for v in operands)
+                scale = abs(a) or 1.0
+            elif op in ("Td", "TD"):
+                x += float(operands[0]) * scale
+                y += float(operands[1]) * scale
             elif op in ("Tj", "TJ", "'", '"') and table and stack \
                     and stack[-1] is not None:
-                codes, width = table
+                codes, width, widths, base = table
                 parts = operands[0] if op == "TJ" else [operands[-1]]
-                s = ""
+                s, x0, em = "", x, 0.0
                 for part in parts:
                     if not isinstance(part, pikepdf.String):
+                        em -= float(part)
                         continue
                     b = bytes(part)
+                    ks = [int.from_bytes(b[k:k + width], "big")
+                          for k in range(0, len(b) - width + 1, width)]
+                    em += sum(widths.get(k, 0.0) for k in ks)
                     if codes is None:
                         s += b.decode("cp1252", "replace")
                     else:
-                        s += "".join(codes.get(int.from_bytes(b[k:k + width], "big"), "")
-                                     for k in range(0, len(b) - width + 1, width))
-                out[stack[-1]] = out.get(stack[-1], "") + s
+                        s += "".join(codes.get(k, "") for k in ks)
+                x += em / 1000 * size * scale
+                got = out.setdefault(stack[-1], ["", []])
+                got[0] += s
+                if s.strip():
+                    got[1].append((i, x0, x, y, round(size * scale, 1), base))
         return out
 
     def drawn(page, mcids):
@@ -537,15 +586,87 @@ def _drawn_reader(pdf):
                 cache[page] = read_page(page)
             except Exception:
                 cache[page] = {}
-        t = "".join(cache[page].get(m, "") for m in mcids)
+        got = [cache[page][m] for m in mcids if m in cache[page]]
+        t = "".join(g[0] for g in got)
         # A space is a piece of its own between English words ("Biomarkers",
         # " ", "as" in `z21145041`'s title); left out, they ran together.
         if t and not t.strip():
             return [_Drawn(" ")]
         if not LATIN_OR_DIGIT.search(t) or ARABIC.search(t):
             return []
-        return [_Drawn(t)]
+        piece = _Drawn(t)
+        piece.marks = [m for g in got for m in g[1]]
+        # Bold and italic by the font's name, as the labels' words are
+        # (_font_reader): `z22058810`'s "Abstract" came out plain.
+        if piece.marks:
+            names = [m[5].lower() for m in piece.marks]
+            piece.fmt = (sum("bold" in n for n in names) * 2 > len(names),
+                         sum("italic" in n or "oblique" in n for n in names) * 2
+                         > len(names))
+        return [piece]
     return drawn
+
+
+# How the English read from the page is set. The tags route has no positions
+# and no sizes, so `z21145041`'s English came out at the Arabic body's size,
+# font and line height, justified: its reference list in Calibri 11pt,
+# ragged at the right, took four pages for two, and the file 17 for 14. A
+# paragraph mostly read as drawn takes those from how it is drawn.
+DRAWN_LOOK_ON = os.environ.get("QIRTAS_DRAWN_LOOK", "1") != "0"
+DRAWN_MOST = 0.6        # share of a paragraph's letters read as drawn
+RAGGED = 6.0            # points short of the right edge: a line not justified
+
+
+def _drawn_look(blk, parts):
+    """Size, font, line height and alignment for a paragraph mostly read
+    from the page (_Drawn), from how its letters are drawn."""
+    if not DRAWN_LOOK_ON:
+        return
+    drawn = [p for p in parts if isinstance(p, _Drawn)]
+    ours = sum(1 for p in drawn for c in p if c.isalnum())
+    every = sum(1 for p in parts for c in p if c.isalnum())
+    marks = [m for p in drawn for m in p.marks]
+    if not marks or ours < DRAWN_MOST * every:
+        return
+    from convert.glyphs import family
+    sizes, fonts = collections.Counter(), collections.Counter()
+    for _, x0, x1, _, size, base in marks:
+        sizes[size] += x1 - x0 or 1
+        fonts[re.sub(r"[,-](Bold|Italic|BoldItalic|Regular)\w*$", "",
+                     base.split("+", 1)[-1])] += x1 - x0 or 1
+    size = sizes.most_common(1)[0][0]
+    blk.text_size = size
+    blk.latin_font = family(fonts.most_common(1)[0][0])
+    # Lines: marks on one page sharing a baseline.
+    lines = []
+    for pg, x0, x1, y, *_ in sorted(marks, key=lambda m: (m[0], -m[3])):
+        if lines and lines[-1][0] == pg and abs(lines[-1][3] - y) < 0.5 * size:
+            ln = lines[-1]
+            lines[-1] = (pg, min(ln[1], x0), max(ln[2], x1), ln[3])
+        else:
+            lines.append((pg, x0, x1, y))
+    gaps = [a[3] - b[3] for a, b in zip(lines, lines[1:])
+            if a[0] == b[0] and 0.8 * size < a[3] - b[3] < 2.5 * size]
+    if gaps:
+        blk.line_pitch = round(statistics.median(gaps), 1)
+    blk.drawn_lines = lines
+
+
+def _drawn_align(doc):
+    """Justified or not, for the paragraphs _drawn_look measured: justified
+    lines all reach the column's right edge, but the last. The edge is the
+    document's, not the paragraph's: a reference entry is often two lines,
+    and its own longest line says nothing. Left as it was where there are
+    too few lines to tell."""
+    measured = [b for b in doc.blocks if getattr(b, "drawn_lines", None)]
+    ends = sorted(ln[2] for b in measured for ln in b.drawn_lines[:-1])
+    right = ends[int(0.9 * (len(ends) - 1))] if len(ends) >= 5 else None
+    for b in measured:
+        inner = b.drawn_lines[:-1]
+        if right is not None and inner and \
+                sum(1 for ln in inner if right - ln[2] > RAGGED) > len(inner) / 3:
+            b.align = "start"
+        del b.drawn_lines
 
 
 def _join_parts(parts):
@@ -580,6 +701,7 @@ def _flush(doc, pending, page=0):
         blk = Block(kind=PARAGRAPH, text=_clean(_join_parts(pending)), page=page,
                     from_alt=_all_alt(pending))
         _rough_spans(blk, pending)
+        _drawn_look(blk, pending)
         doc.add(blk)
         pending.clear()
 
@@ -762,6 +884,7 @@ def read_tags(path, drawn=TAGS_DRAWN_ON):
             state["drawn"] = _drawn_reader(pdf)
         _walk(pdf.Root["/StructTreeRoot"].get("/K"), doc, pages, pending, state=state)
         _flush(doc, pending, state["page"])
+    _drawn_align(doc)
     # Only where the labels carry the Arabic. A file with none has its words
     # in the glyphs, and the English read here would make this route look
     # as good as the others on it - it is chosen first on a tie.

@@ -3328,11 +3328,37 @@ anyway. Looked at: `z18441713` page 6 (٣١٠, ٣٢٧, ٢٧ as printed),
 `z22058810` pages 3 and 12.
 
 **Left:** Word draws "COVID19." with the full stop on the left of the word,
-not after 19 (an English word ending a right-to-left sentence); the English
-the tags route reads has no size or font of its own; `z21145041` page 11
-writes one paragraph a second time backwards (there before this change);
-a web address on `z22058810` reads out of order - the page itself prints it
-so.
+not after 19 (an English word ending a right-to-left sentence); `z21145041`
+page 11 writes one paragraph a second time backwards (there before this
+change); a web address on `z22058810` reads out of order - the page itself
+prints it so.
+
+**The English set as drawn** (Moaz, the same day: the loose English first).
+The English the tags route now reads had no size, font or line height of its
+own - that route has no positions - so it was set at the Arabic body's
+(Simplified Arabic 13pt, 27pt apart) and justified: `z21145041`'s reference
+list, Calibri 12pt 14.6pt apart and ragged at the right, took four pages for
+two, its long web addresses spreading every line's words across the page.
+Each drawn piece now keeps where and how it is drawn (`_Drawn.marks`: page,
+left and right edge from the font's widths - a simple font's /Widths or a
+CID font's /W - baseline, size, font). A paragraph mostly read that way
+(`_drawn_look`, `QIRTAS_DRAWN_LOOK`) takes the size and font most of its
+letters are drawn in (`Block.latin_font`, used for its English runs only),
+its own line height from its baselines (`Block.line_pitch`), and bold or
+italic from the font's name ("Abstract" had come out plain). Justified or
+not is asked of the document's column (`_drawn_align`): lines short of the
+right edge that 90% of lines reach, in over a third of a paragraph's lines
+but its last, mean ragged (`Block.align` "start"); a two-line entry's own
+longest line says nothing. First the widths of Calibri, a CID font, were
+missing, and Arial - 67 letters on the page against 2,936 - was taken for
+the references' font.
+
+Full run `2026-09-28-{thesis,regression}-englook` against `engdig2`: only
+`z21145041` moved - 17 -> 15 pages, its references two pages as printed;
+the page over is page 11's backwards copy. Nothing lost 100.0%, everything
+else unchanged. Looked at: `z21145041` page 13, `z22058810` page 13 (the
+abstract in Times New Roman, justified, as printed). Left: the abstract's
+heading is not centred (no positions to tell), web addresses are not links.
 
 ## Known unfinished
 

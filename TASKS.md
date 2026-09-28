@@ -79,11 +79,12 @@ reads English beside Arabic; still open.)
 English and numbers in the tags route's Arabic lines (FLAGS 29), and
 numbers read backwards, DONE 28 Sept, asked for by Moaz ahead of the tables
 (PLAN "English in the theses' Arabic lines"): nothing lost 100%, page truth
-wrong 8.3 -> 7.9%; years were backwards in seven theses. Left: `z21145041`
-17 pages for 14 - the English the tags route reads is set at body size and
-line height, justified, with no font of its own; its page 11 writes one
-paragraph again backwards (older); "COVID19." drawn with the full stop on
-the word's left.
+wrong 8.3 -> 7.9%; years were backwards in seven theses. That English set
+at its own size, font, line height and alignment DONE the same day (PLAN
+"The English set as drawn"): `z21145041` 17 -> 15 pages. Left: its page 11
+writes one paragraph again backwards (older - the page over); "COVID19."
+drawn with the full stop on the word's left; headings in that English not
+centred; web addresses not links.
 Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).

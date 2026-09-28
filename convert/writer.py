@@ -1697,6 +1697,11 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     rtl = is_rtl(block.text)
     if not rtl and block.kind != HEADING:
         align = WD_ALIGN_PARAGRAPH.JUSTIFY
+    # Not justified where the original's lines were ragged (reader's
+    # _drawn_align): a reference list justified around its long web
+    # addresses spread each line's words across the page.
+    if block.align == "start" and block.kind != HEADING:
+        align = ALIGN_START
     p = doc.add_paragraph()
     if block.kind == HEADING:
         _heading_style(p, block.level or 2)
@@ -1715,6 +1720,9 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         own = OWN_SIZE_ON and base_pt and block.text_size
         share = size / body_pt if own else (1.0 if block.kind != FOOTNOTE else 0.62)
         pf.line_spacing = Pt(pitch * FIT * share)
+        if block.line_pitch and base_pt:
+            # Its own, measured where it is drawn, shrunk as the page is.
+            pf.line_spacing = Pt(block.line_pitch * FIT * body_pt / base_pt)
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
     if block.kind == HEADING:
@@ -1759,7 +1767,9 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
                 # are blue (#2F5496), and the original document's are not.
                 run.font.color.rgb = RGBColor(0, 0, 0)
             _ink(run, block)
-            _rtl_run(run, size, font, prtl)
+            # English in the font the original set it in, where known.
+            _rtl_run(run, size, block.latin_font if block.latin_font and not prtl
+                     else font, prtl)
         return run
 
     for n, (text, sbold, sital) in enumerate(parts):

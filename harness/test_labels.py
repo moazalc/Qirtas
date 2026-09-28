@@ -276,6 +276,29 @@ def main():
     check("not on a file whose labels hold no Arabic",
           [b.text for b in R.read_tags(path).blocks], [])
 
+    print("\nEnglish read from the page is set as drawn")
+    # `z21145041`'s references: Calibri 12pt, 14.6pt apart, ragged right.
+    def piece(text, lines, font="BCEGEE+Calibri", size=12.0):
+        p = R._Drawn(text)
+        p.marks = [(12, 72.0, x1, 700.0 - 14.6 * k, size, font)
+                   for k, x1 in enumerate(lines)]
+        return p
+    doc = Doc()
+    for ends in ([500.0, 300.0], [480.0, 200.0], [523.0, 510.0, 523.0, 100.0]):
+        blk = Block(kind=PARAGRAPH, text="x")
+        R._drawn_look(blk, [piece("Novel Biomarkers " * 3, ends)])
+        doc.add(blk)
+    R._drawn_align(doc)
+    first = doc.blocks[0]
+    check("size, font and line height as drawn",
+          (first.text_size, first.latin_font, first.line_pitch),
+          (12.0, "Calibri", 14.6))
+    check("ragged lines: not justified", [b.align for b in doc.blocks],
+          ["start", "start", ""])
+    blk = Block(kind=PARAGRAPH, text="x")
+    R._drawn_look(blk, ["كلمات عربية كثيرة جدا هنا", piece("AUC", [100.0])])
+    check("not a paragraph mostly Arabic", blk.text_size, 0.0)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 
