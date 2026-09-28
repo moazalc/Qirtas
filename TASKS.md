@@ -63,7 +63,11 @@ headers"); left there: side cells narrower than the original's headers,
 which reach into the margins. Seen on the way (`z20585114` page 2): a
 full-page picture with text printed over it comes out as a small picture,
 the text, then the picture again below it, and the chapter header is drawn
-on that front page.
+on that front page. Seen 28 Sept (`z18048055` page 9): the footer prints
+a fixed "1" on every page where the original numbers them (1-3, 21-28,
+54-55 - the sample's cut makes the numbers jump), and the footer's double
+line and the number's box are not drawn. The verse marks out of place on
+that page are the PDF's own stored text.
 Next in Part 3: the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Found on the way, for
