@@ -947,3 +947,19 @@ no longer renumbers when a note is added or a page moves; or keep Word's
 automatic numbers, which renumber but take the reader's setting.
 
 **Closes when:** Moaz picks one. Until then the automatic numbers stay.
+
+## 32. A Quran verse on `z22058810` page 2 is written twice, once backwards
+
+**Status: OPEN (Moaz, 2026-09-28 - "put the verse as a flag").** The fill-in
+step (`reader._backfill`) recognises a backwards copy of a paragraph by its
+words (PLAN "Backwards second copies from the backfill"). The verse carries
+a vowel mark on nearly every letter, and the words are cut at the marks into
+pieces too short to ask about, so none are counted and the other reading's
+backwards copy (رَب ُهاَضْرَت اًحِلاَص...) is added after the right one.
+Asking without the marks was tried: it let two other paragraphs of
+`z21145041` back in, and was left off.
+
+**Why it matters:** repeated text, backwards, in a thesis's opening verse -
+the first thing a reader sees.
+
+**Closes when:** the verse is written once, and no other file gains a copy.
