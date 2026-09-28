@@ -587,22 +587,35 @@ def _fit_spans(blk):
     its letters had, and like words are joined into one span."""
     if not blk.spans or not blk.text:
         return
+    blk.spans = _word_spans(blk.text, _char_fmts(blk.spans, blk.text))
+    if not any(b or i for _, b, i in blk.spans):
+        blk.spans = []
+
+
+def _char_fmts(spans, text):
+    """(bold, italic) for each non-space letter of `text`, from `spans`
+    matched onto it letter by letter; None where no letter matched."""
     marks, fmts = [], []
-    for t, b, i in blk.spans:
+    for t, b, i, *_ in spans:
         for ch in t:
             if not ch.isspace():
                 marks.append(ch)
                 fmts.append((b, i))
-    want = [ch for ch in blk.text if not ch.isspace()]
-    got = [None] * len(want)
+    want = [ch for ch in text if not ch.isspace()]
     if marks == want:
-        got = fmts
-    else:
-        sm = difflib.SequenceMatcher(None, want, marks, autojunk=False)
-        for a, b, n in sm.get_matching_blocks():
-            got[a:a + n] = fmts[b:b + n]
+        return fmts
+    got = [None] * len(want)
+    sm = difflib.SequenceMatcher(None, want, marks, autojunk=False)
+    for a, b, n in sm.get_matching_blocks():
+        got[a:a + n] = fmts[b:b + n]
+    return got
+
+
+def _word_spans(text, got):
+    """Each word of `text` in the formatting most of its letters have in
+    `got` (from _char_fmts), like words joined into one span."""
     spans, k = [], 0
-    for w in blk.text.split():
+    for w in text.split():
         mine = [f for f in got[k:k + len(w)] if f is not None]
         k += len(w)
         fmt = (sum(f[0] for f in mine) * 2 > len(mine),
@@ -612,7 +625,7 @@ def _fit_spans(blk):
             spans[-1] = (spans[-1][0] + " " + w, *fmt)
         else:
             spans.append((w, *fmt))
-    blk.spans = spans if any(b or i for _, b, i in spans) else []
+    return spans
 
 
 def read_tags(path):
@@ -864,6 +877,11 @@ def _tight(prev, text, sp, run, ends):
     return abs(gap) <= TOUCH * size
 
 
+# A word drawn in two pieces of different formatting is put back together in
+# the first piece's formatting; the rest of the second piece keeps its own.
+GLUE_FORMAT_ON = os.environ.get("QIRTAS_GLUE_FORMAT", "1") != "0"
+
+
 def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     """One Block from one or more PyMuPDF text blocks, with size, boldness and
     runs of like formatting. None if they hold no text.
@@ -898,11 +916,21 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 # one Word run each would bloat the file for no effect. A word
                 # put back together stays in one run whatever its formatting:
                 # the writer puts a space between runs.
+                # Only the word, though: `z17804101` draws "الدرام" bold and
+                # "ا، القاهرة، الهيئة ... ص44" plain, and the whole plain
+                # rest came out bold with it.
+                rest = ""
+                if GLUE_FORMAT_ON and spans and glue and \
+                        spans[-1][1:] != (bo, it) and " " in run.strip():
+                    cut = run.find(" ", len(run) - len(run.lstrip()))
+                    run, rest = run[:cut], run[cut:]
                 if spans and (glue or (spans[-1][1] == bo and spans[-1][2] == it)):
                     spans[-1] = (spans[-1][0] + ("" if glue else " ") + run,
                                  spans[-1][1], spans[-1][2])
                 else:
                     spans.append((run, bo, it))
+                if rest.strip():
+                    spans.append((rest.strip(), bo, it))
     if not spans:
         return None
     boxes = [b["bbox"] for b in text_blocks]
@@ -1219,12 +1247,20 @@ def _split_typed_notes(blocks):
             if int(n.group(1)) == want and n.group(1) in refs:
                 cuts.append(n.start())
                 want += 1
+        if not cuts and NOTE_LOOK_ON:
+            out.append(b)
+            continue
+        # Cut with its formatting, as in _split_notes.
+        got = _char_fmts(b.spans, b.text) if NOTE_LOOK_ON and b.spans else None
         for a, z in zip([0] + cuts, cuts + [len(b.text)]):
             piece = b.text[a:z].strip()
             if piece:
                 nb = Block(kind=FOOTNOTE, text=piece, page=b.page, size=b.size,
                            y=b.y, y1=b.y1, x0=b.x0, x1=b.x1,
                            spans=[(piece, False, False)])
+                if got is not None:
+                    k = sum(1 for ch in b.text[:a] if not ch.isspace())
+                    nb.spans = _word_spans(piece, got[k:])
                 out.append(nb)
     return out
 
@@ -1293,25 +1329,39 @@ def _split_notes(blk):
     """One block per note. Word often labels a page's notes as ONE piece -
     "1 ... 2 ... 5 ..." - and the writer can pair a note with its reference
     only when the note starts with its own number."""
-    parts = MARKED.split(_joined(blk.text))
-    out = []
-    head = parts[0].strip()
-    if head:                                  # the tail of an earlier note
-        out.append(head)
-    for num, text in zip(parts[1::2], parts[2::2]):
-        out.append(f"({num}) {text.strip()}")
-    # The notes of one piece split apart lose which letters were bold; a
-    # whole note keeps what most of the piece was. Set plain, every such note
-    # came out regular - `z18441713`'s are bold throughout.
+    full = _joined(blk.text)
+    out = []                    # [(number or None, start, end)] in `full`
+    at, num = 0, None
+    for m in MARKED.finditer(full):
+        out.append((num, at, m.start()))
+        num, at = m.group(1), m.end()
+    out.append((num, at, len(full)))
+    # The piece's formatting, letter by letter, cut with it: the notes of one
+    # piece lost which words were bold, and `z18037898` and `z18048055` bold
+    # a book's or a sura's name in every note (Part 3, footnotes). Where the
+    # piece's formatting is not known a note keeps what most of the piece
+    # was - `z18441713`'s are bold throughout.
     n = sum(len(t) for t, *_ in blk.spans) or 1
     bold = sum(len(t) for t, b_, *_ in blk.spans if b_) * 2 > n
     italic = sum(len(t) for t, _, i_, *_ in blk.spans if i_) * 2 > n
+    got = _char_fmts(blk.spans, full) if NOTE_LOOK_ON and blk.spans else None
     blocks = []
-    for t in out:
+    for num, a, z in out:
+        text = full[a:z].strip()
+        if num is None and not text:
+            continue                     # nothing before the first number
+        t = text if num is None else f"({num}) {text}"
         b = Block(kind=FOOTNOTE, text=MARKED.sub(r"(\1)", t), page=blk.page,
                   size=blk.size, y=blk.y, y1=blk.y1, x0=blk.x0, x1=blk.x1,
                   bold=bold)
         b.spans = [(b.text, bold, italic)]
+        if got is not None:
+            k = sum(1 for ch in full[:a] if not ch.isspace())
+            own = got[k:k + sum(1 for ch in full[a:z] if not ch.isspace())]
+            spans = _word_spans(text, own)
+            if num is not None:
+                spans = [(f"({num})", False, False)] + spans
+            b.spans = _word_spans(b.text, _char_fmts(spans, b.text))
         blocks.append(b)
     return blocks or [_unmark(blk)]
 
@@ -2643,6 +2693,62 @@ def _header_rule(path, doc):
     doc.header_rules = out
 
 
+# The footnotes as the original sets them. Word's own line above them is 2
+# inches long and starts where a left-to-right paragraph does, so ours sat at
+# the left where most theses have it at the right (`z18037898`, `z21850164`);
+# some draw it longer (288pt on `z18037898`), and one on the left
+# (`z14065750`). And the notes took Word's ordinary line height, which in
+# Traditional Arabic is far taller than the original's (`z18037898`: 15.6pt
+# apart, ours near 21). Both measured: the line on each page with notes -
+# the one just above its first note, the page's full-width one being Word's
+# line for a note carried over - and the distance between the notes' lines.
+NOTE_LOOK_ON = os.environ.get("QIRTAS_NOTE_LOOK", "1") != "0"
+NOTE_RULE_NEAR = 4.0     # of the note size: how far above the notes the line sits
+
+
+def _note_look(path, doc):
+    import statistics
+    width = doc.page_width - doc.margin_left - doc.margin_right
+    rules, pitches = collections.Counter(), []
+    with pymupdf.open(path) as d:
+        for pno, page in enumerate(d):
+            notes = [b for b in doc.blocks if b.kind == FOOTNOTE
+                     and b.page == pno and b.y1 > b.y > 0]
+            if not notes:
+                continue
+            top = min(b.y for b in notes)
+            size = statistics.median(b.size or doc.body_size for b in notes)
+            for g in page.get_drawings():
+                r = pymupdf.Rect(g["rect"])
+                if r.height >= 2.5 or r.width < 20 or r.width > 0.9 * width \
+                        or not top - NOTE_RULE_NEAR * size < r.y0 < top + 2:
+                    continue
+                if g.get("fill") and "s" not in g["type"]:
+                    thick, colour = max(r.height, 0.25), g["fill"]
+                elif g.get("color"):
+                    thick, colour = max(g.get("width") or 0.75, 0.25), g["color"]
+                else:
+                    continue
+                mid = (doc.margin_left + doc.page_width - doc.margin_right) / 2
+                side = "right" if (r.x0 + r.x1) / 2 > mid else "left"
+                rules[(round(r.width), side, max(2, min(12, round(thick * 8))),
+                       "%02X%02X%02X" % tuple(round(c * 255) for c in colour[:3]))] += 1
+                break
+            lines = set()
+            for bl in page.get_text("dict")["blocks"]:
+                for ln in bl.get("lines", []):
+                    cy = (ln["bbox"][1] + ln["bbox"][3]) / 2
+                    if ln["spans"] and any(b.y - 1 <= cy <= b.y1 + 1 for b in notes):
+                        lines.add(round(ln["spans"][0]["origin"][1], 1))
+            lines = sorted(lines)
+            pitches += [b - a for a, b in zip(lines, lines[1:])
+                        if 0.8 * size < b - a < 2.5 * size]
+    if rules:
+        doc.note_rule = rules.most_common(1)[0][0]
+    if len(pitches) >= 5:
+        doc.note_pitch = round(statistics.median(pitches), 1)
+
+
 # A header in two parts at the page's two edges - the chapter at one, its
 # title at the other (`z22643426`, `z7456037`, `z20585114`). The author put
 # them apart with spaces or a tab, which cleaning makes one space, and the
@@ -2985,4 +3091,9 @@ def read(path, image_dir=None):
     with pymupdf.open(path) as d:
         r = d[0].rect
         best.page_width, best.page_height = r.width, r.height
+    if NOTE_LOOK_ON:
+        try:
+            _note_look(path, best)
+        except Exception:
+            pass
     return best

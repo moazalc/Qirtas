@@ -200,6 +200,25 @@ def main():
     check("a font only its file calls italic is upright", marked,
           {"upright": False, "oblique": True})
 
+    print("\na word put back together takes only itself into the bold")
+    # `z17804101`: "الدرام" bold, then "ا، القاهرة، الهيئة" plain.
+    import convert.reader as R
+    saved = R._glued, R._tight, R._edge_spaces
+    R._glued = lambda prev, sp, *a: prev is not None and sp["text"].startswith("ا،")
+    R._tight = lambda *a: False
+    R._edge_spaces = lambda sp, *a: sp["text"]
+    try:
+        def sp(text, bold):
+            return {"text": text, "flags": R.BOLD_FLAG if bold else 0,
+                    "size": 12.0, "bbox": (0, 0, 10, 10)}
+        blk = R._rich_block([{"bbox": (0, 0, 100, 10), "lines": [{"spans": [
+            sp("مدخل إلى الدرام", True), sp("ا، القاهرة، الهيئة", False)]}]}], 0)
+    finally:
+        R._glued, R._tight, R._edge_spaces = saved
+    check("the word bold, the rest plain", blk.spans,
+          [("مدخل إلى الدراما،", True, False), ("القاهرة، الهيئة", False, False)])
+    check("the text as before", blk.text, "مدخل إلى الدراما، القاهرة، الهيئة")
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

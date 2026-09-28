@@ -22,7 +22,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH as _AL
 
 from convert.glyphs import spell_out
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE, PARAGRAPH
-from convert.footnotes import (MARKER as FN_MARKER, FIRST_ID, split_number,
+from convert.footnotes import (MARKER as FN_MARKER, NUMBER as FN_NUMBER, FIRST_ID, split_number,
                                marker_numbers, RAISED, WESTERN,
                                build_xml, install, directional)
 
@@ -1777,6 +1777,46 @@ def _note_style(block):
             sum(len(t) for t, _, i, *_ in spans if i) * 2 > n)
 
 
+def _note_pieces(block, num, rest):
+    """The note's text after its number, as [(text, bold, italic)] pieces in
+    the original's own formatting - `z18037898` bolds the book's title in
+    each note, `z18048055` the sura's name, and a note went to Word all
+    regular. Taken from the reading's pieces only where they spell exactly
+    the same note; otherwise the plain text, for the whole-note style."""
+    plain = RAISED.sub(r"\1", rest)
+    spans = [s for s in (block.spans or []) if s[0]]
+    if not NOTE_LOOK_ON or not CS_STYLE_ON or not spans:
+        return plain
+    joined = " ".join(t for t, *_ in spans)
+    m = FN_NUMBER.match(joined)
+    if not m or m.group(1).translate(WESTERN) != num \
+            or RAISED.sub(r"\1", joined[m.end():].strip()) != plain:
+        return plain
+    skip = m.end()
+    out, at = [], 0
+    for n, (t, b, i, *_) in enumerate(spans):
+        t = (" " if n else "") + t
+        cut = max(0, min(len(t), skip - at))
+        at += len(t)
+        piece = t[cut:]
+        if not piece:
+            continue
+        if out and out[-1][1:] == (bool(b), bool(i)):
+            out[-1] = (out[-1][0] + piece, bool(b), bool(i))
+        else:
+            out.append((piece, bool(b), bool(i)))
+    out = [(RAISED.sub(r"\1", t), b, i) for t, b, i in out]
+    if "".join(t for t, *_ in out).strip() != plain or \
+            not any(b or i for _, b, i in out):
+        return plain
+    out[0] = (out[0][0].lstrip(),) + out[0][1:]
+    out[-1] = (out[-1][0].rstrip(),) + out[-1][1:]
+    return out
+
+
+NOTE_LOOK_ON = os.environ.get("QIRTAS_NOTE_LOOK", "1") != "0"
+
+
 def _note_size(model):
     """The size the original's notes were set at - the commonest, by letters -
     else 0.78 of the body. The fixed share made notes far too small where a
@@ -1940,7 +1980,8 @@ def write(model: Doc, out_path, scale=None):
                 loose.append(b)
                 continue
             anchors[num] = next_id
-            real_notes.append((next_id, RAISED.sub(r"\1", rest), *_note_style(b)))
+            real_notes.append((next_id, _note_pieces(b, num, rest),
+                               *_note_style(b)))
             next_id += 1
         notes = loose
         # This page's references to endnotes, where a footnote on the page
@@ -2026,10 +2067,14 @@ def write(model: Doc, out_path, scale=None):
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))
     note_pt = _note_size(model)
+    # The notes' line and line height as the original has them (NOTE_LOOK_ON).
+    look = dict(pitch=model.note_pitch, rule=model.note_rule,
+                width=model.page_width - model.margin_left - model.margin_right) \
+        if NOTE_LOOK_ON else {}
     if real_notes:
         install(str(out_path), build_xml(real_notes,
                                          font=model.font or ARABIC_FONT,
-                                         size_pt=note_pt))
+                                         size_pt=note_pt, **look))
     if end_notes:
         install(str(out_path), build_xml(end_notes,
                                          font=model.font or ARABIC_FONT,

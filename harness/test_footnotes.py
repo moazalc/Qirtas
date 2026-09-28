@@ -49,6 +49,71 @@ def _build(tmp):
     return out
 
 
+def _look(tmp):
+    from convert.footnotes import build_xml, _add_settings
+    from convert.reader import _split_notes, MARK_OPEN, MARK_CLOSE
+
+    # Word's own 2-inch line, at the right: its separator, set right to left.
+    xml = build_xml([(2, "نص")], rule=(144, "right", 4, "000000"), width=430)
+    sep = re.search(r'<w:footnote w:type="separator".*?</w:footnote>', xml).group(0)
+    check("2-inch line: Word's own", "<w:separator/>" in sep, True)
+    check("2-inch line: at the right", "<w:bidi/>" in sep, True)
+    # Longer: an empty paragraph's edge, cut from the far end.
+    xml = build_xml([(2, "نص")], rule=(288, "right", 2, "808080"), width=430)
+    sep = re.search(r'<w:footnote w:type="separator".*?</w:footnote>', xml).group(0)
+    check("288pt line: drawn as an edge", '<w:bottom w:val="single" w:sz="2"' in sep, True)
+    check("288pt line: its colour", 'w:color="808080"' in sep, True)
+    check("288pt line: shortened by 142pt", 'w:right="2840"' in sep, True)
+    # At the left, as `z14065750` has it.
+    xml = build_xml([(2, "نص")], rule=(144, "left", 4, "000000"), width=430)
+    sep = re.search(r'<w:footnote w:type="separator".*?</w:footnote>', xml).group(0)
+    check("line at the left: no bidi", "<w:bidi/>" in sep, False)
+    # The notes' own distance between lines.
+    xml = build_xml([(2, "نص")], pitch=15.6, rule=())
+    check("line height exact", 'w:line="312" w:lineRule="exact"' in xml, True)
+    # Bold words inside a note.
+    xml = build_xml([(2, [("انظر ", False, False), ("صحيح البخاري", True, False)])])
+    check("a bold word in a note", bool(re.search(
+        r"<w:b/><w:bCs/>.*?صحيح البخاري", xml)), True)
+    check("the rest not bold", bool(re.search(
+        r"<w:b/><w:bCs/>[^/]*?انظر", xml)), False)
+    # Word draws its own separator unless settings.xml points at ours.
+    s = _add_settings('<w:settings><w:zoom/><w:compat/></w:settings>')
+    check("settings point at the separators", s ==
+          '<w:settings><w:zoom/><w:footnotePr><w:footnote w:id="0"/>'
+          '<w:footnote w:id="1"/></w:footnotePr><w:compat/></w:settings>', True)
+
+    # A page's notes read as one piece keep their bold words when split.
+    one = Block(kind=FOOTNOTE, page=0,
+                text=f"{MARK_OPEN}1{MARK_CLOSE} سورة البقرة: 2. "
+                     f"{MARK_OPEN}2{MARK_CLOSE} انظر صحيح مسلم.",
+                spans=[(f"{MARK_OPEN}1{MARK_CLOSE}", False, False),
+                       ("سورة البقرة:", True, False), ("2.", False, False),
+                       (f"{MARK_OPEN}2{MARK_CLOSE} انظر", False, False),
+                       ("صحيح مسلم.", True, False)])
+    got = _split_notes(one)
+    check("split into two notes", [b.text for b in got],
+          ["(1) سورة البقرة: 2.", "(2) انظر صحيح مسلم."])
+    check("note 1 keeps its bold", got[0].spans,
+          [("(1)", False, False), ("سورة البقرة:", True, False), ("2.", False, False)])
+    check("note 2 keeps its bold", got[1].spans,
+          [("(2) انظر", False, False), ("صحيح مسلم.", True, False)])
+
+    # And through the writer: the pieces reach footnotes.xml.
+    m = Doc(pages=1, body_size=12.0)
+    m.blocks = [Block(kind=PARAGRAPH, text="قال تعالى(1) خبرا.", page=0, y=100, y1=120)] + got[:1]
+    m.note_rule, m.note_pitch = (288, "right", 2, "000000"), 15.0
+    out = tmp / "look.docx"
+    write(m, str(out))
+    with zipfile.ZipFile(out) as z:
+        notes = z.read("word/footnotes.xml").decode("utf-8")
+        settings = z.read("word/settings.xml").decode("utf-8")
+    check("written: bold sura name", bool(re.search(
+        r"<w:b/><w:bCs/>[^>]*>(?:<[^>]*>)*?[^<]*سورة البقرة", notes)), True)
+    check("written: line 288pt", "w:pBdr" in notes, True)
+    check("written: settings point at it", "<w:footnotePr><w:footnote w:id=\"0\"/>" in settings, True)
+
+
 def main():
     tmp = Path("out/tests/footnotes")
     tmp.mkdir(parents=True, exist_ok=True)
@@ -85,6 +150,9 @@ def main():
     print("\nan unanchored note keeps the old behaviour")
     check("stays in the body", "لا يوجد له مرجع" in body, True)
     check("not written as a footnote", "لا يوجد له مرجع" in notes, False)
+
+    print("\nthe notes look as the original set them (QIRTAS_NOTE_LOOK)")
+    _look(tmp)
 
     print("\nthe result must still be a valid Word file")
     try:

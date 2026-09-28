@@ -3057,6 +3057,58 @@ larger and less bold than the original on `z7456037` and `z20973693`.
 nothing lost 100.0% on every file; every score unchanged (right page 69.35
 -> 69.33%, two files by 0.003).
 
+### Part 3: footnotes as the original sets them, 2026-09-28
+
+Looked at side by side on the theses with real Word notes (`z18037898`,
+`z14065750`, `z18048055`, `z21850164`, `z17804101`, `z3387756`). The notes
+were not centred, as noted earlier from memory; three other things were
+wrong:
+
+- **The line above them** sat at the left, 2 inches long, on every thesis.
+  Most originals draw it at the right (Word's own line, in a right-to-left
+  separator); `z18037898` and `z18048055` draw it 288pt long; `z14065750`
+  at the left. `reader._note_look` takes, on each page with notes, the thin
+  line within 4 note-sizes above the first note (not the full-width one:
+  that is Word's line for a note carried over from the page before), and
+  keeps the commonest (length, side, width, colour). `footnotes._rule`
+  writes a 2-inch one as Word's own separator, set right to left for the
+  right side; any other length as the bottom edge of an empty paragraph cut
+  short from its far end. **Trap:** Word ignores the separator notes in
+  footnotes.xml unless settings.xml points at them (`w:footnotePr` with
+  `w:footnote w:id="0"/"1"`) - the first try changed the file and not the
+  page (`footnotes._add_settings`).
+- **Line height.** Notes took the document default (1.15 of the font's own
+  height), which in Traditional Arabic is far taller than the original:
+  `z18037898`'s notes 15.6pt apart, ours near 21. Now the distance measured
+  between the notes' lines on the original pages (`Doc.note_pitch`), set
+  exact.
+- **Bold words inside a note** were lost. When a page's notes are labelled
+  as one piece, `_split_notes` cut the text and gave each note one style;
+  it now cuts the formatting with it letter by letter (`_char_fmts`,
+  `_word_spans`, split out of the tags route's `_fit_spans`), and the
+  writer passes a note's pieces to footnotes.xml (`writer._note_pieces`)
+  only where they spell exactly the note's text. Bold on the notes of
+  `z17804101`, `z18037898`, `z18048055`, `z22828583`: none -> the book or
+  sura name, as the original. Switch `QIRTAS_NOTE_LOOK`.
+
+**Found on the way, a reader fault in body text too:** a word drawn in two
+pieces of different formatting is put back together, and the whole second
+piece went with it: `z17804101` draws "الدرام" bold and "ا، القاهرة، الهيئة
+... ص44" plain, and all of it came out bold. Now only the word joins; the
+rest keeps its own formatting (`_rich_block`, switch `QIRTAS_GLUE_FORMAT`).
+
+**Left:** note numbers are Word's raised digits where the originals type
+"(1)" or "(١)" small - parked with page numbers (FLAGS 31). Notes an author
+numbers "1 ... 2 ... 3" in one paragraph stay one note (`z17804101`
+page 5). A note's second paragraph joins its first (`z18048055`'s "انظر:
+الجزائري").
+
+**Full run** `2026-09-28-{thesis,regression}-part3k` against `part3i`:
+nothing lost 100.0% on every file; every score unchanged (right page
+69.33 -> 69.34%). Bold as Word draws it, all 25 theses: kept 80% as
+before; bold where the original has none 889 -> 869 words (the glue fix;
+`part3j` was the notes alone). Looked at on the six theses above.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

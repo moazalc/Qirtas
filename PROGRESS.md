@@ -510,3 +510,24 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   bold than the original.
 - **Next:** how footnotes look (centred instead of starting from the right),
   then the logo between two headers, then the leftover table faults.
+
+### 28 Sept (evening) — footnotes as the original sets them
+- **Correction:** I said the footnotes came out centred. Looking at them
+  side by side, they did not - they start from the right as they should.
+  What was wrong was three other things, now fixed:
+- **The short line above the notes** was always at the left and 2 inches
+  long. It now sits where the original has it - on the right on most
+  theses, on the left on one - and at the original's length.
+- **The notes were spaced far apart** (about a third more than the
+  original). They now use the original's own spacing, so they take the
+  same room at the foot of the page.
+- **Bold words inside a note** (a book's title, a sura's name) came out
+  plain on four theses. They are bold again.
+- **Found on the way:** where a word is split between two pieces of the
+  PDF, the reader glued it back together but also made the rest of the
+  line bold with it. Fixed in body text too: 20 fewer words wrongly bold.
+- Nothing lost 100% on every thesis; other scores unchanged.
+- **Still different:** note numbers are Word's small raised digits where
+  the originals type "(1)" (parked with page numbers, your call on FLAGS
+  31); on one thesis, three notes typed as one paragraph stay one note.
+- **Next:** the logo between two headers, then the leftover table faults.

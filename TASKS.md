@@ -52,7 +52,12 @@ itself says so, DONE 28 Sept (PLAN "Part 3: bands behind ordinary text").
 Headers laid out like the original (the line under, two parts at the
 edges) DONE 28 Sept (PLAN "Part 3: headers laid out like the original");
 header text still bigger and less bold on `z7456037`, `z20973693`.
-Next in Part 3: footnotes' looks, the logo between two
+Footnotes as the original sets them (the line above them, their line
+height, bold words inside them) DONE 28 Sept (PLAN "Part 3: footnotes as
+the original sets them"); left there: notes numbered "1 ... 2 ... 3" in
+one paragraph stay one note (`z17804101` page 5), a note's second
+paragraph joins its first (`z18048055`).
+Next in Part 3: the logo between two
 headers; then the tables leftovers, now also: `z17931421`'s wide table off
 the page's edge and written again below it (likely its 17 pages for 14),
 `z21644412` page 12's table in many narrow empty columns. Found on the way, for

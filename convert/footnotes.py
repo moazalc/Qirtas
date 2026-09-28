@@ -109,11 +109,33 @@ def directional(text, rtl=True):
     return out
 
 
-def _sep(kind, tag, wid, note="footnote"):
+def _sep(kind, tag, wid, note="footnote", bidi=""):
     return (f'<w:{note} w:type="{kind}" w:id="{wid}">'
-            f'<w:p><w:pPr><w:spacing w:after="0" w:line="240" '
+            f'<w:p><w:pPr>{bidi}<w:spacing w:after="0" w:line="240" '
             f'w:lineRule="auto"/></w:pPr><w:r><w:{tag}/></w:r></w:p>'
             f'</w:{note}>')
+
+
+# Word's own line above the notes is this long; one the original drew at
+# another length is drawn as the bottom edge of an empty paragraph cut to it.
+WORD_RULE = 144.0
+
+
+def _rule(rule, width, note="footnote"):
+    """The separator for `rule` = (length pt, side, eighths, colour), or
+    Word's own at the right side."""
+    length, side, eighths, colour = rule
+    bidi = "<w:bidi/>" if side == "right" else ""
+    if abs(length - WORD_RULE) <= 4 or not width or length >= width:
+        return _sep("separator", "separator", 0, note, bidi)
+    # w:right is the paragraph's END side both ways round, so it shortens
+    # the line from the far end and it keeps its start at `side`.
+    end = round((width - length) * 20)
+    return (f'<w:{note} w:type="separator" w:id="0"><w:p><w:pPr>{bidi}'
+            f'<w:pBdr><w:bottom w:val="single" w:sz="{eighths}" w:space="0" '
+            f'w:color="{colour}"/></w:pBdr>'
+            f'<w:spacing w:after="0" w:line="120" w:lineRule="exact"/>'
+            f'<w:ind w:right="{end}"/></w:pPr></w:p></w:{note}>')
 
 
 def _rpr(font, size_pt, rtl, superscript=False, bold=False, italic=False):
@@ -131,23 +153,38 @@ def _rpr(font, size_pt, rtl, superscript=False, bold=False, italic=False):
     return "<w:rPr>" + "".join(out) + "</w:rPr>"
 
 
-def build_xml(notes, font="Arial", size_pt=9.0, rtl=True, note="footnote"):
-    """notes is [(id, text)] or [(id, text, bold, italic)]. -> the complete
-    footnotes.xml document, or endnotes.xml with note="endnote"."""
+def build_xml(notes, font="Arial", size_pt=9.0, rtl=True, note="footnote",
+              pitch=0.0, rule=None, width=0.0):
+    """notes is [(id, text)] or [(id, text, bold, italic)], where text may
+    instead be [(text, bold, italic)] pieces. -> the complete footnotes.xml
+    document, or endnotes.xml with note="endnote". pitch: the notes' distance
+    between lines in points; rule: the line above them as the reader
+    measured it (model.note_rule), within a text `width` of points."""
     assert note in KINDS
-    parts = [_sep("separator", "separator", 0, note),
-             _sep("continuationSeparator", "continuationSeparator", 1, note)]
     bidi = "<w:bidi/>" if rtl else ""
+    # rule None: as before, Word's line at the left. () : nothing measured,
+    # so Word's line at the side the notes start from.
+    side = bidi if rule is not None else ""
+    first = _rule(rule, width, note) if rule else \
+        _sep("separator", "separator", 0, note, side)
+    parts = [first,
+             _sep("continuationSeparator", "continuationSeparator", 1, note,
+                  side)]
+    line = (f' w:line="{round(pitch * 20)}" w:lineRule="exact"'
+            if pitch else "")
     for wid, text, *style in notes:
         bold, italic = (list(style) + [False, False])[:2]
+        pieces = text if isinstance(text, list) else [(text, bold, italic)]
+        pieces = [(" " + pieces[0][0],) + tuple(pieces[0][1:])] + pieces[1:]
         parts.append(
             f'<w:{note} w:id="{wid}">'
-            f'<w:p><w:pPr>{bidi}<w:spacing w:after="0"/></w:pPr>'
+            f'<w:p><w:pPr>{bidi}<w:spacing w:after="0"{line}/></w:pPr>'
             f'<w:r>{_rpr(font, size_pt, rtl, superscript=True)}'
             f'<w:{note}Ref/></w:r>'
-            + "".join(f'<w:r>{_rpr(font, size_pt, r, bold=bold, italic=italic)}'
+            + "".join(f'<w:r>{_rpr(font, size_pt, r, bold=b, italic=i)}'
                       f'<w:t xml:space="preserve">{escape(t)}</w:t></w:r>'
-                      for t, r in directional(" " + text, rtl)) +
+                      for piece, b, i in pieces
+                      for t, r in directional(piece, rtl)) +
             f'</w:p></w:{note}>')
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             f'<w:{note}s xmlns:w="{W}">' + "".join(parts) + f'</w:{note}s>')
@@ -171,6 +208,21 @@ def _add_rel(rels, note="footnote"):
     return rels.replace("</Relationships>", tag + "</Relationships>")
 
 
+def _add_settings(settings, note="footnote"):
+    """Point the document at our separators. Without this Word ignores the
+    separator notes in footnotes.xml and draws its own line - at the left, 2
+    inches long, whatever the original had."""
+    if f"<w:{note}Pr>" in settings:
+        return settings
+    tag = (f'<w:{note}Pr><w:{note} w:id="0"/><w:{note} w:id="1"/>'
+           f'</w:{note}Pr>')
+    # Schema order: after the typography settings, before w:compat.
+    for before in ("<w:compat", "<w:docVars", "<w:rsids", "</w:settings>"):
+        if before in settings:
+            return settings.replace(before, tag + before, 1)
+    return settings
+
+
 def install(docx_path, xml, note="footnote"):
     """Write footnotes.xml (or endnotes.xml) into an existing .docx and
     declare it.
@@ -192,6 +244,8 @@ def install(docx_path, xml, note="footnote"):
                 data = _add_override(data.decode("utf-8"), note).encode("utf-8")
             elif item.filename == "word/_rels/document.xml.rels":
                 data = _add_rel(data.decode("utf-8"), note).encode("utf-8")
+            elif item.filename == "word/settings.xml":
+                data = _add_settings(data.decode("utf-8"), note).encode("utf-8")
             zout.writestr(item, data)
         zout.writestr(part, xml.encode("utf-8"))
     shutil.move(str(tmp), str(src))
