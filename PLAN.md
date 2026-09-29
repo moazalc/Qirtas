@@ -3661,6 +3661,43 @@ Left (FLAGS 33): `z17366480`'s Basmala, stored with its words backwards;
 dozen words on `z18037898`; QCF (`z18842416`, holdout), whose codes the Quran
 text cannot name.
 
+### The text list re-checked on the theses, 2026-09-29
+
+TASKS' text list (glued words, words not on the page) was drawn up on the old
+corpus. Every wrong word of `2026-09-29-thesis-quran1`'s page truth counted
+and sorted, 560 in all (not the 15 a page `truth.json` keeps):
+
+    not on the page      199   36%
+    one letter off       173   31%
+    piece of a word      106   19%
+    glued to a number     40    7%
+    word cut in two       36    6%
+    two words glued        6    1%
+
+Read by file and page, almost all of it is the OCR, not us: it misreads the
+small bold of reference lists and table headings (التدريي for our
+التدريبي, المحسونه for المحسوبة, لاهتصد), reads nothing on two section
+divider pages where ours holds the heading, reads Quran spelling as plain
+spelling, and splits ص1994 and قسنطينة 2 differently from how the page and
+ours hold them. **Glued words are gone on the theses** (6; the old file was
+`z20276275`). Real faults found:
+
+- two title pages in display fonts not installed here, whose tables name
+  the wrong letters: `z18047321` (Sultan, Hacen Tunisia: جامعةةةةةة,
+  الدكتوز, غصة) and `z18441713` (PT Bold Heading: اطبر محبسب ... راش المبل).
+  FLAGS 23's open half; Moaz decided 22 Sept to warn (Part 2, not built).
+- words the PDF itself stores cut by a space the page does not draw (اخت
+  بار, الا نطلاق, مخر جات) - on both sides, so the gate is fine; the page
+  shows one word. A third test for `join_map` was tried: a space whose letters
+  have no room (closer than 0.05 of the type size, overlap under 0.5), on
+  pages where 97% of spaces have a real gap, judged against the line's own
+  letter spacing (one line of `z18441713` draws its boxes overlapping inside
+  words: "المؤشر المصري" would have joined). Of 284 such spaces on 199 of 414
+  pages all but that line were words cut in two - but the existing tests
+  already join nearly all, or the rule that every copy of a word must carry
+  the evidence holds them back: 8 new words on 5 files. Reverted; not worth
+  a change to the step both sides share.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

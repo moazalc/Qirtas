@@ -145,6 +145,11 @@ words are"):
    62.0 -> 64.7% on 11 picture files. Left: pictures side by side in the
    original are written one above the other (`z19773087` page 18, now one
    page long) - Part 3.
+Re-checked on the theses 29 Sept (PLAN "The text list re-checked on the
+theses"): of 560 wrong words almost all are the OCR's; glued words 6;
+the real faults left are two title pages in fonts not installed (Part 2's
+warning) and words the PDF stores cut (8 more joinable, not worth it).
+Items 3 and 4 below are the old corpus's.
 3. **Glued words, the rest**: nearly all `z20276275`, which stores whole
    phrases with no space - a space where two letters are drawn 0.15 of the
    type size apart; also words glued to a number in journal headers

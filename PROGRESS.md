@@ -756,3 +756,21 @@ Moaz's call: do the repair. Pushed the verse work first.
   held-back set).
 - **Next:** Moaz's call on pushing; then back to the text list (words run
   together, words not on the page, bracket leftovers).
+
+### 29 Sept — the text list, re-checked on the theses
+
+- Pushed the Quran repair.
+- The text list (words run together, words not on the page) was made on
+  the old test files. On the 25 theses I counted every word our Word file
+  has that the page picture does not show: 560. Read one by one, nearly all
+  are the page-reading tool (OCR) misreading small bold text, reference
+  lists and Quran spelling - our text is right there. Words run together:
+  6 in all, so that item is done on the theses.
+- **Real faults left:** two title pages in fancy fonts that are not
+  installed here (`z18047321`, `z18441713`) come out as gibberish. You
+  decided on 22 Sept that the converter should warn the user to install the
+  font and convert again - that warning is not built yet. And some words the
+  PDF itself stores with a space in the middle (اخت بار); I tried a fix, it
+  would repair only 8 more words, so I left it out.
+- **Next:** the missing-font warning (it covers the most visible text fault
+  left), unless Moaz prefers tables or looks.
