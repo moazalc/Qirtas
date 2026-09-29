@@ -218,17 +218,38 @@ def _with_neighbours(stored, repaired):
             yield before, (stored[a.start():b.end()], repaired[a.start():b.end()])
 
 
+class Fixes(dict):
+    """The map, and the verses written as the Quran has them
+    (`convert/quran.py`), which are found by their letters rather than as
+    fixed text. Applied after the map, by `apply_fixes`."""
+    verses = {}
+
+    def __bool__(self):
+        return bool(len(self)) or bool(self.verses)
+
+
 def fix_map(path):
     """-> {broken fragment: repaired fragment} for this PDF: the lam-alef
     repairs (`_lam_alef_map`) and the words a space cuts in two
-    (`join_map`)."""
-    out = _lam_alef_map(path)
+    (`join_map`); and the verses in Quran fonts (FLAGS 33)."""
+    out = Fixes(_lam_alef_map(path))
     try:
         joins = join_map(path)
     except Exception:
         joins = {}
     for k, v in joins.items():
         out.setdefault(k, v)
+    try:
+        from convert import quran
+        # A key for each form the two sides may hold a verse in by the
+        # time the map is applied: as stored, lam-alef repaired, and both.
+        plain = dict(out)
+        out.verses = quran.table(path, (
+            lambda t: repair_lam_alef(" " + t + " ").strip(),
+            lambda t: apply_fixes(t, plain),
+            lambda t: apply_fixes(repair_lam_alef(" " + t + " ").strip(), plain)))
+    except Exception:
+        out.verses = {}
     return out
 
 
@@ -356,6 +377,10 @@ def apply_fixes(text, fixes):
     for first, pat, after in _compile(fixes):
         if first in text:
             text = pat.sub(lambda _, a=after: a, text)
+    verses = getattr(fixes, "verses", None)
+    if verses:
+        from convert.quran import apply
+        text = apply(text, verses)
     return text
 
 

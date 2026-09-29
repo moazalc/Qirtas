@@ -110,9 +110,12 @@ the backwards copy (FLAGS 32), lines labelled left to right (the verse's
 second line, headings, sentence ends), a picture's description written as
 text, and the Quran brackets ﴿ ﴾ read as letters - a verse opening a line
 early or closing a line late, the fault Moaz saw. Words in order 94.0 ->
-94.4%, nothing lost 100%. Left: verses in Quran fonts lose letters or are
-private codes (FLAGS 33, needs Moaz's decision); `z21145041`'s formula
-brackets face the other way.
+94.4%, nothing lost 100%. Verses in Quran fonts DONE 29 Sept, Moaz's call
+(FLAGS 33, PLAN "Verses in Quran fonts"): written from the Quran text,
+`z18037898`'s verse words right 50 of 386 -> 371 of 395, nothing lost 100%.
+Left: `z17366480`'s Basmala (words stored backwards), `z15446639` (letters
+not stored), a dozen words on `z18037898`, QCF codes (holdout);
+`z21145041`'s formula brackets face the other way.
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

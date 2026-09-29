@@ -359,6 +359,11 @@ passing.**
 
 ## notes
 
+- `convert/data/quran-uthmani.txt` is the Quran text of the Tanzil Project
+  (Uthmani, version 1.1, <https://tanzil.net>), shipped unchanged under its
+  terms (Creative Commons Attribution 3.0, verbatim copies only). Verses set
+  in Quran fonts are repaired from it (`convert/quran.py`, FLAGS 33). Do not
+  edit the file; update it only by downloading a new copy from tanzil.net.
 - qalam is in a separate venv at `~/.venvs/qalam` (Python 3.14)
 - `docs/abandoned-mcid-approach.py` is kept deliberately — it records a route
   that did not work, so it is not tried again

@@ -3596,7 +3596,70 @@ are no labels with the spelling. Nothing in the PDF holds these letters.
 `z18842416` sets its verses in QCF page fonts, where each shape is a whole
 word and the stored text is private codes (ﱥﱴﱵ...); in Word they read only
 where those fonts are installed. Five of the 37 cut theses use a Quran font.
-FLAGS 33.
+FLAGS 33; repaired the same day, next section.
+
+### Verses in Quran fonts, from the Quran text, 2026-09-29
+
+Moaz's call on FLAGS 33: repair. `convert/quran.py`, with Tanzil's Uthmani
+text in `convert/data/` (unchanged, as its terms require; credit in README).
+
+*Why not repair the font's table.* `glyphs.py` repairs a wrong table in a copy
+of the PDF that both sides read, and that was tried first: the shapes that
+carry two letters (لن, للَّ) come out of PyMuPDF turned round, so writing them
+backwards in the table gave ٱلنَّاس - and made PyMuPDF break those lines in
+odd places. Dropped.
+
+*How it works.* Every line's stretch in a Quran font (by font name) is lined
+up with the Quran by its letters - vowel marks dropped, hamza seats and ى/ي,
+ة/ه folded, the stretching stroke dropped - using three-letter pieces to find
+the place and an edit alignment to pair letters (a pair turned round counts as
+found). The run's words are grouped with the Quran words their letters landed
+on, and each group - and two and three side by side - becomes {its letters:
+the Quran's words}. Applied by `pdftext.apply_fixes` after the text map, so
+the converter and the checker both get it (`Fixes.verses`, carried on the
+map).
+
+*Traps, each seen:*
+- keyed on letters, not on text: the two sides do not hold a broken verse
+  alike (ٱلنَّاس ُ / ٱنلَّاس ُ, عَدُوِي / عَدُو ِي). A key fires on whole
+  words joined by spaces only, so a verse number or a bracket stops it and
+  stays.
+- never a key the thesis's own writing has, read as the checker reads the
+  page (`order.get_text`) and as both sides hold it after the lam-alef repair:
+  read from MuPDF's plain dict instead, إىل (stored إلى) was missed and
+  became ٱلَّذِى, and هلم (لهم) became لَّهُمْ throughout the prose.
+- a line can line up well as a whole with one group of it lined up anywhere:
+  وَقَدْ كَفَرُوا۟ بِمَا came out وَقَدْ سَرِيعُ ٱلْحِسَابِ. Each group has to
+  agree on its own (80% of its letters; one letter missing is the fault
+  itself - وََكَنَ is وَكَانَ). One stray letter lined up with nothing is a
+  mark stored as a letter (حِل ر for حِلٌّ) and does not count against it.
+- read a line alone and with its neighbours, and keep every reading found: a
+  line of three letters is not found alone, but the line before may end
+  another verse, and read with it the first word landed wrong (وََّلَ).
+- a word our reader cut in two: ٱَّلل ه is ٱللَّهِ already. A key is not used
+  when the letter it adds is the lone letter after it (`z17366480`'s
+  Basmala came out ٱللَّهِ ه).
+- a key two readings disagree on is dropped: خَبِيرٌ and خَبِيرٌۢ are both
+  Quran spellings.
+
+Checked: every change on `z18037898` compared stretch by stretch with what was
+stored (none below 67% of letters in common, the two lowest كُلُّ and فِى,
+both right); our Word file and the checker hold the same 361 Quran-spelled
+words; the pages rendered and read (Word's Traditional Arabic draws the Quran
+text's small marks). `z18037898`: verse words stored right 50 of 386 -> 371 of
+395 spelled as the Quran has them. Full run `2026-09-29-{thesis,regression}-
+quran1` against `verses3`: nothing lost 100.0% (worst file 100.0%); words in
+order 94.4% unchanged; right page 71.2 -> 71.3%; `z18037898`'s page truth
+(OCR of the page image, which the stored text cannot flatter) wrong 10.3 ->
+9.4%; regression set unchanged. Then two fixes (the cut word, every reading)
+touching only the two repaired files, rerun alone (`quick-quran3`): nothing
+lost 100%; `z17366480` order back to 98.1%, right page 90.6 -> 91.5%;
+`z18037898` order 99.6 -> 99.8%, right page 83.0 -> 84.0%.
+
+Left (FLAGS 33): `z17366480`'s Basmala, stored with its words backwards;
+`z15446639`, whose Al Qalam font stores almost only the vowel marks; about a
+dozen words on `z18037898`; QCF (`z18842416`, holdout), whose codes the Quran
+text cannot name.
 
 ## Known unfinished
 

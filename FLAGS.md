@@ -973,29 +973,44 @@ the first thing a reader sees.
 
 ## 33. Verses set in Quran fonts lose letters, or are not text at all
 
-**Status: OPEN (found 2026-09-29, looking for verse bugs at Moaz's ask).**
-Five of the 37 cut theses set their verses in a Quran font. Two ways it goes
-wrong, both in the PDF itself, not in our reading of it:
+**Status: MOSTLY DONE 2026-09-29 - Moaz chose the repair ("do the Quran
+text repair"); what is left is below.** Found the same day, looking for verse
+bugs at Moaz's ask. Five of the 37 cut theses set a Quran font. How each goes
+wrong, all in the PDF itself, not in our reading of it:
 
 - `z18037898` (KFGQPC Uthmanic): some letters are drawn joined into one
   shape, and the shape is mapped to its first letter only. ٱلۡيَوۡمَ is
   stored without its ي, ٱلۡحَقِّ without its ح, ٱلَّذِينَ without its ذ.
   The font's own table agrees and there are no labels with the spelling, so
-  nothing in the file holds these letters. Our Word file shows the verse
-  with them missing.
+  nothing in the file holds these letters. Shapes that do carry two letters
+  come out of the text reader turned round (ٱنلَّاس). **Repaired:** 50 of
+  its 386 verse words were stored right; now 371 of 395 are spelled as the
+  Quran text has them and 383 have the right letters.
+- `z17366480` (KFGQPC HAFS): one verse, the same faults - repaired (وَكَانَ,
+  ٱللَّهِ). Its Basmala is stored with its words backwards (مسب for بسم)
+  and is left as it is.
+- `z15446639` (Al Qalam Quran): the stored text is almost only vowel marks,
+  the letters are not there at all - nothing to line up, left as it is.
+- `z20497593` (KFGQPC Uthman Taha Naskh): used for the thesis's own text,
+  not verses; unchanged.
 - `z18842416` (QCF page fonts): every shape is a whole word and the stored
   text is private codes (ﱥﱴﱵ...). Such text shows as words only with those
-  exact fonts installed, and cannot be searched or edited as Arabic. Not
-  rendered: the file is in the paused holdout, and was left unconverted.
+  exact fonts installed, and cannot be searched or edited as Arabic. The
+  Quran text does not say which code is which word; that needs QCF's own
+  per-page tables. Not rendered: the file is in the paused holdout.
+
+**The repair** (`convert/quran.py`, PLAN "Verses in Quran fonts"): each line
+in a Quran font is lined up letter by letter with the Quran text (Tanzil's,
+shipped unchanged in `convert/data/`, credited in README) and its words are
+written as the Quran has them. Both the converter and the checker apply it,
+so a repaired verse is not read as lost. `QIRTAS_QURAN=0` turns it off.
 
 **Why it matters:** the verses are the text a reader checks first, and here
-they are wrong in a way no score sees - the checker reads the same stored
+they were wrong in a way no score saw - the checker read the same stored
 text.
 
-**Needs a decision:** the one sure repair is to match each verse against the
-Quran's own text and write that - which means shipping the Quran text with the
-converter (about 1.5 MB, freely available) and a matcher. Or leave it and say
-so to the user. Moaz's call.
-
-**Closes when:** decided; if repairing, the verses on these five theses read
-letter for letter as the Quran has them.
+**Left:** the Basmala on `z17366480`; `z15446639`'s verses; about 12 words
+on `z18037898` whose right spelling depends on words on the next line, or
+that the thesis also uses in its own writing (a repair is never keyed on
+letters the thesis's prose has); QCF. **Closes when:** those are repaired or
+Moaz calls them good enough.

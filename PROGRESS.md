@@ -722,3 +722,37 @@ the verse flag first, and for any other verse bugs - "the most important".
   shipping the Quran text with the converter.
 - **Next:** Moaz's call on FLAGS 33; otherwise back to the text list (words
   run together, words not on the page, bracket leftovers).
+
+### 29 Sept — verses in Quran fonts, repaired from the Quran text
+
+Moaz's call: do the repair. Pushed the verse work first.
+
+- **What was wrong.** Some theses set their verses in a special Quran font
+  (the King Fahd Complex's). That font draws some letter pairs as one shape
+  and the PDF records only the first letter, so ٱلَّذِينَ was stored without
+  its ذ, ٱللَّهِ without its ه, ٱلۡيَوۡمَ without its ي. Other shapes came out
+  with their two letters swapped (ٱنلَّاس). Nothing in the file holds the
+  missing letters.
+- **The repair.** The converter now carries the Quran's text (from the
+  Tanzil project, the standard free copy, used unchanged and credited). Each
+  line set in a Quran font is matched against it letter by letter, and its
+  words are written the way the Quran text spells them. The checker does the
+  same, so a repaired verse is not counted as lost.
+- **Result.** On `z18037898`, the thesis with the most verses: before, 50 of
+  its 386 verse words were stored right; now 371 of 395 are spelled exactly
+  as the Quran has them. `z17366480`'s verse is repaired too. Nothing lost
+  100% on every file. The independent check that reads the page image with
+  OCR agrees: wrong words on `z18037898` 10.3% -> 9.4%. Right page up a
+  little on both files.
+- **Caught on the way:** a first version also changed ordinary words in the
+  thesis's own writing (إلى became ٱلَّذِى); one matched a stretch of verse
+  to the wrong verse; one left a stray letter where our reader had split a
+  word. All three fixed and tested; every change on `z18037898` was checked
+  against what was there before, and the pages were rendered and read.
+- **Not repaired:** one Basmala stored with its words backwards; one thesis
+  whose Quran font stores almost only the vowel marks (no letters to match);
+  about a dozen words on `z18037898`; and the QCF fonts, where each word is a
+  private code the Quran text cannot name (that thesis is in the paused
+  held-back set).
+- **Next:** Moaz's call on pushing; then back to the text list (words run
+  together, words not on the page, bracket leftovers).
