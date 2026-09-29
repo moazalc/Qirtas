@@ -85,7 +85,8 @@ at its own size, font, line height and alignment DONE the same day (PLAN
 copies from the backfill DONE the same day (PLAN "Backwards second copies
 from the backfill"; the gate's excuse for backwards sentences now needs
 their words together in ours): page truth wrong 7.9 -> 7.2%. Left: a
-backwards verse on `z22058810` page 2 (FLAGS 32); "COVID19." drawn with the
+backwards verse on `z22058810` page 2 (FLAGS 32, CLOSED 29 Sept - see
+Verses below); "COVID19." drawn with the
 full stop on the word's left; headings in that English not centred; web
 addresses not links.
 Tables, first batch DONE 28 Sept (PLAN "Tables: written twice, cells
@@ -99,7 +100,20 @@ do: `z21644412` page 12's table in many narrow empty columns (22 columns, 14
 widths - Word shares them out); stray single letters in the thin sliver
 columns of double-ruled tables (`z3387756` page 12); rows still written
 again where a word is drawn with a space inside (`ال رجلين`, `z17931421`)
-or a note reference sits in the cell (`z3387756`). Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
+or a note reference sits in the cell (`z3387756`); seen 29 Sept, `z21145041`
+page 5's table cells with their numbers backwards ("85 .0 - 80 .0 [15]" for
+"[15] 0.80 - 0.85"). **Tables parked by Moaz
+29 Sept** ("tables will take a really long time... lets get back to it
+later").
+Verses DONE 29 Sept, Moaz's pick - "the most important" (PLAN "Verses"):
+the backwards copy (FLAGS 32), lines labelled left to right (the verse's
+second line, headings, sentence ends), a picture's description written as
+text, and the Quran brackets ﴿ ﴾ read as letters - a verse opening a line
+early or closing a line late, the fault Moaz saw. Words in order 94.0 ->
+94.4%, nothing lost 100%. Left: verses in Quran fonts lose letters or are
+private codes (FLAGS 33, needs Moaz's decision); `z21145041`'s formula
+brackets face the other way.
+Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
 rendered PDF's fonts), never the Word file's markup.

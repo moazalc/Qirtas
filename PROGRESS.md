@@ -677,3 +677,48 @@ a scan by an OCR program) and `F1`-`F9` (fonts whose names were removed).
   and the small leftovers above.
 - **Next:** that table, then the smaller leftovers - or the text list, if
   Moaz prefers.
+
+### 29 Sept — verses
+Moaz parked the tables ("they will take a really long time") and asked for
+the verse flag first, and for any other verse bugs - "the most important".
+- **The verse written twice (FLAGS 32) - fixed.** `z22058810`'s opening
+  verse came out once right and once backwards underneath. The step that
+  fills in missing text now checks what is already written at the same spot
+  on the page; the verse is there, so the backwards copy is not added. Eight
+  other backwards lines on the same two theses went with it. A line that
+  really is missing (two on `z22058810`) is still put back.
+- **The verse's second line was scrambled.** "برحمتك" came out split, with
+  its last letter after the end of the line. Word stores some lines in the
+  order they are drawn, left to right, instead of the order they are read.
+  Such lines are now turned back. The same fix repaired a heading printed
+  word for word backwards, two more headings, four sentences whose last
+  words had jumped to their start, and four footnote numbers.
+- **The Basmala picture was also written out as text** under itself. Now the
+  picture sits where its description was, and the description is not
+  written. Same for two stray "---" lines and a "D:\download.png" on a
+  title page.
+- **Verse brackets out of place - the fault Moaz saw.** The Quran brackets
+  ﴿ ﴾ were being treated as letters, so they stayed wherever Word happened
+  to store them: a verse would open a line too early ("وأباح الإسلام ﴿ أكل
+  ذبائحهم ... قال تعالى: ٱلۡيَوۡمَ") or close a line too late. They are now
+  placed like a colon or full stop, next to the word the page shows them
+  beside. About 80 verse lines changed across five theses; the 40 or so I
+  read all move a bracket to where the page has it. Moaz's own chapters were already
+  right and are unchanged.
+- **A catch on the way:** the missing-text check (the gate) dropped one
+  thesis to 98.9% after the bracket fix. Nothing was really lost - our text
+  had become right and the checker's copy of the original was still wrong in
+  a line with a note number. The checker now reads such lines the same way;
+  gate back at 100%. This also moves about 170 commas and colons in
+  reference lists to after their word, as they are printed.
+- Words in order 94.0% -> 94.4%; nothing lost 100% on every file; right
+  page 71.3% -> 71.2% (only `z22058810`, whose score reads its PDF's
+  backwards hidden text - the removed copies had matched it).
+- **Found, not fixed (FLAGS 33, needs Moaz):** five theses set verses in a
+  special Quran font. In one, some letters are simply not in the PDF's text
+  (ٱلۡيَوۡمَ stored without its ي); in another, the text is private codes
+  that only read with that exact font installed. The reliable repair is to
+  match each verse against the Quran text and write that - which means
+  shipping the Quran text with the converter.
+- **Next:** Moaz's call on FLAGS 33; otherwise back to the text list (words
+  run together, words not on the page, bracket leftovers).

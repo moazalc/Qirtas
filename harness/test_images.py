@@ -75,6 +75,24 @@ def main():
     tmp = Path("out/tests/images")
     tmp.mkdir(parents=True, exist_ok=True)
 
+    print("a picture in its description's place")
+    from convert.model import Block, IMAGE, PARAGRAPH
+    from convert.writer import _in_its_words
+    # z22058810 page 2: الآية:, the Basmala (a picture, /Alt its words), the
+    # verse. The labels' text has no place on the page.
+    head = Block(kind=PARAGRAPH, text="الآية:", page=1)
+    alt = Block(kind=PARAGRAPH, text="بسم الله الرحمن الرحيم", page=1,
+                from_alt=True)
+    verse = Block(kind=PARAGRAPH, text="رب أوزعني", page=1)
+    pic = Block(kind=IMAGE, text="", page=1, image="b.png", y=172.0)
+    body, left = _in_its_words([head, alt, verse], [pic])
+    check("the picture where its description was", [b.kind for b in body],
+          [PARAGRAPH, IMAGE, PARAGRAPH])
+    check("the description not written", any(b is alt for b in body), False)
+    check("no picture left to place", left, [])
+    body, left = _in_its_words([head, verse], [pic])
+    check("no description: placed as before", (len(body), len(left)), (2, 1))
+
     # Build a real JPEG, then take its JFIF header off.
     pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 320, 120))
     pix.clear_with(128)

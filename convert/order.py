@@ -27,16 +27,32 @@ import unicodedata
 
 import pymupdf
 
+# The brackets round a verse of the Quran, \uFD3F \uFD3E. Read as letters - they sit
+# among the display shapes - they stayed where they were stored: `z18037898`
+# stores a line "\uFD3F :\u0623\u0643\u0644 \u0630\u0628\u0627\u0626\u062D\u0647\u0645 ... \u0642\u0627\u0644", the colon was put back after \u062A\u0639\u0627\u0644\u0649
+# and the bracket was not, and the verse opened a line early, "\u0648\u0623\u0628\u0627\u062D \u0627\u0644\u0625\u0633\u0644\u0627\u0645
+# \uFD3F \u0623\u0643\u0644 \u0630\u0628\u0627\u0626\u062D\u0647\u0645 ... \u062A\u0639\u0627\u0644\u0649: \u0671\u0644\u06E1\u064A\u064E\u0648\u06E1\u0645\u064E" (QIRTAS_VERSE_BRACKETS). Drawn, each
+# stands on the left of the word it follows, as a mark does: \uFD3F after \u062A\u0639\u0627\u0644\u0649:,
+# \uFD3E after the verse's last word.
+VERSE_ON = os.environ.get("QIRTAS_VERSE_BRACKETS", "1") != "0"
+VERSE = "\uFD3E\uFD3F" if VERSE_ON else ""
 # Arabic letters, the stretching stroke, vowel marks, display shapes.
 ARABIC = re.compile(r"[\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF\u0640"
+                    r"\u064B-\u065F\u0670\uFB50-\uFD3D\uFD40-\uFDFF\uFE70-\uFEFC]"
+                    if VERSE_ON else
+                    r"[\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF\u0640"
                     r"\u064B-\u065F\u0670\uFB50-\uFDFF\uFE70-\uFEFC]")
 # Numbers and Latin run left to right inside a line; a line holding any is
 # read by _order_mixed (DVB-S, 2 . 11 - TASKS N5c).
 LEFT_TO_RIGHT = re.compile(r"[%٪A-Za-z0-9\u0660-\u0669\u06F0-\u06F9]")
 LATIN = re.compile(r"[A-Za-zÀ-ɏ]")
-MARKS = set(".،,:؛;!؟?")
+MARKS = set(".،,:؛;!؟?" + VERSE)
 # What may stand between a word and its mark: it is already after the word.
 BETWEEN = set(" ()[]«»\"'") | MARKS
+# And what is not drawn at all: `z21850164` puts a zero-width non-joiner after
+# every word, and "تعالى:‌﴿" read as the bracket kept from its word by it.
+if VERSE_ON:
+    BETWEEN |= set("‌‍")
 TOL = 1.0          # points: a mark touching a word's left edge is beside it
 # Share of a line's letters that must stand at a place of their own. Letters
 # joined into one shape share a place, so not all of them.
@@ -610,8 +626,11 @@ def _fix_raw(line, whole=None):
                 chars, whole)
     if seq is not None and whole and not whole.keeps(
             "".join(c["c"] for c in chars)):
-        # Only its numbers' digits, which every reading turns alike.
-        seq = _digits_drawn(placed, None)
+        # Piece by piece as the labels cut it; else only its numbers'
+        # digits, which every reading turns alike.
+        text = "".join(c["c"] for c in chars)
+        seq = _by_pieces(placed, whole.cuts(text), whole.letterless(line)) \
+            or _digits_drawn(placed, None)
     if seq is None:
         return None
     new = []
@@ -755,6 +774,57 @@ class _Whole:
             walk(self.page.get_text("rawdict", **kw))
         return _bare(text) in self.lines
 
+    def cuts(self, text):
+        """[units] of each piece the structure labels cut this line into,
+        in order; None where they do not cover it. A run of spaces between
+        pieces is a piece of its own."""
+        if self.lines is None:
+            self.keeps(text)
+        bare = _bare(text)
+        known = sorted((t for t in self.lines if t and t in bare), key=len,
+                       reverse=True)
+        out, at = [], 0
+        while at < len(bare):
+            got = next((len(t) for t in known if bare.startswith(t, at)), 0)
+            if not got:
+                if not bare[at].isspace():
+                    return None
+                got = len(bare[at:]) - len(bare[at:].lstrip())
+            out.append(got)
+            at += got
+        return out if len(out) > 1 else None
+
+
+# A line the structure labels cut in two, read as they read it. Word labels a
+# note number apart from its line, so there the line is two, and each piece
+# is put in order alone; read plainly it is one line with a number in it,
+# which is left as stored (`_Whole.keeps`) - and the two readings disagreed.
+# `z21850164` page 5: "…رِضْوَانَهُ﴾" then "96" in ours, the checker's
+# "ا﴾ُللهََّ … رِضْوَانَه96" as stored, and the gate lost the verse
+# (QIRTAS_PIECE_ORDER).
+PIECES_ON = os.environ.get("QIRTAS_PIECE_ORDER", "1") != "0"
+
+
+def _by_pieces(placed, cuts, arabic_page=None):
+    """order() of each piece in `cuts` (units, from _Whole.cuts), one after
+    another; None where nothing moves or a piece is read as drawn."""
+    if not PIECES_ON or not cuts:
+        return None
+    us = units([c for c, _, _ in placed])
+    if sum(cuts) != len(us):
+        return None
+    out, start = [], 0
+    for n in cuts:
+        lo, hi = us[start][0], us[start + n - 1][-1] + 1
+        seq = order(placed[lo:hi], arabic_page)
+        if isinstance(seq, Seq):
+            return None                # brackets turned: see _turn
+        for k in (range(n) if seq is None else seq):
+            out.append(k if k is SPACE else
+                       k + start if k >= 0 else ~(~k + start))
+        start += n
+    return None if out == list(range(len(us))) else out
+
 
 def _line_orders(page, flags, clip):
     """{stored line, vowel marks left out: [(unit order, units)]} for every
@@ -773,7 +843,9 @@ def _line_orders(page, flags, clip):
                 placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
                 seq = _turn(order(placed, whole.letterless(line)), chars, whole)
                 if seq is not None and not whole.keeps("".join(text)):
-                    seq = _digits_drawn(placed, None)   # see _fix_raw
+                    seq = _by_pieces(placed, whole.cuts("".join(text)),
+                                     whole.letterless(line)) \
+                        or _digits_drawn(placed, None)   # see _fix_raw
                 if seq is not None:
                     out.setdefault(_bare("".join(text)), []).append(
                         (seq, len(units(text))))

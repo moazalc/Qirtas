@@ -13,6 +13,7 @@ labelled ones when they come close — measure, don't predict.
 """
 import collections
 import difflib
+import functools
 import os
 import re
 import statistics
@@ -148,6 +149,61 @@ def _bare(t):
     return MARKS.sub("", WS.sub("", t or ""))
 
 
+def _drawn_at(pieces, pdf):
+    """page -> [(x0, x1, baseline from the top, letters)] of the labelled
+    pieces with letters drawn, for the backfill to ask what is drawn where."""
+    out = collections.defaultdict(list)
+    tall = {}
+    for p in pieces:
+        letters = "".join(ARABIC_LETTER.findall(p))
+        if not letters:
+            continue
+        pg = p.marks[0][0]
+        if pg not in tall:
+            try:
+                box = pdf.pages[pg].mediabox
+                tall[pg] = float(box[3])
+            except Exception:
+                tall[pg] = 0.0
+        if not tall[pg]:
+            continue
+        for m in p.marks:
+            # Each stretch of the piece's letters; the letters go with the
+            # first, so a piece is counted once, where it starts.
+            out[pg].append((m[1], m[2], tall[pg] - m[3], letters))
+            letters = ""
+    return dict(out)
+
+
+# Letters a reading holds drawn where another reading's paragraph is. The
+# labels of `z22058810` hold its opening verse right, and the glyphs hold it
+# backwards, cut at every vowel mark: رَب ُهاَضْرَت اًحِلاَص. Asked by its words
+# there is nothing four letters long to ask about, and by its sentences it
+# reads backwards, so the backfill wrote it a second time under the verse
+# (FLAGS 32). What is drawn in the same place on the page settles it:
+# the labels' pieces there hold the same letters. Letters alone, asked of the
+# whole page, cannot: a paragraph from another page shares 85% of them
+# (QIRTAS_BACKFILL_PLACE).
+PLACE_ON = os.environ.get("QIRTAS_BACKFILL_PLACE", "1") != "0"
+PLACE_AT = 0.9
+
+
+def _drawn_there(b, at):
+    """Whether the letters of reading `b` are drawn where it is, in the
+    chosen reading's pieces (`_drawn_at`)."""
+    want = collections.Counter(ARABIC_LETTER.findall(b.text))
+    n = sum(want.values())
+    if not n or not (b.y1 > b.y) or b.page not in at:
+        return False
+    size = max(4.0, (b.y1 - b.y) * 0.1)
+    have = collections.Counter()
+    for x0, _, top, letters in at[b.page]:
+        if letters and b.y - size <= top <= b.y1 + size \
+                and b.x0 - size <= x0 <= b.x1 + size:
+            have.update(letters)
+    return sum(min(v, have[k]) for k, v in want.items()) >= PLACE_AT * n
+
+
 def _backfill(chosen, results, path, fix=None):
     """Recover anything the chosen reader missed but another reader found.
 
@@ -198,6 +254,7 @@ def _backfill(chosen, results, path, fix=None):
         return known(w) or (loose and any(
             known(w[:k]) and known(w[k:]) for k in range(4, len(w) - 3)))
     added = False
+    at = getattr(chosen, "drawn_at", None)
     for _, other in results:
         if other is chosen:
             continue
@@ -230,7 +287,8 @@ def _backfill(chosen, results, path, fix=None):
                 > sum(1 for w in ws if w in words and w[::-1] not in words)
             if len(ws) >= 3 and sum(1 for w in ws if (there(w) if turned else
                                                       w in words or w[::-1] in words)) \
-                    >= TURNED_AT * len(ws):
+                    >= TURNED_AT * len(ws) or \
+                    PLACE_ON and at and _drawn_there(b, at):
                 # Its English and numbers are put back on their own: the
                 # chosen reading of z21145041 drops the English inside Arabic
                 # lines - eGFR, T2DM, PRISMA - and this backwards copy was the
@@ -406,6 +464,7 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
         _walk(node.get("/K"), doc, pages, inner, depth + 1,
               kind if kind in (FOOTNOTE,) else ctx, state)
         state["cover"] -= bool(text)
+        inner = _turn_lines(inner)
         blk = Block(kind=kind, text=_clean(text + _join_parts(inner)), page=pg,
                     from_alt=not text and _all_alt(inner))
         _rough_spans(blk, [text] + inner)
@@ -420,7 +479,14 @@ def _walk(node, doc, pages, pending, depth=0, ctx=None, state=None):
     if actual is not None:
         look = state.get("fonts")
         fmt = look(state["page"], _mcids(node.get("/K"))) if look else None
-        pending.append(_Run(str(actual), fmt) if fmt else str(actual))
+        piece = _Run(str(actual), fmt)
+        # Where it is drawn, for a line labelled left to right (_turn_lines).
+        if "drawn" in state:
+            piece.marks = [m for g in state["drawn"].got(
+                state["page"], _mcids(node.get("/K"))) for m in g[1]]
+            if piece.marks and "at" in state:
+                state["at"].append(piece)
+        pending.append(piece if fmt or piece.marks else str(actual))
     elif node.get("/Alt") is not None:
         pending.append(_Alt(str(node.get("/Alt"))))
     elif "signs" in state:
@@ -532,93 +598,100 @@ def _cid_widths(desc):
     return out
 
 
+def _page_marks(pdf, i):
+    """mcid -> [text, marks] for page i: what each numbered piece draws, and
+    where (page, x0, x1, baseline, size, font). Fonts of signs are left out."""
+    from convert.glyphs import SYMBOL_FONTS, _key, read_tounicode
+    page = pdf.pages[i]
+    fonts = page.obj.get("/Resources", {}).get("/Font", {})
+    tables = {}
+    for name, f in fonts.items():
+        key = _key(str(f.get("/BaseFont", "")))
+        if key in SYMBOL_FONTS or "symbol" in key or "wingding" in key:
+            continue
+        widths = {}
+        if f.get("/Widths") is not None:
+            first = int(f.get("/FirstChar", 0))
+            widths = {first + k: float(w) for k, w in enumerate(f["/Widths"])}
+        elif f.get("/DescendantFonts") is not None:
+            try:
+                widths = _cid_widths(f["/DescendantFonts"][0])
+            except Exception:
+                widths = {}
+        base = str(f.get("/BaseFont", ""))[1:]
+        tu = f.get("/ToUnicode")
+        if tu is not None:
+            tables[name] = (read_tounicode(tu.read_bytes()),
+                            2 if f.get("/Subtype") == "/Type0" else 1,
+                            widths, base)
+        elif f.get("/Subtype") in ("/TrueType", "/Type1"):
+            tables[name] = (None, 1, widths, base)
+    out, stack, table = {}, [], None
+    size, scale, x, y = 0.0, 1.0, 0.0, 0.0
+    for operands, op in pikepdf.parse_content_stream(page):
+        op = str(op)
+        if op == "BDC":
+            m = operands[1].get("/MCID") if len(operands) > 1 and \
+                isinstance(operands[1], pikepdf.Dictionary) else None
+            stack.append(int(m) if m is not None else
+                         (stack[-1] if stack else None))
+        elif op == "BMC":
+            stack.append(stack[-1] if stack else None)
+        elif op == "EMC":
+            if stack:
+                stack.pop()
+        elif op == "Tf":
+            table = tables.get(str(operands[0]))
+            size = float(operands[1])
+        elif op == "Tm":
+            a, _, _, _, x, y = (float(v) for v in operands)
+            scale = abs(a) or 1.0
+        elif op in ("Td", "TD"):
+            x += float(operands[0]) * scale
+            y += float(operands[1]) * scale
+        elif op in ("Tj", "TJ", "'", '"') and table and stack \
+                and stack[-1] is not None:
+            codes, width, widths, base = table
+            parts = operands[0] if op == "TJ" else [operands[-1]]
+            s, x0, em = "", x, 0.0
+            for part in parts:
+                if not isinstance(part, pikepdf.String):
+                    em -= float(part)
+                    continue
+                b = bytes(part)
+                ks = [int.from_bytes(b[k:k + width], "big")
+                      for k in range(0, len(b) - width + 1, width)]
+                em += sum(widths.get(k, 0.0) for k in ks)
+                if codes is None:
+                    s += b.decode("cp1252", "replace")
+                else:
+                    s += "".join(codes.get(k, "") for k in ks)
+            x += em / 1000 * size * scale
+            got = out.setdefault(stack[-1], ["", []])
+            got[0] += s
+            if s.strip():
+                got[1].append((i, x0, x, y, round(size * scale, 1), base))
+    return out
+
+
 def _drawn_reader(pdf):
     """page, [mcid] -> the text drawn there, except in fonts of signs (their
     own reader has them). Fonts with a ToUnicode table by it; simple fonts
     without one by their Windows encoding, which is how Word writes English.
     Where and how big each stretch is drawn goes with it (_drawn_look)."""
-    from convert.glyphs import SYMBOL_FONTS, _key, read_tounicode
     cache = {}
+    read_page = functools.partial(_page_marks, pdf)
 
-    def read_page(i):
-        page = pdf.pages[i]
-        fonts = page.obj.get("/Resources", {}).get("/Font", {})
-        tables = {}
-        for name, f in fonts.items():
-            key = _key(str(f.get("/BaseFont", "")))
-            if key in SYMBOL_FONTS or "symbol" in key or "wingding" in key:
-                continue
-            widths = {}
-            if f.get("/Widths") is not None:
-                first = int(f.get("/FirstChar", 0))
-                widths = {first + k: float(w) for k, w in enumerate(f["/Widths"])}
-            elif f.get("/DescendantFonts") is not None:
-                try:
-                    widths = _cid_widths(f["/DescendantFonts"][0])
-                except Exception:
-                    widths = {}
-            base = str(f.get("/BaseFont", ""))[1:]
-            tu = f.get("/ToUnicode")
-            if tu is not None:
-                tables[name] = (read_tounicode(tu.read_bytes()),
-                                2 if f.get("/Subtype") == "/Type0" else 1,
-                                widths, base)
-            elif f.get("/Subtype") in ("/TrueType", "/Type1"):
-                tables[name] = (None, 1, widths, base)
-        out, stack, table = {}, [], None
-        size, scale, x, y = 0.0, 1.0, 0.0, 0.0
-        for operands, op in pikepdf.parse_content_stream(page):
-            op = str(op)
-            if op == "BDC":
-                m = operands[1].get("/MCID") if len(operands) > 1 and \
-                    isinstance(operands[1], pikepdf.Dictionary) else None
-                stack.append(int(m) if m is not None else
-                             (stack[-1] if stack else None))
-            elif op == "BMC":
-                stack.append(stack[-1] if stack else None)
-            elif op == "EMC":
-                if stack:
-                    stack.pop()
-            elif op == "Tf":
-                table = tables.get(str(operands[0]))
-                size = float(operands[1])
-            elif op == "Tm":
-                a, _, _, _, x, y = (float(v) for v in operands)
-                scale = abs(a) or 1.0
-            elif op in ("Td", "TD"):
-                x += float(operands[0]) * scale
-                y += float(operands[1]) * scale
-            elif op in ("Tj", "TJ", "'", '"') and table and stack \
-                    and stack[-1] is not None:
-                codes, width, widths, base = table
-                parts = operands[0] if op == "TJ" else [operands[-1]]
-                s, x0, em = "", x, 0.0
-                for part in parts:
-                    if not isinstance(part, pikepdf.String):
-                        em -= float(part)
-                        continue
-                    b = bytes(part)
-                    ks = [int.from_bytes(b[k:k + width], "big")
-                          for k in range(0, len(b) - width + 1, width)]
-                    em += sum(widths.get(k, 0.0) for k in ks)
-                    if codes is None:
-                        s += b.decode("cp1252", "replace")
-                    else:
-                        s += "".join(codes.get(k, "") for k in ks)
-                x += em / 1000 * size * scale
-                got = out.setdefault(stack[-1], ["", []])
-                got[0] += s
-                if s.strip():
-                    got[1].append((i, x0, x, y, round(size * scale, 1), base))
-        return out
-
-    def drawn(page, mcids):
+    def got(page, mcids):
         if page not in cache:
             try:
                 cache[page] = read_page(page)
             except Exception:
                 cache[page] = {}
-        got = [cache[page][m] for m in mcids if m in cache[page]]
+        return [cache[page][m] for m in mcids if m in cache[page]]
+
+    def drawn(page, mcids):
+        got = drawn.got(page, mcids)
         t = "".join(g[0] for g in got)
         # A space is a piece of its own between English words ("Biomarkers",
         # " ", "as" in `z21145041`'s title); left out, they ran together.
@@ -636,6 +709,7 @@ def _drawn_reader(pdf):
                          sum("italic" in n or "oblique" in n for n in names) * 2
                          > len(names))
         return [piece]
+    drawn.got = got
     return drawn
 
 
@@ -717,6 +791,107 @@ def _join_parts(parts):
     return out
 
 
+# A line whose labels come left to right. Word labels most Arabic lines
+# right to left, the order they are read in, but some lines in the order they
+# are drawn: `z22058810`'s header on page 27 came out word for word backwards
+# ("المالي الاستقرار لتحقيق ... نشأة تطور"), and the second line of its opening
+# verse as "كَ فِي عِبَادِكَ الصَّالِحِينَ" then "وَأَدْخِلْنِي بِرَحْمَتِ" - the
+# end of برحمتك cut off and set after the line (QIRTAS_TAGS_LINE_TURN).
+LINE_TURN_ON = os.environ.get("QIRTAS_TAGS_LINE_TURN", "1") != "0"
+STEP = 0.5      # of the letters' size: a move from one piece to the next
+
+
+def _where(p):
+    """(page, x0, x1, baseline, size) of a piece from where its letters are
+    drawn, or None for one with no letters drawn (a space label)."""
+    marks = getattr(p, "marks", ())
+    if not marks:
+        return None
+    return (marks[0][0], min(m[1] for m in marks), max(m[2] for m in marks),
+            statistics.median(m[3] for m in marks),
+            max(m[4] for m in marks) or 1.0)
+
+
+def _turn_lines(parts):
+    """Pieces of one line labelled left to right, put right to left.
+
+    A line is the pieces in a row drawn on one baseline. It is turned only
+    where its Arabic pieces come left to right more often than right to left,
+    so a line labelled in reading order is never touched. Spaces keep their
+    places between pieces, and a run of pieces with no Arabic - English, a
+    number with its brackets - keeps its own order: it reads left to right."""
+    if not LINE_TURN_ON:
+        return parts
+    out, k = list(parts), 0
+    while k < len(out):
+        w = _where(out[k])
+        if w is None:
+            k += 1
+            continue
+        # This line: from k while the pieces drawn stay on its baseline.
+        end, last = k + 1, k
+        while end < len(out):
+            v = _where(out[end])
+            if v is not None:
+                if v[0] != w[0] or abs(v[3] - w[3]) > 0.4 * w[4]:
+                    break
+                last = end
+            end += 1
+        k = _turn_line(out, k, last) if last > k else k + 1
+    return out
+
+
+def _turn_line(out, first, last):
+    """Turn out[first:last + 1] if its Arabic pieces run left to right.
+    Returns where the next line starts."""
+    seq = out[first:last + 1]
+    ar = [_where(p) for p in seq if _where(p) and ARABIC_LETTER.search(p)]
+    # By where each piece starts: the width a run of marked letters is read
+    # to take runs long - `z22058810`'s verse line ends at x=1115 on a page
+    # 595 wide - but where it starts is set on the page.
+    # A step counts at half the letters' size: the alef of a tanween is a
+    # piece of its own that starts a few points right of its word (عشوائي,
+    # اً on `z21145041` page 26), and counted, the line turned and split it.
+    step = [b[1] - a[1] for a, b in zip(ar, ar[1:])]
+    right = sum(d > STEP * ar[0][4] for d in step)
+    left = sum(d < -STEP * ar[0][4] for d in step)
+    if right <= left:
+        return last + 1
+    # Pieces drawn, and the spaces between them, alternate; the whole row
+    # is turned, so the spaces stay between. A run of English or digits,
+    # spaces inside it included, is one piece: it reads left to right. Digits
+    # count with it, not with the Arabic - "٢٠٢٤." labelled ٢٠ then ٢٤ turned
+    # into ".٠٢٤٢". A bracket on its own is not: it takes the line's
+    # direction, and stuck to its number read "4()".
+    items = []
+    for p in seq:
+        drawn = _where(p) is not None
+        if items and items[-1][0] == drawn and not drawn:
+            items[-1][1].append(p)
+        else:
+            items.append([drawn, [p]])
+
+    def latin(item):
+        text = "".join(item[1])
+        return item[0] and not ARABIC_LETTER.search(text) and \
+            any(c.isalnum() for c in text)
+
+    def between(item):
+        # A space, or a mark with no letters (Wilcoxon-Mann).
+        return not any(c.isalnum() for c in "".join(item[1]))
+    k = 0
+    while k < len(items) - 1:
+        nxt = items[k + 1]
+        if latin(items[k]) and (latin(nxt) or (
+                between(nxt) and k + 2 < len(items) and latin(items[k + 2]))):
+            items[k][1] += nxt[1]
+            del items[k + 1]
+        else:
+            k += 1
+    out[first:last + 1] = [p for item in reversed(items) for p in item[1]]
+    return last + 1
+
+
 class _Alt(str):
     """Text that came from a picture's /Alt description, not from the page."""
 
@@ -730,6 +905,7 @@ def _flush(doc, pending, page=0):
     """Loose text kept defaulting to page 0, piling a whole document onto the
     first page and leaving later pages empty. Carry the current page."""
     if pending:
+        pending[:] = _turn_lines(pending)
         blk = Block(kind=PARAGRAPH, text=_clean(_join_parts(pending)), page=page,
                     from_alt=_all_alt(pending))
         _rough_spans(blk, pending)
@@ -750,7 +926,9 @@ TAGS_FORMAT_ON = os.environ.get("QIRTAS_TAGS_FORMAT", "1") != "0"
 
 
 class _Run(str):
-    """Text from a label, with (bold, italic) read from its letters' fonts."""
+    """Text from a label, with (bold, italic) read from its letters' fonts,
+    and where they are drawn (`marks`, as _Drawn's)."""
+    marks = ()
     def __new__(cls, text, fmt):
         s = super().__new__(cls, text)
         s.fmt = fmt
@@ -914,8 +1092,11 @@ def read_tags(path, drawn=TAGS_DRAWN_ON):
             state["fonts"] = _font_reader(pdf)
         if drawn:
             state["drawn"] = _drawn_reader(pdf)
+            state["at"] = []
         _walk(pdf.Root["/StructTreeRoot"].get("/K"), doc, pages, pending, state=state)
         _flush(doc, pending, state["page"])
+        if drawn:
+            doc.drawn_at = _drawn_at(state["at"], pdf)
     _drawn_align(doc)
     # Only where the labels carry the Arabic. A file with none has its words
     # in the glyphs, and the English read here would make this route look

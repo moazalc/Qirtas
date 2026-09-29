@@ -22,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, TABLE
 from convert.reader import (_label_kind, _join_same_line, _backfill, _glued,
                             _drop_text_inside_tables, _Run, _rough_spans,
-                            _fit_spans, _leans, _mark_slant, ITALIC_FLAG)
+                            _fit_spans, _leans, _mark_slant, ITALIC_FLAG,
+                            _turn_lines)
 
 FAILED = []
 
@@ -156,6 +157,51 @@ def main():
                                     "كأدوات تنبؤية للتشخيص المبكر")
     check("a paragraph the right way round is still put back",
           len(_backfill(chosen, results, None).blocks), 2)
+
+    # FLAGS 32: `z22058810`'s verse, right in the labels, backwards in the
+    # glyphs and cut at every vowel mark - nothing to ask by words. Asked
+    # what the labels draw where it stands.
+    verse = ("رَبِّ أَوْزِعْنِي أَنْ أَشْكُرَ نِعْمَتَكَ الَّتِي أَنْعَمْتَ عَلَيَّ "
+             "وَعَلَىٰ وَالِدَيَّ وَأَنْ أَعْمَلَ صَالِحًا تَرْضَاهُ")
+    glyphs = ("رَب ُهاَضْرَت اًحِلاَص َلَم ْع َأ ْنَأَو َّي َد ِلاَو ٰىَلَع َو َّيَلَع "
+              "َتْم َعْن َأ يِت َّل ا َكَتَمْع ِن َر ُك ْش َأ ْن َأ يِنْع ِزْوَأ ِّ")
+    chosen, results = docs(verse)
+    chosen.drawn_at = {0: [(100.0, 480.0, 327.0, "".join(
+        c for c in verse if "ء" <= c <= "ي"))]}
+    b = results[1][1].blocks[0]
+    b.text, b.y, b.y1, b.x0, b.x1 = glyphs, 303.0, 343.0, 96.0, 484.0
+    check("a copy drawn where the labels' verse is: not added",
+          len(_backfill(chosen, results, None).blocks), 1)
+    b.y, b.y1 = 500.0, 540.0
+    check("the same letters drawn somewhere else: added",
+          len(_backfill(chosen, results, None).blocks), 2)
+
+    print("\na line labelled left to right")
+
+    def run(text, x, y=469.0, size=14.0):
+        r = _Run(text, None)
+        r.marks = [(26, x, x + 30, y, size, "F")]
+        return r
+    # `z22058810` page 27: one label a word, left to right along the line.
+    parts = [run("المالي", 102), " ", run("الاستقرار", 142), " ",
+             run("لتحقيق", 197), " ", run("وظائفها", 300), run("و", 343), " ",
+             run("تطور", 480), " "]
+    check("turned right to left, spaces kept between",
+          "".join(_turn_lines(parts)), "تطور ووظائفها لتحقيق الاستقرار المالي ")
+    parts = [run("تطور", 480), " ", run("نشأة", 440), " ", run("البنوك", 400)]
+    check("a line labelled right to left: left alone",
+          "".join(_turn_lines(parts)), "تطور نشأة البنوك")
+    # `z21145041` page 26: the tanween's alef, a piece of its own, a few
+    # points right of its word - not a line labelled left to right.
+    parts = [run("عشوائي", 484), run("اً", 488), " ", run("قيمة واسم", 246)]
+    check("a tanween's alef a few points over: left alone",
+          "".join(_turn_lines(parts)), "عشوائياً قيمة واسم")
+    # A date in a turned line reads left to right; a bracket takes the line's.
+    parts = [run("١٨-١-", 100), run("٢٠", 120), run("٢٤", 130), " ",
+             run("الزيارة", 200), " ", run(")", 250), run("4", 255), run("(", 260),
+             " ", run("تاريخ", 300)]
+    check("digits keep their order, brackets turn with the line",
+          "".join(_turn_lines(parts)), "تاريخ (4) الزيارة ١٨-١-٢٠٢٤")
 
     print("\na word the PDF cut between two pieces")
     import collections

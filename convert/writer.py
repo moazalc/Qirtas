@@ -1316,6 +1316,9 @@ def _interleave(body, pics, model):
     """
     if not pics:
         return body
+    body, pics = _in_its_words(body, pics)
+    if not pics:
+        return body
     if not body:
         return list(pics)
     top = model.margin_top
@@ -1332,6 +1335,33 @@ def _interleave(body, pics, model):
         frac = min(1.0, max(0.0, (pic.y - top) / span))
         out.insert(int(round(frac * len(body))), pic)
     return out
+
+
+# A picture's description (/Alt) stands in the labels where the picture does,
+# and the picture says it. Written as a line of its own, `z22058810`'s Basmala
+# - a picture above the opening verse - came out a second time under it as
+# "بسم الله الرحمن الرحيم"; left out, the picture went a line too high, above
+# "الآية:" - the labels' text has no place on the page, and the share of the
+# way down is a guess. So each picture takes a description's place on its
+# page, in order, and the description is not written. The page's text never
+# had it: nothing is lost (QIRTAS_ALT_PLACE).
+ALT_PLACE_ON = os.environ.get("QIRTAS_ALT_PLACE", "1") != "0"
+
+
+def _in_its_words(body, pics):
+    """-> (body with pictures in their descriptions' places, pictures left)."""
+    if not ALT_PLACE_ON:
+        return body, pics
+    slots = [i for i, b in enumerate(body) if getattr(b, "from_alt", False)]
+    shown = sorted((p for p in pics if p.kind == IMAGE and p.image),
+                   key=lambda p: p.y)
+    if not slots or not shown:
+        return body, pics
+    body = list(body)
+    for i, pic in zip(slots, shown):
+        body[i] = pic
+    used = {id(p) for p in shown[:len(slots)]}
+    return body, [p for p in pics if id(p) not in used]
 
 
 # Where the text carries its place on the page, a picture or table goes after

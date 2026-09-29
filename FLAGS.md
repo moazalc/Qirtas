@@ -950,7 +950,14 @@ automatic numbers, which renumber but take the reader's setting.
 
 ## 32. A Quran verse on `z22058810` page 2 is written twice, once backwards
 
-**Status: OPEN (Moaz, 2026-09-28 - "put the verse as a flag").** The fill-in
+**Status: CLOSED 2026-09-29.** The backfill now asks what the labels draw
+where the other reading's paragraph stands; the verse's letters are there,
+and the copy is skipped - with it eight backwards lines on these two files.
+The verse's second line was also out of order (labelled left to right), and
+the Basmala picture's description was written under it as text; both fixed.
+No file gained a copy; nothing lost 100%. PLAN "Verses".
+
+**Was: OPEN (Moaz, 2026-09-28 - "put the verse as a flag").** The fill-in
 step (`reader._backfill`) recognises a backwards copy of a paragraph by its
 words (PLAN "Backwards second copies from the backfill"). The verse carries
 a vowel mark on nearly every letter, and the words are cut at the marks into
@@ -963,3 +970,32 @@ Asking without the marks was tried: it let two other paragraphs of
 the first thing a reader sees.
 
 **Closes when:** the verse is written once, and no other file gains a copy.
+
+## 33. Verses set in Quran fonts lose letters, or are not text at all
+
+**Status: OPEN (found 2026-09-29, looking for verse bugs at Moaz's ask).**
+Five of the 37 cut theses set their verses in a Quran font. Two ways it goes
+wrong, both in the PDF itself, not in our reading of it:
+
+- `z18037898` (KFGQPC Uthmanic): some letters are drawn joined into one
+  shape, and the shape is mapped to its first letter only. ٱلۡيَوۡمَ is
+  stored without its ي, ٱلۡحَقِّ without its ح, ٱلَّذِينَ without its ذ.
+  The font's own table agrees and there are no labels with the spelling, so
+  nothing in the file holds these letters. Our Word file shows the verse
+  with them missing.
+- `z18842416` (QCF page fonts): every shape is a whole word and the stored
+  text is private codes (ﱥﱴﱵ...). Such text shows as words only with those
+  exact fonts installed, and cannot be searched or edited as Arabic. Not
+  rendered: the file is in the paused holdout, and was left unconverted.
+
+**Why it matters:** the verses are the text a reader checks first, and here
+they are wrong in a way no score sees - the checker reads the same stored
+text.
+
+**Needs a decision:** the one sure repair is to match each verse against the
+Quran's own text and write that - which means shipping the Quran text with the
+converter (about 1.5 MB, freely available) and a matcher. Or leave it and say
+so to the user. Moaz's call.
+
+**Closes when:** decided; if repairing, the verses on these five theses read
+letter for letter as the Quran has them.

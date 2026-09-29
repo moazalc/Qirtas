@@ -12,7 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from convert.order import MIRROR, _fix_text, _indices, _turned, order, units
+from convert.order import (MIRROR, _by_pieces, _fix_text, _indices, _turned,
+                           order, units)
 
 FAILED = []
 
@@ -191,6 +192,31 @@ def main():
     check("a dash parts two numbers", read(ln), "٣-٢")
     ln = [("٣", 500, 507), ("١", 507, 514), ("٠", 515, 522)]
     check("stored as drawn: left alone", order(ln), None)
+
+    print("\nthe brackets round a verse")
+    # z18037898: "﴿ :أكل ... قال تعالى" stored, the bracket and colon drawn
+    # on the left of تعالى, the verse's first word further left.
+    ln = [("﴿", 300, 304), (":", 305, 307)] + line(("أكل قال تعالى", None)) \
+        + [(" ", 290, 296)] + line(("ٱليوم", None), start=290)
+    check("an opening bracket stored first goes before the verse",
+          read(ln), "أكل قال تعالى:﴿ ٱليوم")
+    ln = [("﴾", 300, 304)] + line(("رحيم غفور", None))
+    check("a closing bracket stored first goes after the last word",
+          read(ln), "رحيم غفور﴾")
+    ln = line(("تعالى", None)) + [(":", 372, 374), ("‌", 372, 372),
+                                  ("﴿", 367, 371)] + line(("وأما", None), start=366)
+    check("in place past a zero-width joiner: left alone",
+          read(ln), "تعالى:‌﴿وأما")
+    # z21850164: the labels cut the note number 96 off the verse's line, and
+    # read the verse alone; read whole, the line has a number in it.
+    ln = [("﴾", 300, 304)] + line(("رحيم غفور", None)) \
+        + [("9", 290, 294), ("6", 294, 298)]
+    seq = _by_pieces(ln, [10, 2])
+    us = units([c for c, _, _ in ln])
+    check("a line the labels cut in two, read piece by piece",
+          seq and "".join(ln[i][0] for i in _indices(us, seq)), "رحيم غفور﴾96")
+    check("... not where the pieces do not cover it", _by_pieces(ln, [5, 2]),
+          None)
 
     print("\nvowel marks")
     # ،ًمبكرا: the tanween stored after the comma is the word's

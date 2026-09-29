@@ -3501,6 +3501,103 @@ written again below it (note references inside them, cells read
 differently). `z22058810` page 2: the verse is no longer a table - but the
 backfill's backwards copy of it is still written under it (FLAGS 32).
 
+### Verses: the order of labelled lines, the backwards copy, the brackets, 2026-09-29
+
+Moaz: tables parked, "fix the flag 32 first... make sure to find any bugs
+relating to verses since its the most important"; he had seen a verse's last
+word or letters outside its bracket. Looking at `z22058810` page 2 found
+three faults, not one, and a look across the theses two more.
+
+*Lines labelled left to right* (`reader._turn_lines`,
+`QIRTAS_TAGS_LINE_TURN`). Word labels most Arabic lines in reading order,
+but some in the order they are drawn, left to right: the verse's second line
+came as "كَ فِي عِبَادِكَ الصَّالِحِينَ" then "وَأَدْخِلْنِي بِرَحْمَتِ" -
+برحمتك cut and its end set after the line - and page 27's header word for
+word backwards. Each label's letters are now placed on the page (the marks
+`_page_marks` reads for every numbered piece, split out of `_drawn_reader`),
+and a row of pieces on one baseline whose Arabic pieces step rightwards more
+often than leftwards is turned. By where each piece *starts*: the width read
+for a run of marked letters runs long (the verse's first line ends at x=1115
+on a 595pt page). A step counts at half the letters' size - a tanween's alef
+is a piece of its own a few points right of its word (عشوائي, اً), and
+counted, a right line turned and split it. Spaces keep their places between
+pieces; a run of English or *digits* keeps its own order - counted as Arabic,
+"٢٠٢٤." turned into ".٠٢٤٢"; a bracket on its own turns with the line -
+stuck to its number it read "4()". Fixed on `z22058810`: the verse, headings
+on pages 27, 100 and 123, four sentences whose last words had jumped to their
+start, four notes' "(4)" and "(1)". On `z21145041` one formula (a Word
+equation, left to right) now has its words in order but its unit brackets
+facing the other way; left.
+
+*The backwards copy* (FLAGS 32; `reader._drawn_there`,
+`QIRTAS_BACKFILL_PLACE`). The labels' pieces are also recorded with where
+they are drawn (`doc.drawn_at`: page -> x, baseline from the top, letters).
+Before the backfill adds another reading's paragraph it asks what the labels
+draw inside that paragraph's box: 90% of its letters there, and it is a
+second reading of text we have - skipped, its English and numbers put back
+as for a backwards paragraph. Letters alone, asked of the whole page, cannot
+decide it: a paragraph from another page shares a median 85% of a page's
+letters, up to 95% (the verse copy: 95%); neighbouring letter pairs either
+way round, 0.68 for the verse against up to 0.85 by chance. The place settles
+it, and a line the labels miss has nothing drawn in its place to match:
+`z22058810` pages 163 and 165 begin with a line the labels lack, and it is
+still put back. Stripping vowel marks before asking by words was tried again:
+the verse still added, two paragraphs more; reverted. Gone from `z22058810`:
+the verse copy and eight backwards lines (pages 21, 42, 49, 123, 133, 143,
+168; `z21145041` page 17).
+
+*A picture's description* (`writer._in_its_words`, `QIRTAS_ALT_PLACE`). The
+tags route reads a /Figure's /Alt as text, and the Basmala picture above the
+verse was written again under it, "بسم الله الرحمن الرحيم" - with it
+"D:\download.png" on the title page and "---" twice on `z21145041`. Dropped
+in the reader, the Basmala went above "الآية:": the labels' text has no place
+on the page and a picture goes at its share of the way down, a guess the
+description's line had been steadying. Now each picture on a page takes a
+description's place, in order, and the description is not written.
+
+*The brackets round a verse* (`order.VERSE`, `QIRTAS_VERSE_BRACKETS`) - the
+fault Moaz saw. ﴿ and ﴾ sit among the display shapes (U+FD3E, U+FD3F), and
+`order.ARABIC` took them for letters, so they stayed where Word stores them:
+`z18037898` stores "﴿ :أكل ذبائحهم ... قال"; the colon was put back after
+تعالى, the bracket was not, and the verse opened a line early. They are now
+marks, each going after the word drawn on its right, as a colon does. The
+zero-width non-joiner `z21850164` puts after every word now counts as between
+a word and its mark ("تعالى:‌﴿" had read the bracket as kept from its word).
+Lines with a bracket: `z18037898` 27 of 55 changed, `z18048055` 45 of 75,
+`z21850164` 5 of 13, `z5227331` 2 of 3, `z21728839` 1 of 4; Moaz's chapters
+none. About 40 of the 80 read before and after: each puts a bracket or a
+colon where the page has it.
+
+*The gate caught one* (`order._by_pieces`, `_Whole.cuts`,
+`QIRTAS_PIECE_ORDER`). Full run `verses1`: `z21850164` 98.9%. Word labels a
+note number apart from its line, so the labels reading sees "…رِضْوَانَه" and
+"96" as two lines, and put the verse's bracket right; the checker reads one
+line with a number in it, which is only reordered where both readings see it
+whole (`_Whole.keeps`), and kept the stored "ا﴾ُللهََّ … رِضْوَانَه96". The
+bracket as a letter had hidden this: neither side moved it. Such a line is now
+read piece by piece, each piece as the labels cut it. That reaches beyond
+verses: about 170 lines in 17 theses, nearly all a comma, colon or full stop
+moving from a line's start to after its word before a number (،فضيل2022 ->
+فضيل،2022) - as the labels reading already had them.
+
+Full runs `2026-09-29-{thesis,regression}-verses2` against `tables3` (`verses3`,
+with the picture placed in its description's slot, reads the same):
+nothing lost 100.0% (worst file 100.0%); words in order 94.0 -> 94.4%;
+right page 71.3 -> 71.2%; page truth wrong 6.9% unchanged. Right page falls
+on `z22058810` alone (53.3 -> 49.4%): it reads that file's backwards hidden
+text, which the removed backwards copies matched, as in "Backwards second
+copies". Regression set unchanged.
+
+*Found, not fixed - the verses' own letters.* `z18037898` sets its verses in
+KFGQPC Uthmanic, which draws some letters joined into one shape and maps the
+shape to its first letter only: ٱلۡيَوۡمَ is stored without its ي, ٱلۡحَقِّ
+without its ح, ٱلَّذِينَ without its ذ. The font's own table agrees; there
+are no labels with the spelling. Nothing in the PDF holds these letters.
+`z18842416` sets its verses in QCF page fonts, where each shape is a whole
+word and the stored text is private codes (ﱥﱴﱵ...); in Word they read only
+where those fonts are installed. Five of the 37 cut theses use a Quran font.
+FLAGS 33.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
