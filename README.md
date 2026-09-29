@@ -41,8 +41,11 @@ A scan is refused with a plain message. Before converting, it names the
 fonts the PDF uses that this computer lacks and where to get each, and waits
 while they are installed (Enter checks again, `go` carries on without them);
 a missing bold or italic whose regular face is installed is only mentioned -
-Word imitates it. `python -m convert.fonts some.pdf` gives the font list
-alone. Then it converts with Word checking which pages ran over
+Word imitates it. A missing font whose text will come out wrong - the PDF
+names the wrong letters for its shapes, and only the font can put them right
+- is named first, with how its text reads and on which pages, and said again
+after converting (FLAGS 23; Windows' OCR reads the pages it is used on).
+`python -m convert.fonts some.pdf` gives the font list alone. Then it converts with Word checking which pages ran over
 (`convert/fit.py`), the same path every score is measured on.
 
 ## setup

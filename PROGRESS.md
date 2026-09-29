@@ -774,3 +774,27 @@ Moaz's call: do the repair. Pushed the verse work first.
   would repair only 8 more words, so I left it out.
 - **Next:** the missing-font warning (it covers the most visible text fault
   left), unless Moaz prefers tables or looks.
+
+### 29 Sept — warning when a missing font makes the text come out wrong
+
+- Pushed the text-list findings.
+- **What it does now.** Before converting, the converter already listed the
+  fonts this computer lacks. Now it also checks, for each missing Arabic
+  font, whether its text will actually come out wrong: Windows' own
+  text-reading (OCR) looks at the pages where the font is used and compares
+  what it sees with what the PDF stores. Where they disagree, the font is
+  named first: "The text set in these fonts will come out WRONG", with a
+  sample of how it reads and on which pages, and "install them and convert
+  again". The same note is repeated after converting, where it is seen.
+  Fonts that are missing but read fine are only listed, as before.
+- **Checked on the test files:** it flags 8 fonts on 5 files - every one I
+  looked at really is gibberish (the two title pages from before, and three
+  more) - and none that reads right. Decorative fonts the OCR cannot read
+  (a calligraphic Basmala) are not flagged: their words are checked against
+  the rest of the document and the Quran text too.
+- **Not caught:** a font with fewer than 10 words (one Quran font), and
+  nothing is judged on a computer without Windows' Arabic OCR - there it
+  falls back to the plain list. The line between wrong and fine is narrow
+  on two fonts (50% against 57% of words readable).
+- **Next:** Moaz's call - tables (parked), looks (Part 3), or the Quran
+  leftovers.

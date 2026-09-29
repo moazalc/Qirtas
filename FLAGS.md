@@ -708,12 +708,17 @@ marks as blanks in our rebuilt PDFs - so the checker repairs both sides.
 
 **Decided 2026-09-22 (Moaz): warn.** When a file uses a font that is not
 installed, tell the user which font, and to install it and convert again.
-Not built yet (TASKS). The hard part is knowing WHEN to warn: without the
+**Built 2026-09-29** (`fonts.judge`, PLAN "Which missing fonts read
+wrong"): Windows' OCR reads the pages a missing font is used on; where its
+words do not read right, it is named first, with how its text reads, and
+again after converting. Flags 8 fonts on 5 files, every one looked at and
+broken; none that reads right. Not judged: a font with under 10 words
+(`z15446639`'s Al Qalam Quran), and any where Windows' OCR is missing. The hard part is knowing WHEN to warn: without the
 font there is nothing to compare the table against, so a missing font alone
 is not a fault - most files with one read fine.
 
-**Closes when:** that warning is built, and something other than Word's
-reading checks the repair.
+**Closes when:** something other than Word's reading checks the repair
+(the warning is built).
 
 ## 24. Four small files score under 100%, and none of them loses a word
 

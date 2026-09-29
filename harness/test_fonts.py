@@ -93,6 +93,34 @@ def main():
     check("asked twice: Enter, then go", len(asked), 2)
     check("looked again after Enter", [x for x in looked if x == "rescan"], ["rescan"])
 
+    print("\nwhat is said when a missing font's text reads wrong (FLAGS 23)")
+    bad = fonts.Missing("PT Bold Heading", "", 411, True, False, fonts.ELSEWHERE,
+                        wrong=True, samples=["إطبر", "حمبسب"], pages=[1, 3])
+    fine = fonts.Missing("Manal", "Bold", 134, True, False, fonts.ELSEWHERE,
+                         wrong=False)
+    said = fonts.message([bad, fine])
+    check("... says WRONG, names it first", said.index("WRONG") < said.index("PT Bold"), True)
+    check("... shows how it reads, and where", "(pages 1 and 3): إطبر حمبسب" in said, True)
+    check("... says to install and convert again", "convert again" in said, True)
+    check("... and the one that reads right is only listed",
+          said.index("Manal") > said.index("also uses fonts"), True)
+    check("not told: the plain list, as before",
+          "WRONG" in fonts.message([fonts.Missing("X", "", 50, True, False, "")]), False)
+    check("pages: one", fonts._pages([1]), " (page 1)")
+
+    # Two title pages the theses hold (small cuts; the OCR is Windows').
+    cuts = Path("corpus/theses/cuts")
+    if (cuts / "z18441713.pdf").exists():
+        found = fonts.judge(cuts / "z18441713.pdf", fonts.missing(cuts / "z18441713.pdf"))
+        pt = [m for m in found if m.name == "PT Bold Heading"]
+        if pt and pt[0].wrong is not None:
+            check("z18441713: PT Bold Heading reads wrong (اطبر محبسب)", pt[0].wrong, True)
+            found = fonts.judge(cuts / "z22855164.pdf", fonts.missing(cuts / "z22855164.pdf"))
+            check("z22855164: its PT Bold Heading and Manal read right",
+                  [m.wrong for m in found if m.arabic], [False, False])
+        else:
+            print("  (skipped: Windows' OCR did not read the page)")
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

@@ -25,26 +25,30 @@ ANYWAY = {"go", "g", "skip", "s", "no", "n"}
 
 def _ask_fonts(pdf, wait):
     """Tell the person which fonts are missing; wait while they install them.
-    Returns when every font is there, or they chose to go on without."""
+    Returns when every font is there, or they chose to go on without: the
+    fonts still missing."""
     while True:
         found = fonts.missing(pdf)
         if not found:
-            return
+            return []
+        # Which of them will come out as wrong text (FLAGS 23): Windows' OCR
+        # reads the pages they are used on.
+        fonts.judge(pdf, found)
         print(fonts.message(found))
         # Only a style missing (Word imitates a bold) is not worth stopping for.
         if not wait or all(m.only_style for m in found):
             print("\nConverting without them.\n")
-            return
+            return found
         print()
         try:
             answer = input("Install them now and press Enter to check again - "
                            "or type 'go' to convert without them: ").strip().lower()
         except EOFError:        # nobody there to answer (Windows' NUL looks like a console)
             print("\nConverting without them.\n")
-            return
+            return found
         if answer in ANYWAY:
             print()
-            return
+            return found
         # They may have installed some: forget what was installed and look again.
         fonts.rescan()
 
@@ -68,7 +72,7 @@ def main(argv=None):
     except Refused as e:
         sys.exit(str(e))
 
-    _ask_fonts(pdf, wait=not a.no_wait and sys.stdin.isatty())
+    left = _ask_fonts(pdf, wait=not a.no_wait and sys.stdin.isatty())
 
     print(f"Converting {pdf.name} - Word checks the pages as it goes, which takes "
           f"a minute or two for a long file ...")
@@ -88,6 +92,13 @@ def main(argv=None):
         shutil.rmtree(p, ignore_errors=True) if p == media / docx.stem else \
             (p.rmdir() if p.exists() and not any(p.iterdir()) else None)
     print(f"Done: {docx}")
+    # Said again at the end, where it is read: the text in these came out
+    # wrong in the Word file just made.
+    for m in left:
+        if m.wrong:
+            print(f"Note: the text in {m.name}{' ' + m.style if m.style else ''}"
+                  f"{fonts._pages(m.pages)} came out wrong. Install that font "
+                  f"and convert again.")
 
 
 if __name__ == "__main__":

@@ -3685,7 +3685,8 @@ ours hold them. **Glued words are gone on the theses** (6; the old file was
 - two title pages in display fonts not installed here, whose tables name
   the wrong letters: `z18047321` (Sultan, Hacen Tunisia: جامعةةةةةة,
   الدكتوز, غصة) and `z18441713` (PT Bold Heading: اطبر محبسب ... راش المبل).
-  FLAGS 23's open half; Moaz decided 22 Sept to warn (Part 2, not built).
+  FLAGS 23's open half; Moaz decided 22 Sept to warn - built the same day,
+  next section but one.
 - words the PDF itself stores cut by a space the page does not draw (اخت
   بار, الا نطلاق, مخر جات) - on both sides, so the gate is fine; the page
   shows one word. A third test for `join_map` was tried: a space whose letters
@@ -3697,6 +3698,43 @@ ours hold them. **Glued words are gone on the theses** (6; the old file was
   already join nearly all, or the rule that every copy of a word must carry
   the evidence holds them back: 8 new words on 5 files. Reverted; not worth
   a change to the step both sides share.
+
+### Which missing fonts read wrong: the warning, 2026-09-29
+
+FLAGS 23's open half, Moaz's call (22 Sept): warn where a font that is not
+installed makes the text come out wrong - not for every missing font, most
+read fine. Without the font nothing in the file says which letters its shapes
+are, so the page is asked. `fonts.judge`: Windows' OCR (`witness._ocr`) reads
+the two pages each missing Arabic font is used on most; each of its words,
+after the repairs every text gets (lam-alef, the map, spelling), counts as
+right where the OCR reads it within its box, or the document has it in an
+installed font, or the Quran text has it. Under 55% right, with 10 words or
+more, it reads wrong.
+
+Measured first on the 36 theses and the old corpus's files under 30 pages,
+every missing font with Arabic words:
+
+    read wrong, looked at    0.00-0.50   Sultan (both), Hacen Tunisia, PT Bold
+                                         Heading (z18441713, z18896740),
+                                         Thick Naskh, Generator Black, Times
+                                         Bold (z21290721: حذز2)
+    read right               0.57-1.00   most 0.8 and up
+
+OCR alone was not enough: it cannot read calligraphy (a Thuluth Basmala,
+0.08, its words right) - hence the document's and the Quran's words. And
+the stored words must be compared after the repairs: "حممد" for محمد read as
+wrong in every font until they were. The margin is narrow: Hacen Tunisia on
+`z18047321` 0.50, Cadillac Sans Arabic on `z19740548` 0.57 (its words right,
+the OCR misses them).
+
+What is said (`python -m convert`, `python -m convert.fonts`): the fonts
+that read wrong first, "will come out WRONG", with their first words as the
+Word file will have them and the pages; then the others as before; and after
+converting, a note naming them again. Flags 8 fonts on 5 files, no font
+that reads right. Not judged: under 10 words (`z15446639`'s Al Qalam Quran,
+whose letters are not stored) and where the OCR is missing - then the plain
+list, as before. Tests: `harness.test_fonts` (the message; `z18441713`
+wrong, `z22855164` right).
 
 ## Known unfinished
 

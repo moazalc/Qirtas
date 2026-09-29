@@ -21,7 +21,9 @@ missing.
 import collections
 import re
 import sys
-from dataclasses import dataclass
+import hashlib
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -77,6 +79,14 @@ class Missing:
     arabic: bool       # mostly Arabic letters
     only_style: bool   # the family is installed, this style is not
     where: str
+    # The PDF's own names for it (ABCDEE+PTBoldHeading ...).
+    names: tuple = ()
+    # Set by `judge`: True when the text in it reads wrong - the PDF names
+    # the wrong letters and only the font can put them right; False when it
+    # reads right; None when it could not be told.
+    wrong: object = None
+    samples: list = field(default_factory=list)   # words as they come out
+    pages: list = field(default_factory=list)     # 1-based, where it is used
 
     def line(self):
         what = f"{self.name}{' ' + self.style if self.style else ''}"
@@ -180,34 +190,157 @@ def missing(pdf_path):
         base = STYLE.sub("", name)
         only_style = bool(style) and _installed(base, windows)
         key = (family, style)
-        n0, ar0 = seen.get(key, (0, 0, False))[:2]
-        seen[key] = (n0 + n, ar0 + ar, only_style)
+        n0, ar0, _, names = seen.get(key, (0, 0, False, ()))
+        seen[key] = (n0 + n, ar0 + ar, only_style, names + (font,))
     out = []
-    for (family, style), (n, ar, only_style) in seen.items():
+    for (family, style), (n, ar, only_style, names) in seen.items():
         if n < MIN_CHARS:
             continue
         k = glyphs._key(family.replace(" ", ""))
         where = WHERE.get(k) or next(
             (v for p, v in WHERE_PREFIX.items()
              if k.startswith(p) and (p != "ae" or family.startswith("ae "))), ELSEWHERE)
-        out.append(Missing(family, style, n, ar >= n / 2, only_style, where))
+        out.append(Missing(family, style, n, ar >= n / 2, only_style, where,
+                           names))
     # What costs most first: a whole missing face before a missing style.
     out.sort(key=lambda m: (m.only_style, -m.chars))
     return out
+
+
+# Does a missing font's text read right? (FLAGS 23, Moaz 2026-09-22: warn
+# only where the text looks wrong.) Without the font nothing in the file says
+# which letters its shapes are, so the page is asked: Windows' OCR reads the
+# pages where the font is used most, and each of its words (after the
+# repairs every text gets) counts as right where the OCR reads it there, or
+# the document has it in a font that is installed, or the Quran has it - a
+# calligraphic font the OCR cannot read (the Thuluth of a Basmala) is still
+# right. On the 36 theses and the old corpus's files under 30 pages
+# (2026-09-29), fonts looked at and found broken read 0.00-0.50 right
+# (Sultan, Hacen Tunisia, PT Bold Heading, Thick Naskh, Generator Black);
+# fonts that read right 0.57 and up, most 0.8 and up. The narrow side: the
+# 0.50 is Hacen Tunisia on z18047321, the 0.57 Cadillac Sans Arabic on
+# z19740548, whose words are right and the OCR misses.
+RIGHT = 0.55
+MIN_WORDS = 10
+OCR_PAGES = 2
+_LETTERS = re.compile("[\u0621-\u064A]")
+
+
+def judge(pdf_path, found):
+    """Set `wrong`, `samples` and `pages` on each missing Arabic font.
+    Leaves `wrong` None where Windows' OCR is not there or reads nothing."""
+    todo = [m for m in found if m.arabic and not m.only_style]
+    if not todo:
+        return found
+    from convert.arabic import repair_lam_alef
+    from convert.glyphs import repaired, spell_out
+    from convert.pdftext import apply_fixes, fix_map
+    from convert.quran import _quran
+    from convert.witness import _norm, _ocr
+    path = repaired(str(pdf_path))
+    try:
+        fixes = fix_map(path)
+    except Exception:
+        fixes = {}
+    windows = _windows()
+
+    def reads(text):
+        """As the Word file will have it: the repairs every text gets."""
+        return spell_out(apply_fixes(repair_lam_alef(" " + text + " "), fixes))
+
+    def words(text):
+        return [w for w in (_norm(x) for x in reads(text).split())
+                if len(_LETTERS.findall(w)) >= 3]
+
+    # font -> [(page, box, its words for comparing, its words as they read)]
+    spans = collections.defaultdict(list)
+    elsewhere = collections.Counter()
+    with pymupdf.open(path) as doc:
+        for page in doc:
+            for block in page.get_text("dict")["blocks"]:
+                for line in block.get("lines", []):
+                    for span in line["spans"]:
+                        ws = words(span["text"])
+                        if not ws:
+                            continue
+                        if _installed(_bare(span["font"]), windows):
+                            elsewhere.update(ws)
+                        else:
+                            spans[span["font"]].append(
+                                (page.number, pymupdf.Rect(span["bbox"]), ws,
+                                 reads(span["text"]).split()))
+        with open(str(pdf_path), "rb") as f:
+            key = hashlib.sha1(f.read()).hexdigest()[:16]
+        work = Path(tempfile.gettempdir()) / "qirtas-fontcheck" / key
+        quran = {_norm(w) for w in _quran()[0]}
+        for m in todo:
+            mine = [s for n in m.names for s in spans.get(n, ())]
+            count = collections.Counter()
+            for p, _, ws, _ in mine:
+                count[p] += len(ws)
+            m.pages = sorted(p + 1 for p in count)
+            if sum(count.values()) < MIN_WORDS:
+                continue
+            pages = [p for p, _ in count.most_common(OCR_PAGES)]
+            try:
+                seen = _ocr(doc, pages, work)
+            except Exception:
+                seen = {}
+            if not any(seen.get(p) for p in pages):
+                continue
+            right = total = 0
+            for p, rect, ws, shown in mine:
+                if p not in seen:
+                    continue
+                near = {w for w, r in seen[p] if r.intersects(rect + (-2, -2, 2, 2))}
+                for w in ws:
+                    total += 1
+                    right += w in near or w in elsewhere or w in quran
+                if len(m.samples) < 6:
+                    m.samples += shown[:6 - len(m.samples)]
+            if total >= MIN_WORDS:
+                m.wrong = right / total < RIGHT
+    return found
 
 
 def message(found):
     """What to tell the person, in plain words. "" when nothing is missing."""
     if not found:
         return ""
-    lines = ["This PDF uses fonts that are not installed on this computer:", ""]
-    lines += [f"  - {m.line()}" for m in found]
-    lines += ["",
-              "The conversion works without them - Word puts another font in "
-              "their place - but that font is wider or narrower, so lines "
-              "break in other places and pages can run over. With the fonts "
-              "installed, the Word file comes out closer to the PDF."]
+    broken = [m for m in found if m.wrong]
+    rest = [m for m in found if not m.wrong]
+    lines = []
+    if broken:
+        lines += ["The text set in these fonts will come out WRONG in the Word "
+                  "file - the PDF does not say which letters their shapes are, "
+                  "and only the font itself can:", ""]
+        for m in broken:
+            lines.append(f"  - {m.line()}")
+            lines.append(f"    It reads like this{_pages(m.pages)}: "
+                         f"{' '.join(m.samples)}")
+        lines += ["", "Install them and convert again to get that text right.", ""]
+    if rest:
+        lines += ["This PDF also uses fonts that are not installed on this computer:"
+                  if broken else
+                  "This PDF uses fonts that are not installed on this computer:", ""]
+        lines += [f"  - {m.line()}" for m in rest]
+        lines += ["",
+                  "The conversion works without them - Word puts another font in "
+                  "their place - but that font is wider or narrower, so lines "
+                  "break in other places and pages can run over. With the fonts "
+                  "installed, the Word file comes out closer to the PDF."]
     return "\n".join(lines)
+
+
+def _pages(pages):
+    """Where a font's text is: " (page 1)", " (pages 1, 3 and 4)"."""
+    if not pages:
+        return ""
+    if len(pages) == 1:
+        return f" (page {pages[0]})"
+    shown = [str(p) for p in pages[:6]]
+    more = " ..." if len(pages) > 6 else ""
+    return f" (pages {', '.join(shown[:-1])} and {shown[-1]}{more})"
 
 
 def rescan():
@@ -221,4 +354,4 @@ def rescan():
 if __name__ == "__main__":
     for p in sys.argv[1:]:
         print(p)
-        print(message(missing(p)) or "  every font it uses is installed")
+        print(message(judge(p, missing(p))) or "  every font it uses is installed")
