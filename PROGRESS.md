@@ -839,3 +839,29 @@ Moaz's call: do the repair. Pushed the verse work first.
 - **Next:** fix that blind spot in the "nothing lost" check before more
   changes, then Moaz's call - tables (parked), the Quran leftovers, or the
   numbers warning.
+
+### 30 Sept — the "nothing lost" check now sees short text
+
+- Pushed the looks leftovers.
+- **The blind spot, fixed.** The check only looked at sentences of 40+
+  characters, so reference lists, title pages and contents lines were
+  never checked. Now short pieces are checked too, joined into stretches.
+  Tested on purpose: taking 7 reference entries (100 words) out of a thesis
+  now shows as a loss (99.4%); before, it said 100%.
+- **It found a real loss straight away:** one thesis's title page
+  (`z21145041`) was missing the student's name, "under the supervision
+  of", the academic year and the degree line. Our converter reads each
+  file several ways and fills gaps from the others, but the gap-filling
+  also ignored short text. Fixed: the title page is back.
+- **Also found and fixed:** one word misspelled when the PDF stores it in
+  two pieces (الانحلال came out الانحالل).
+- **Things it cannot see, still:** numbers inside short text (note numbers
+  make them unreliable), and text the PDF's hidden text does not contain
+  at all. My first version of the title-page fix dropped a Quran verse
+  from another thesis, and the check could not see that either - the
+  verse is only in the PDF's labels. I caught it by comparing the Word
+  files word by word, which I now do for every change that can drop text.
+- **Scores:** nothing lost 100% on every file under the stricter check;
+  everything else the same or slightly better.
+- **Next:** Moaz's call - tables (parked), the Quran leftovers, or the
+  numbers warning.

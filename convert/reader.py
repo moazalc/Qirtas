@@ -98,6 +98,13 @@ TURN_WORD = re.compile("[\u0621-\u064A]{4,}")
 LATIN_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]+")
 TURNED_AT = 0.8     # share of a block's words already there, either way round
 LOOSE_ON = os.environ.get("QIRTAS_BACKFILL_LOOSE", "1") != "0"
+# Blocks with no sentence long enough to compare (FLAGS 34): asked by their
+# words of 3+ letters, put back when this share of them is missing.
+SHORT_BACKFILL_ON = os.environ.get("QIRTAS_BACKFILL_SHORT", "1") != "0"
+SHORT_WORD = re.compile(r"[ء-يA-Za-z]{3,}")
+SHORT_MISSING = 0.6
+NOT_LETTER = re.compile(r"[^ء-يA-Za-z]+")
+ALEF_LAM = re.compile("[اآأإٱل]")
 
 
 def _present(sent, have):
@@ -256,9 +263,30 @@ def _backfill(chosen, results, path, fix=None):
             known(w[:k]) and known(w[k:]) for k in range(4, len(w) - 3)))
     added = False
     at = getattr(chosen, "drawn_at", None)
+    letter_words = set(SHORT_WORD.findall(MARKS.sub("", every)))
+    later = []
     for _, other in results:
         if other is chosen:
             continue
+        # Short text on many pages is a running header or footer, which the
+        # tags route leaves out as page furniture: not put back.
+        pages_of = collections.defaultdict(set)
+        for b in other.blocks:
+            pages_of[_bare(b.text)].add(b.page)
+        # And not from a page this reading has backwards against the chosen
+        # one: its short pieces are cut backwards words (صخل for ملخص) that
+        # match nothing either way round, and were written a second time -
+        # 22 on `z21145041`, 10 on `z22058810`. Their title pages read the
+        # same way in every reading.
+        page_words = collections.defaultdict(list)
+        for b in other.blocks:
+            page_words[b.page] += TURN_WORD.findall(MARKS.sub("", b.text))
+        backwards = set()
+        for pg, ws in page_words.items():
+            straight = sum(1 for w in ws if w in words)
+            turned = sum(1 for w in ws if w[::-1] in words and w not in words)
+            if turned >= 2 and turned > 0.1 * straight:
+                backwards.add(pg)
         for b in other.blocks:
             # A picture's description is not text the page printed. Backfilled,
             # Word's "A green circle with white letters AI-generated content
@@ -269,6 +297,23 @@ def _backfill(chosen, results, path, fix=None):
             text = fix(b.text)
             sents = _sentences(text)
             if not sents:
+                # A block of short pieces - a title page's lines, one to a
+                # block: `z21145041`'s student and supervisor were in the
+                # labels reading and not the chosen one, and nothing asked,
+                # having no sentence of 40 letters (FLAGS 34). Put back
+                # where most of its words are nowhere in the chosen reading,
+                # either way round.
+                ws = SHORT_WORD.findall(MARKS.sub("", text))
+                # Not asked by its letters in any order: a backwards word has
+                # its forward one's letters, and `z21145041`'s "للعام الدراسي"
+                # matched a backwards copy that is not written.
+                # Asked once every longer block is back: taken first, a short
+                # line matched part of a block that also held a verse, and
+                # the verse was not put back (`z18441713`).
+                if SHORT_BACKFILL_ON and ws and not b.from_alt \
+                        and b.page not in backwards \
+                        and len(pages_of[_bare(b.text)]) < 3:
+                    later.append((text, b.page, ws))
                 continue
             # A reading that stores lines backwards (يمازلإلا for الإلزامي)
             # has them the other way round from the chosen one, often only
@@ -309,9 +354,27 @@ def _backfill(chosen, results, path, fix=None):
                 continue
             chosen.add(Block(kind=PARAGRAPH, text=text, page=b.page))
             have += _bare(text)
+            letter_words |= set(SHORT_WORD.findall(MARKS.sub("", text)))
             words |= set(TURN_WORD.findall(text))
             same |= {"".join(sorted(w)) for w in TURN_WORD.findall(text)}
             latin |= set(LATIN_WORD.findall(text))
+            added = True
+    # A reading that lost its spaces ("تسجيلالرواياتصوتيا", the regression
+    # chapter) has no word the chosen one has, and its short blocks were
+    # written again: asked first whether its letters, in order, are there.
+    def letters_of(t):
+        # Without alef and lam: that reading also turns لا inside its run
+        # (وجمعوالاحروف for وجمعوا الحروف) and writes الاحرف for الأحرف.
+        # A line's other letters, in order, are still its own.
+        return ALEF_LAM.sub("", NOT_LETTER.sub("", MARKS.sub("", t)))
+    have_letters = letters_of(" ".join(b.text for b in chosen.blocks))
+    for text, page, ws in later:
+        if letters_of(text) in have_letters:
+            continue
+        if sum(1 for w in ws if w not in letter_words and w[::-1] not in letter_words) \
+                >= SHORT_MISSING * len(ws):
+            chosen.add(Block(kind=PARAGRAPH, text=text, page=page))
+            letter_words |= set(ws)
             added = True
     if added:
         chosen.blocks.sort(key=lambda b: b.page)

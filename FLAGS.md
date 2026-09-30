@@ -1022,7 +1022,23 @@ Moaz calls them good enough.
 
 ## 34. The gate cannot see a reference list's entries go
 
-**Status: OPEN (raised 2026-09-30).** A change under test (PLAN "Part 3
+**Status: CLOSED 2026-09-30 (same day, Moaz: "fix the gate blind spot").**
+Short pieces are now checked, taken together in stretches of 40 letters and
+asked by their words' letters (PLAN "The gate checks text in short
+pieces"). It found a real loss at once - `z21145041`'s title page, the
+student's name and the degree line - now put back. The 100 words of
+`z18037898`'s references, taken out on purpose: 99.4% (100% before).
+**Still not checked:** numbers inside short text (note numbers make them
+unreliable), and a dropped word whose letters stand together anywhere else
+in ours - a common word, or a name used again (a stretch is present word by
+word, not as a whole, the same leniency sentences have). And - FLAGS 25 -
+text the PDF's stored text lacks altogether: a verse only in the labels
+(`z18441713`) can be dropped with the gate at 100%, found that way on
+2026-09-30. Comparing the Word files' words with a change on and off
+catches it; do that for any change that can drop text. Kept below as it
+was found.
+
+A change under test (PLAN "Part 3
 leftovers", the table-caption match) dropped 93 words of `z18037898`'s
 reference list - seven whole entries - and nothing lost still read 100.0%.
 Found only by comparing the Word files' words with the change on and off.

@@ -361,6 +361,33 @@ def _compile(fixes):
     return out
 
 
+# A word the reading put back together from two pieces the map knows: the
+# PDF stores `z20305872`'s الانحلال as "اال" and "نحالل", each in the map,
+# and joined they were a word no fix is keyed on - "الانحالل" came out, and
+# the gate's reference, reading the pieces apart, had it right. Only where
+# both halves are the map's own (a fragment, or what it becomes), the second
+# of 4+ letters: a real word is not split on a guess.
+JOINED_FIX_ON = os.environ.get("QIRTAS_JOINED_FIX", "1") != "0"
+
+
+def _joined_fixes(text, fixes):
+    plain = {k: v for k, v in fixes.items() if " " not in k and " " not in v}
+    if not plain:
+        return text
+    known = set(plain) | set(plain.values())
+
+    def fix(m):
+        w = m.group(0)
+        if w in plain:
+            return w
+        for k in range(1, len(w) - 3):
+            a, b = w[:k], w[k:]
+            if b in plain and a in known:
+                return plain.get(a, a) + plain[b]
+        return w
+    return re.sub(r"[ء-ي]{5,}", fix, text)
+
+
 def apply_fixes(text, fixes):
     """Apply a fix map to text, longest fragment first.
 
@@ -377,6 +404,8 @@ def apply_fixes(text, fixes):
     for first, pat, after in _compile(fixes):
         if first in text:
             text = pat.sub(lambda _, a=after: a, text)
+    if JOINED_FIX_ON:
+        text = _joined_fixes(text, fixes)
     verses = getattr(fixes, "verses", None)
     if verses:
         from convert.quran import apply

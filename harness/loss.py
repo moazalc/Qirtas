@@ -7,7 +7,7 @@ while a word is being lost.
 
     python -m harness.loss corpus/*.pdf
 """
-import argparse, collections, difflib, re, sys
+import argparse, collections, difflib, os, re, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -37,14 +37,119 @@ def sentences(t):
             if len(s) >= MIN_SENT]
 
 
+# Text written in short pieces - a reference entry ("مطر، أميرة حلمي. (1994).
+# جمهورية أفلاطون. دط. القاهرة: ..."), a contents line, a caption - cuts
+# into pieces under MIN_SENT, and none of it was checked: a change dropped
+# 93 words of `z18037898`'s references and the gate read 100% (FLAGS 34).
+# Neighbouring short pieces are taken together, as the stretch of the
+# original they make with the marks between them, once it reaches MIN_SENT.
+SHORT_ON = os.environ.get("QIRTAS_GATE_SHORT", "1") != "0"
+
+
+class Short(str):
+    """A stretch of short pieces taken together (SHORT_ON)."""
+
+
+# Such a stretch is asked for its words' letters only: numbers and marks in
+# it are note numbers our Word file draws as notes ("(626)" beside a
+# hadith, `z14065750`), numbers glued to a word (التالية1) or a formula's
+# brackets - all read as lost the first time this ran, on 11 of 27 files.
+# A dropped reference entry is its names and titles, and those are letters.
+LETTER_WORD = re.compile(r"[ء-يA-Za-z]{3,}")
+ALL_LETTERS = re.compile(r"[ء-يA-Za-z]+")
+
+
+def letters_survive(raw, b_letters):
+    return not letters_lacking(raw, b_letters)
+
+
+def letters_lacking(raw, b_letters):
+    """Every word of 3+ letters in ours - or, where the reference stores it
+    backwards (`z22058810`: ةعماج for جامعة), turned round, as sentences are
+    excused in judge(). A stretch with no such word - a broken title page's
+    letters one by one, a formula in maths italic - has nothing to lose."""
+    words = LETTER_WORD.findall(TASHKEEL.sub("", raw))
+
+    def turned(w):
+        return w[::-1] in b_letters or \
+            (len(w) >= 5 and "".join(sorted(w)) in b_letters.bags)
+
+    straight = [w for w in words if w in b_letters]
+    back = [w for w in words if w not in b_letters and turned(w)]
+    rest = [w for w in words if w not in b_letters and not turned(w)]
+    if not rest:
+        return []
+    # A stretch the reference stores backwards, in whole or in part (a word
+    # of it ours only turned round), cuts its pieces a letter off: بةيربخملا
+    # for بروتوكولات and المخبرية, تيبوبنألابيكترلا for two words run
+    # together; its alef with a hamza lands at the other end (أعرس for
+    # أسرع, إراط for إطار) and its لا inside a word turns (تفصالي). There,
+    # as the backfill asks (reader._backfill), a word is also ours in those
+    # shapes. Never for a stretch the right way round: a dropped entry is its
+    # words gone, none of them ours turned round.
+    if not back:
+        return rest
+
+    def known(w):
+        w = FOLD_ALEF.sub("ا", w)
+        return w in b_letters.folded or w[::-1] in b_letters.folded or \
+            (len(w) >= 5 and "".join(sorted(w)) in b_letters.bags)
+
+    def shapes(w):
+        w = FOLD_ALEF.sub("ا", w)
+        yield w
+        if len(w) >= 4:
+            yield w[1:] + w[0]           # the alef at the other end
+            yield w[-1] + w[:-1]
+        if "لا" in w or "ال" in w:
+            yield w.replace("لا", "\0").replace("ال", "لا").replace("\0", "ال")
+
+    def loose(w):
+        if any(known(s) for s in shapes(w)):
+            return True
+        return (len(w) >= 5 and (known(w[1:]) or known(w[:-1]))) or any(
+            known(w[:k]) and known(w[k:]) for k in range(4, len(w) - 3))
+    return [w for w in rest if not loose(w)]
+
+
+FOLD_ALEF = re.compile("[آأإٱ]")
+
+
+class Letters(str):
+    """Ours as letter-words run together, and each word's letters sorted:
+    a backwards word also has its لا turned (ايركسل for السكري,
+    `z21145041`), so turned round it is still not ours. Five letters or
+    more only - three-letter roots share their letters (علم, عمل)."""
+    def __new__(cls, text):
+        words = LETTER_WORD.findall(TASHKEEL.sub("", text))
+        # Every letter, short words too: ما and يحتاج run together is how
+        # the reference stores them backwards (جاتحيام).
+        self = super().__new__(cls, "".join(ALL_LETTERS.findall(TASHKEEL.sub("", text))))
+        self.folded = FOLD_ALEF.sub("ا", self)
+        self.bags = {"".join(sorted(FOLD_ALEF.sub("ا", w))) for w in words if len(w) >= 5}
+        return self
+
+
 def sentence_pairs(t):
     """(normalised, as written) per sentence. The raw form keeps the spaces,
     which is the only place word boundaries still exist after norm()."""
-    out = []
-    for piece in SENT_SPLIT.split(t or ""):
+    t = t or ""
+    out, run = [], None          # run: (start, end) of short pieces so far
+    at = 0
+    for m in list(SENT_SPLIT.finditer(t)) + [None]:
+        end = m.start() if m else len(t)
+        piece = t[at:end]
         n = norm(piece)
         if len(n) >= MIN_SENT:
             out.append((n, piece))
+            run = None
+        elif SHORT_ON and n:
+            run = (run[0] if run else at, end)
+            if len(norm(t[run[0]:run[1]])) >= MIN_SENT:
+                out.append((norm(t[run[0]:run[1]]), Short(t[run[0]:run[1]])))
+                run = None
+        if m:
+            at = m.end()
     return out
 
 
@@ -84,12 +189,17 @@ def coverage(orig, out, marks=True):
     page number glued onto its start does not condemn it.
     """
     b = norm(out, marks)
+    b_letters = Letters(out)
     pairs = sentence_pairs(orig)
     if not pairs:
         return 1.0, []
     gone = []
     for s, raw in pairs:
         if s in b:
+            continue
+        if isinstance(raw, Short):
+            if not letters_survive(raw, b_letters):
+                gone.append(s)
             continue
         pad = max(2, len(s) * 8 // 100)
         if s[pad:-pad] in b:
@@ -204,6 +314,7 @@ def judge(pdf, out, marks=True):
     # ignores spacing everywhere else (norm) - here too.
     ours_run = "".join(_norm(w) for w in WS.split(out))
     ours_bare = LETTERS.sub("", TASHKEEL.sub("", out))
+    b_letters = Letters(out)
     excused = []
     for s in gone:
         page = next((i for i, t in enumerate(by_page) if s[5:45] in t), None)
@@ -222,6 +333,22 @@ def judge(pdf, out, marks=True):
         # question - on a page read badly (z21763864) it cuts words anywhere.
         shown = set(seq) | {"".join(seq[i:i + k]) for k in (2, 3)
                             for i in range(len(seq) - k + 1)}
+        raw = raw_of.get(s, "")
+        if isinstance(raw, Short):
+            # A stretch of short pieces, asked the same way by its letters:
+            # the words ours lacks (letters_lacking) against the page. The
+            # reference's أعرس for أسرع is not what the page shows, while the
+            # page plainly reads the rest - either way round, as a backwards
+            # stretch's other words are stored.
+            lack = letters_lacking(raw, b_letters)
+            rest = [w for w in LETTER_WORD.findall(TASHKEEL.sub("", raw)) if w not in lack]
+
+            def seen_on_page(w):
+                return any(f in shown or f in joined for f in (_norm(w), _norm(w[::-1])))
+            if rest and sum(1 for w in rest if seen_on_page(w)) >= PAGE_READ * len(rest) \
+                    and not any(_norm(w) in shown for w in lack):
+                excused.append(s)
+            continue
         words = [w for w in (_norm(x) for x in WS.split(raw_of.get(s, "")))
                  if len(w) >= MIN_WORD]
         # A word as written, cut where marks stand inside it (see flip).

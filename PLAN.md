@@ -3852,6 +3852,84 @@ list. **The gate did not see those 93 words go** (FLAGS 34).
 **Gaps above paragraphs** stay off except on a page whose pictures sit
 behind its text.
 
+### The gate checks text in short pieces (FLAGS 34), 2026-09-30
+
+Moaz: "fix the gate blind spot". The gate cut the original at . : ، and
+asked only pieces of 40 letters or more; a reference entry, a contents
+line, a title page are all short pieces, and a change that dropped 93 words
+of `z18037898`'s references read 100%.
+
+**What it does now** (`harness/loss.py`, `QIRTAS_GATE_SHORT`): neighbouring
+short pieces are taken together as the stretch of the original they make,
+marks and all, once it reaches 40 letters (`sentence_pairs`, marked
+`Short`). A stretch is asked by its letters only - every word of 3+ letters
+in ours (`letters_lacking`, against `Letters(out)`: ours' letters run
+together, every letter, so ما يحتاج is there for the reference's
+backwards جاتحيام). Numbers and marks are not asked: the first try read as
+lost the note numbers ours draws as notes ("(626)" beside a hadith,
+`z14065750` 85%), numbers glued to a word (التالية1) and a formula's
+brackets - 11 of 27 files under 100%, every flag read and none a loss. A
+stretch with no such word (a broken title page's letters one by one,
+maths italic) has nothing to lose.
+
+The reference stores some files backwards (`z21145041`, `z22058810`), and
+their short pieces are cut backwards words: turned round, with its لا
+turned too (ايركسل for السكري: its letters in any order, 5+ letters), a
+letter off either end or two words run together (بةيربخملا), the alef with
+a hamza at the other end (أعرس for أسرع), alef forms folded - only in a
+stretch where some word is ours only turned round, never in one the right
+way round. What is still lacking goes to the page, as sentences do: excused
+where the page's OCR plainly reads the stretch's other words (either way
+round) and shows none of the lacking ones.
+
+**What it found that was real:**
+- `z21145041`'s title page had lost the student's name, the supervisor
+  line, "للعام الدراسي 2025\2026" and "بحث أعد لنيل إجازة دكتور في الطب
+  البشري": the tags reading, chosen, lacks them; the labels reading has
+  them one short block each, and the backfill, asking sentences of 40
+  letters, never looked. It now puts back a block with no such sentence
+  where 60% of its 3+ letter words are nowhere in the chosen reading
+  either way round (`_backfill`, `QIRTAS_BACKFILL_SHORT`) - not text
+  repeated on 3+ pages (running headers the tags route leaves out on
+  purpose), not from a page that reading has backwards against the chosen
+  one (its pieces are cut backwards words: 22 copies on `z21145041`, 10 on
+  `z22058810` before this), and not by letters in any order (a backwards
+  word has its forward one's letters: "للعام الدراسي" matched a backwards
+  copy not written). And asked last, once every longer block is back: in
+  the first version a short line ("أعوذ بالله ...", "بسم الله ...") went
+  back first, the longer block holding them and a verse then read as
+  mostly present, and `z18441713` lost "رَبِّ اشْرَحْ لِي صَدْرِي ..." -
+  caught by comparing the Word files' words with the change on and off,
+  not by the gate: that verse is not in the PDF's stored text at all (only
+  in its labels), so the gate's reference has nothing to miss (FLAGS 25).
+  And not where its letters, alef and lam aside, already stand in order in
+  the chosen reading: a reading with its spaces lost
+  ("تسجيلالرواياتصوتيا", and لا turned in the run: وجمعوالاحروف) has no
+  word the chosen one has, and 4 lines of the regression chapter were
+  written again. Left: "إعداد" and "د. صالح فرهود" on `z21145041`'s title
+  page (their letters are elsewhere in the thesis), a backwards "المراجع"
+  there and one fragment on `z22058810`.
+- `z20305872`'s الانحلال came out "الانحالل": the PDF stores it as two
+  pieces, "اال" and "نحالل", each in the file's fix map; the reading joins
+  them into a word no fix is keyed on. A word that is two of the map's
+  pieces (a fragment or what it becomes, the second of 4+ letters) takes
+  both fixes (`pdftext._joined_fixes`, `QIRTAS_JOINED_FIX`) - the converter
+  and the checker share it.
+
+**Full run** `2026-09-30-{thesis,regression}-gate4` against `leftovers2`,
+scored with the new gate: nothing lost 100.0% on every file (126 stretches
+and sentences excused by the page, 117 before); right page 73.7 -> 73.8%;
+words in order 94.4%; `z21145041` +23 words (its title page; page truth
+wrong 10.7 -> 11.9% - the title's words are stored cut, القص ــــ اري);
+regression set unchanged.
+
+**Checked it catches the loss it was made for:** the 7 reference entries
+(100 words) taken out of `z18037898`'s Word text: new gate 99.4%, old
+100.0%. Tests: `harness.test_loss_gate` (an entry dropped caught; a note
+number, a backwards word with its لا turned, letters one by one not).
+Also the checker read a note's two paragraphs glued (fixed with Part 3
+leftovers).
+
 **Full run** `2026-09-30-{thesis,regression}-leftovers2` against `quran1`:
 nothing lost 100.0% on every file; right page 71.3 -> 73.7%
 (`z20585114`); words in order 94.4% and page truth (wrong 6.8 -> 6.9%)

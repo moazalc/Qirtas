@@ -95,6 +95,31 @@ def main():
     check("its words only scattered through ours: not",
           _together(ref, bare(elsewhere)), False)
 
+    print("\ntext in short pieces is checked too (FLAGS 34, 2026-09-30)")
+    # A reference list: every piece under 40 letters, so none was checked,
+    # and a change dropped 93 words of `z18037898`'s and scored 100%.
+    refs = ("مطر، أميرة حلمي. (1994). جمهورية أفلاطون. دط. القاهرة: الهيئة "
+            "المصرية العامة للتأليف والنشر.\nالنووي، يحيى بن شرف. (1991). "
+            "روضة الطالبين. ط 3. بيروت: المكتب الإسلامي.")
+    first, second = refs.split("\n")
+    check("all there", coverage(refs, refs)[0], 1.0)
+    check("an entry dropped is caught", coverage(refs, first)[0] < 1.0, True)
+    check("the old gate saw nothing to check", len(__import__(
+        "harness.loss", fromlist=["x"]).sentences(refs)), 0)
+    # Its numbers are note numbers ours draws as notes, glued numbers, or
+    # a formula's marks: asked by letters only.
+    check("a note number our Word file draws as a note",
+          coverage("قال رسول الله (\n626\n) . وعن جبير بن مطعم قال سمعت",
+                   "قال رسول الله . وعن جبير بن مطعم قال سمعت")[0], 1.0)
+    # The reference storing a word backwards, its لا turned too.
+    check("backwards, لا turned: السكري as ايركسل",
+          coverage("مرضى ايركسل. في هذه الدراسة التطبيقية المهمة جدا",
+                   "مرضى السكري في هذه الدراسة التطبيقية المهمة جدا")[0], 1.0)
+    check("nothing but letters one by one: nothing to lose",
+          coverage("\n".join(["1440 هـ - 2018م."] + [x + "." for x in
+                   "خ بن مخ ة لإ تم خ مح غ لآ لج ر لح 54 خ بن مخ".split()]),
+                   "")[0], 1.0)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 
