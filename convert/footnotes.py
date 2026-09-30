@@ -40,6 +40,9 @@ FIRST_ID = 2
 # written back as the raised digits it was, not as "(13)".
 MARK_OPEN, MARK_CLOSE = "", ""
 RAISED = re.compile(MARK_OPEN + r"(\d{1,3})" + MARK_CLOSE)
+# Where a note's own second paragraph starts (reader._rich_block): written
+# as a new paragraph of the note, and as a space anywhere else.
+NOTE_PARA = ""
 
 # "1- انظر" and "(1) انظر" are both used, sometimes in the same thesis.
 NUMBER = re.compile(r"^\s*[\(\[]?\s*(\d{1,3})\s*[\)\]]?\s*[-–—.]?\s*")
@@ -176,15 +179,21 @@ def build_xml(notes, font="Arial", size_pt=9.0, rtl=True, note="footnote",
         bold, italic = (list(style) + [False, False])[:2]
         pieces = text if isinstance(text, list) else [(text, bold, italic)]
         pieces = [(" " + pieces[0][0],) + tuple(pieces[0][1:])] + pieces[1:]
+        ppr = f'<w:pPr>{bidi}<w:spacing w:after="0"{line}/></w:pPr>'
+        body = "".join(
+            (f'</w:p><w:p>{ppr}' if t == NOTE_PARA else
+             f'<w:r>{_rpr(font, size_pt, r, bold=b, italic=i)}'
+             f'<w:t xml:space="preserve">{escape(t)}</w:t></w:r>')
+            for piece, b, i in pieces
+            for bit in re.split(r"\s*(" + NOTE_PARA + r")\s*", piece) if bit
+            for t, r in ([(bit, rtl)] if bit == NOTE_PARA
+                         else directional(bit, rtl)))
         parts.append(
             f'<w:{note} w:id="{wid}">'
-            f'<w:p><w:pPr>{bidi}<w:spacing w:after="0"{line}/></w:pPr>'
+            f'<w:p>{ppr}'
             f'<w:r>{_rpr(font, size_pt, rtl, superscript=True)}'
             f'<w:{note}Ref/></w:r>'
-            + "".join(f'<w:r>{_rpr(font, size_pt, r, bold=b, italic=i)}'
-                      f'<w:t xml:space="preserve">{escape(t)}</w:t></w:r>'
-                      for piece, b, i in pieces
-                      for t, r in directional(piece, rtl)) +
+            + body +
             f'</w:p></w:{note}>')
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             f'<w:{note}s xmlns:w="{W}">' + "".join(parts) + f'</w:{note}s>')

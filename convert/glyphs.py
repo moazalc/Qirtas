@@ -22,7 +22,9 @@ The repair writes a corrected table into a copy of the PDF, and the
 converter AND the checker both read that copy. Repairing only our side would
 make every recovered word count as lost against the gibberish original.
 """
+import collections
 import hashlib
+import json
 import os
 import re
 import sys
@@ -97,8 +99,9 @@ def spell_out(text):
 
 # A space stored as a vowel mark (see diagnose). QIRTAS_SPACE_MARK=0: off.
 SPACE_MARK_ON = os.environ.get("QIRTAS_SPACE_MARK", "1") != "0"
+LINE_NUMBERS_ON_ENV = os.environ.get("QIRTAS_LINE_NUMBERS", "1") != "0"
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "8" + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
+REPAIR_VERSION = "10" + ("" if LINE_NUMBERS_ON_ENV else "-nolines") + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
                         else "-fourpages") + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
                         else "-nosymbols") + ("" if SPACE_MARK_ON else "-nospacemark")
 
@@ -696,9 +699,93 @@ def repair(pdf_path, out_path):
             tu = int(doc.xref_get_key(xref, "ToUnicode")[1].split()[0])
             doc.update_stream(tu, write_tounicode(table))
             done.append((xref, why))
+        lines = line_numbers(doc) if LINE_NUMBERS_ON else None
+        if lines:
+            for page in doc:
+                for r in lines["rects"].get(page.number, ()):
+                    page.add_redact_annot(r)
+                page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
+                                      graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
+                                      text=pymupdf.PDF_REDACT_TEXT_REMOVE)
+            Path(out_path).with_suffix(".lines").write_text(json.dumps(
+                {"start": lines["start"], "restart": lines["restart"]}))
+            done.append((0, "line numbers"))
         if done:
             doc.save(str(out_path), garbage=0)
     return done
+
+
+# Word's line numbers, printed in the margin beside each line (`z19773087`,
+# a journal's 417, 418 ... in 8pt): not the document's text. Read as text
+# they were written into the sentences beside them. Taken out of the copy
+# both the converter and the checker read, and Word's own line numbering is
+# switched on instead (reader, writer: Doc.line_numbers).
+LINE_NUMBERS_ON = os.environ.get("QIRTAS_LINE_NUMBERS", "1") != "0"
+LINE_NUMBER = re.compile(r"\d{1,4}")
+LINES_MIN = 5             # a page's numbers
+LINES_PAGES = 0.6         # of the pages: Word numbers every page's lines
+# Of the gaps between them, evenly spaced: a picture or a formula breaks a
+# few (`z19773087` page 18, 54%); a page's footnote numbers reach 40%.
+LINES_EVEN = 0.5
+
+
+def line_numbers(doc):
+    """-> {"rects": {page: [Rect]}, "start": the first number, "restart":
+    "continuous" or "newPage"}, or None. A page's line numbers: small
+    figures at one place across the page, going up by 1 to 5 down it."""
+    found, firsts = {}, []
+    for page in doc:
+        spans = [s for b in page.get_text("dict")["blocks"] for l in b.get("lines", ())
+                 for s in l["spans"] if s["text"].strip()]
+        sizes = collections.Counter()
+        for s in spans:
+            sizes[round(s["size"])] += len(s["text"])
+        if not sizes:
+            continue
+        body = sizes.most_common(1)[0][0]
+        small = sorted(((int(s["text"].strip()), s["bbox"][1],
+                         round((s["bbox"][0] + s["bbox"][2]) / 2 / 6),
+                         pymupdf.Rect(s["bbox"])) for s in spans
+                        if LINE_NUMBER.fullmatch(s["text"].strip())
+                        and s["size"] <= 0.85 * body), key=lambda c: (c[0], c[1]))
+        # The count runs on across the page's columns - `z19773087` numbers
+        # 433-445 at the right, 446-457 in the middle, 458-459 at the right
+        # again - so followed by value, a run going up by 1 to 5.
+        runs = []
+        for c in small:
+            if runs and 1 <= c[0] - runs[-1][-1][0] <= 5:
+                runs[-1].append(c)
+            else:
+                runs.append([c])
+        rects = []
+        for run in runs:
+            if len(run) < LINES_MIN:
+                continue
+            # Beside lines one after another, so evenly spaced down each
+            # column; a page's footnote numbers (`z20763272`, 1 to 6 at the
+            # left) are not.
+            gaps = []
+            for col in {c[2] for c in run}:
+                ys = sorted(c[1] for c in run if c[2] == col)
+                gaps += [b - a for a, b in zip(ys, ys[1:])]
+            if not gaps:
+                continue
+            gaps.sort()
+            mid = gaps[len(gaps) // 2]
+            even = sum(1 for g in gaps if abs(g - mid) <= 0.2 * mid) >= LINES_EVEN * len(gaps)
+            if mid > 0 and even:
+                rects += [c[3] for c in run]
+                firsts.append((page.number, run[0][0]))
+        if rects:
+            found[page.number] = rects
+    if len(found) < max(2, LINES_PAGES * len(doc)):
+        return None
+    firsts.sort()
+    per_page = sum(1 for _, v in firsts if v == 1) > len(found) / 2
+    # A little inside each number, so the text beside it is not touched.
+    rects = {p: [r + (0.5, 0.5, -0.5, -0.5) for r in rs] for p, rs in found.items()}
+    return {"rects": rects, "start": firsts[0][1] if firsts else 1,
+            "restart": "newPage" if per_page else "continuous"}
 
 
 REPAIR_ONCE = os.environ.get("QIRTAS_REPAIR_ONCE", "1") != "0"

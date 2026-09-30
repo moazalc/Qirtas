@@ -243,7 +243,12 @@ def _footnote_texts(z, note="footnote"):
     out = {}
     for m in re.finditer(rf'<w:{note} (?![^>]*w:type=)[^>]*w:id="(\d+)"[^>]*>'
                          rf'(.*?)</w:{note}>', xml, re.S):
-        body = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", m.group(2)))
+        # A note of two paragraphs (footnotes.NOTE_PARA) reads as two lines,
+        # not as its last word glued to the next one's first.
+        body = " ".join(p for p in (
+            "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", para))
+            for para in re.findall(r"<w:p[ >].*?</w:p>", m.group(2), flags=re.S))
+            if p.strip())
         if body.strip():
             out[m.group(1)] = body
     return out

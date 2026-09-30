@@ -798,3 +798,44 @@ Moaz's call: do the repair. Pushed the verse work first.
   on two fonts (50% against 57% of words readable).
 - **Next:** Moaz's call - tables (parked), looks (Part 3), or the Quran
   leftovers.
+
+### 30 Sept — the looks leftovers (items 10-19)
+
+- Pushed the missing-font warning.
+- **Done**, each checked on its own page:
+  - **Headers** at the right size (they were set by an icon's size), the
+    icon itself shows (it was an empty box), and a full-width header starts
+    at the right instead of the middle.
+  - **Footnotes:** notes numbered "1 ... 2 ... 3" in one paragraph are now
+    separate notes; a note's second paragraph stays a paragraph; and a
+    verse number inside a note ("(9)") is no longer cut off as a note of its
+    own - found while looking.
+  - **Title page side cells** reach into the margins like the original, so
+    the ministry line wraps less.
+  - **A full-page picture with text over it** (`z20585114`) now sits behind
+    the text, as in the original, instead of taking a page of its own - that
+    file went from 25% to 86% of pages landing right.
+  - **Footer:** the right page numbers on every page (it printed "1"
+    everywhere), with the double line and the box round the number.
+  - **English:** a centred English heading is centred; web addresses are
+    clickable links. The full stop after "COVID19" was already fixed.
+  - **Brackets** turned the wrong way round a number or web address
+    - ")59(" - now print "(59)", as the page does (tested in Word).
+  - **Journal line numbers** (417, 418 ... in the margin) no longer end up
+    inside sentences; Word numbers the lines itself instead.
+  - **A grid of pictures** no longer has its captions written twice.
+  - Pictures side by side were already fixed by earlier work.
+- **Scores:** nothing lost 100% on every file; pages landing right 71.3% ->
+  73.7%; everything else unchanged.
+- **Not fixed:** headers set in fonts not installed look lighter and can
+  wrap (the missing-font message names them); gaps above paragraphs stay
+  off (they push pages over) except on pages with a background picture;
+  some brackets in citations cut into pieces; links inside footnotes.
+- **Something uncomfortable:** one of my first versions dropped 93 words
+  of a reference list, and the "nothing lost" check still said 100%. It
+  only checks sentences of 40+ characters, and reference entries are all
+  short pieces. I caught it by comparing the words directly and fixed the
+  change, but the check itself is blind there (FLAGS 34).
+- **Next:** fix that blind spot in the "nothing lost" check before more
+  changes, then Moaz's call - tables (parked), the Quran leftovers, or the
+  numbers warning.

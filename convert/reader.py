@@ -14,6 +14,7 @@ labelled ones when they come close — measure, don't predict.
 import collections
 import difflib
 import functools
+import json
 import os
 import re
 import statistics
@@ -24,7 +25,7 @@ import pymupdf
 from convert.model import Doc, Block, PARAGRAPH, HEADING, LIST_ITEM, FOOTNOTE, IMAGE, TABLE
 from convert.arabic import repair_lam_alef
 from convert.pdftext import apply_fixes, fix_map
-from convert.footnotes import MARK_OPEN, MARK_CLOSE, marker_numbers
+from convert.footnotes import MARK_OPEN, MARK_CLOSE, NOTE_PARA, marker_numbers
 from convert.glyphs import shown_digits
 from convert.order import get_text
 
@@ -767,12 +768,25 @@ def _drawn_align(doc):
     measured = [b for b in doc.blocks if getattr(b, "drawn_lines", None)]
     ends = sorted(ln[2] for b in measured for ln in b.drawn_lines[:-1])
     right = ends[int(0.9 * (len(ends) - 1))] if len(ends) >= 5 else None
+    starts = sorted(ln[1] for b in measured for ln in b.drawn_lines)
+    left = starts[int(0.1 * (len(starts) - 1))] if len(starts) >= 5 else None
     for b in measured:
         inner = b.drawn_lines[:-1]
         if right is not None and inner and \
                 sum(1 for ln in inner if right - ln[2] > RAGGED) > len(inner) / 3:
             b.align = "start"
+        # Every line short and its middle the column's: centred. "Abstract"
+        # over `z22058810`'s English summary came out at the start.
+        elif DRAWN_CENTRE_ON and right is not None and left is not None:
+            column, mid = right - left, (left + right) / 2
+            if column > 0 and all(ln[2] - ln[1] < 0.7 * column and
+                                  abs((ln[1] + ln[2]) / 2 - mid) < 0.04 * column
+                                  for ln in b.drawn_lines):
+                b.align = "center"
         del b.drawn_lines
+
+
+DRAWN_CENTRE_ON = os.environ.get("QIRTAS_DRAWN_CENTRE", "1") != "0"
 
 
 def _join_parts(parts):
@@ -1356,8 +1370,21 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     text, size, bold, spans = "", 0.0, False, []
     letters = {}             # size -> letters set at it
     prev = None
+    para = False
     for b in text_blocks:
         for line in b["lines"]:
+            # A note's own second paragraph: after the first line, an indent
+            # typed as spaces - a line of its own, or the line's start - then
+            # words (`z18048055`'s "انظر: الجزائري" under note 5), where a new
+            # note opens on its number.
+            # After a full stop, on a line below the last: `z14065750` puts
+            # such an indent before pieces inside a line, "(849 - 911 هـ)".
+            lead = line["spans"][0]["text"] if line["spans"] else ""
+            if NOTE_PARAS_ON and kind == FOOTNOTE and text and \
+                    len(lead) >= 2 and not lead.strip() and \
+                    text.rstrip().endswith(".") and prev is not None and \
+                    (line["bbox"][1] + line["bbox"][3]) / 2 >= prev["bbox"][3] - 1:
+                para = True
             for sp in line["spans"]:
                 run = sp["text"]
                 if not run.strip():
@@ -1367,6 +1394,8 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 # A bracket or % drawn against its neighbour is written
                 # against it: joined like a word put back together.
                 glue = glue or _tight(prev, text, sp, run, ends)
+                if para:
+                    run, glue, para = NOTE_PARA + " " + run.lstrip(), False, False
                 prev = sp
                 text += ("" if glue or not text else " ") + run
                 size = max(size, sp["size"])
@@ -1686,6 +1715,14 @@ def read_labels(path):
 
 
 TYPED_NUMBER = re.compile(r"\((\d{1,3})\)")
+# Notes numbered plainly, "1 ... . 2 ...": a number opening the note, and one
+# after a full stop, each followed by words, not by more figures.
+PLAIN_FIRST = re.compile(r"(\d{1,3})\s+(?=[^\d\s.()])")
+PLAIN_NEXT = re.compile(r"\.\s*(\d{1,3})\s+(?=[^\d\s.()])")
+PLAIN_NOTES_ON = os.environ.get("QIRTAS_PLAIN_NOTES", "1") != "0"
+# A note in two paragraphs keeps both (footnotes.NOTE_PARA).
+NOTE_PARAS_ON = os.environ.get("QIRTAS_NOTE_PARAS", "1") != "0"
+NOTE_WORDS_ON = os.environ.get("QIRTAS_NOTE_WORDS", "1") != "0"
 
 
 def _split_typed_notes(blocks):
@@ -1702,13 +1739,24 @@ def _split_typed_notes(blocks):
             out.append(b)
             continue
         m = TYPED_NUMBER.match(b.text)
+        later = TYPED_NUMBER
+        if not m and PLAIN_NOTES_ON:
+            # "1 والتون ... ص 35 . 2 سامية ... . 3 نفس" (`z17804101`): the
+            # numbers plain, each note after the last one's full stop.
+            m = PLAIN_FIRST.match(b.text)
+            later = PLAIN_NEXT
         if not m:
             out.append(b)
             continue
         cuts, want = [], int(m.group(1)) + 1
-        for n in TYPED_NUMBER.finditer(b.text, m.end()):
+        for n in later.finditer(b.text, m.end()):
+            # A note has words after its number: `z18048055`'s "(8) سورة
+            # الحجر: (9)." is the verse, and was cut off as a note "(9).".
+            if NOTE_WORDS_ON and not ARABIC.search(b.text[n.end():]) and \
+                    not re.search("[A-Za-z]", b.text[n.end():]):
+                continue
             if int(n.group(1)) == want and n.group(1) in refs:
-                cuts.append(n.start())
+                cuts.append(n.start(1) if later is PLAIN_NEXT else n.start())
                 want += 1
         if not cuts and NOTE_LOOK_ON:
             out.append(b)
@@ -2157,6 +2205,24 @@ def _dominant_font(path):
     return family(weight.most_common(1)[0][0]) if weight else ""
 
 
+def _symbols(path):
+    """Private-use signs drawn in a font of signs: char -> the font's name as
+    Word knows it. Windows has Webdings and Wingdings, so the sign shows as
+    drawn if the Word file asks for that font."""
+    from convert.glyphs import family
+    out = {}
+    with pymupdf.open(path) as d:
+        for page in d:
+            for span in page.get_texttrace():
+                name = SUBSET.sub("", str(span["font"])).split(",")[0].strip()
+                if not any(g in name.lower() for g in SYMBOLIC):
+                    continue
+                for ch in span["chars"]:
+                    if 0xF020 <= ch[0] <= 0xF0FF:
+                        out.setdefault(chr(ch[0]), family(STYLE.sub("", name)))
+    return out
+
+
 def _ink_rows(page):
     """Measure text lines off the page image: how tall, and how far apart.
 
@@ -2463,8 +2529,66 @@ def read_images(path, outdir):
                 mine.append(Block(kind=IMAGE, text="", page=i, image=str(dest),
                                   x0=r.x0, x1=r.x1, y=r.y0, y1=r.y1,
                                   origin=f"x{xref}", over_text=over))
+            if BACKDROP_ON and mine:
+                try:
+                    _backdrops(d, page, mine)
+                except Exception:
+                    pass
             blocks.extend(mine)
     return blocks
+
+
+# A picture filling most of the page with the page's text printed over it
+# (`z20585114` page 2: a frame, a parchment inside it, a verse over both).
+# Written in the flow it took a page of its own, the verse under it, and the
+# parchment's photo carried the verse too: the page spilled onto two.
+BACKDROP_ON = os.environ.get("QIRTAS_BACKDROP", "1") != "0"
+BACKDROP_SHARE = 0.6      # of the page's area
+
+
+def _backdrops(d, page, mine):
+    """Mark the pictures the page's text is printed over, when one of them
+    fills most of the page: that one and the ones inside it. Their photos
+    are taken again without the text on them."""
+    log = page.get_bboxlog()
+    area = abs(page.rect)
+
+    def over(b):
+        r = pymupdf.Rect(b.x0, b.y, b.x1, b.y1)
+        at = [k for k, (t, q) in enumerate(log) if t == "fill-image"
+              and abs(pymupdf.Rect(q) & r) > 0.9 * abs(r)]
+        if not at:
+            return False
+        return any(t.endswith("-text") and not pymupdf.Rect(q).is_empty
+                   and pymupdf.Rect(q) in r + (-2, -2, 2, 2)
+                   for t, q in log[at[0] + 1:])
+
+    big = [b for b in mine if (b.x1 - b.x0) * (b.y1 - b.y) >= BACKDROP_SHARE * area
+           and over(b)]
+    if not big:
+        return
+    inside = [b for b in mine if b not in big and over(b) and any(
+        pymupdf.Rect(b.x0, b.y, b.x1, b.y1) in pymupdf.Rect(g.x0, g.y, g.x1, g.y1)
+        + (-2, -2, 2, 2) for g in big)]
+    shot = None
+    for b in big + inside:
+        b.behind = True
+        if not b.over_text:
+            continue
+        # Photographed off the page with the text on it: again without.
+        if shot is None:
+            shot = pymupdf.open()
+            shot.insert_pdf(d, from_page=page.number, to_page=page.number)
+            sp = shot[0]
+            sp.add_redact_annot(sp.rect)
+            sp.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
+                                graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
+                                text=pymupdf.PDF_REDACT_TEXT_REMOVE)
+        r = pymupdf.Rect(b.x0, b.y, b.x1, b.y1)
+        png = _render_region(shot[0], r, _dpi_for(r, 1000))
+        if png:
+            Path(b.image).write_bytes(png)
+            b.over_text = False
 
 
 EDGE_BAND = 0.08         # top and bottom share of a photo checked for leaks
@@ -3096,12 +3220,15 @@ def _trim_held(b, table, words, joined):
     words the table holds go; the rest stays."""
     if not TABLE_JOINED_ON or not b.y1 or not table.y1:
         return
-    if not (table.y < b.y < table.y1 < b.y1) or not (table.x0 - 2 <= b.x0 and b.x1 <= table.x1 + 2):
+    edge = 10 if TABLE_PIECES_ON else 2
+    if not (table.y < b.y < table.y1 < b.y1) or not (table.x0 - edge <= b.x0 and b.x1 <= table.x1 + edge):
         return
     mine = b.text.split()
     n = 0
     while n < len(mine) and _has(mine[n], words, joined):
         n += 1
+    if TABLE_PIECES_ON:
+        n = max(n, _held_pieces(mine, words, lead=True))
     if not 2 <= n < len(mine):
         return
     # Cut by letters, not characters: the formatting runs need not carry the
@@ -3290,15 +3417,18 @@ RULE_PAIR = 6.0          # points: two lines this close are one double rule
 RULE_THICK = 4.5        # points: anything thicker is a band, not a line
 
 
-def _page_rules(page):
-    """[(y, thickness, colour)] of this page's header rules, top down."""
+def _page_rules(page, foot=False):
+    """[(y, thickness, colour)] of this page's header rules, top down - or,
+    `foot`, of its footer's."""
     H, W = page.rect.height, page.rect.width
     rules, tall = [], False
     for g in page.get_drawings():
         r = pymupdf.Rect(g["rect"])
         if r.height > H * 0.5 and r.width < 3:
             tall = True
-        if r.width < W * RULE_WIDE or r.height >= RULE_THICK or not (0.02 * H < r.y0 < RULE_TOP * H):
+        zone = (1 - RULE_TOP) * H < r.y0 < 0.98 * H if foot else \
+            0.02 * H < r.y0 < RULE_TOP * H
+        if r.width < W * RULE_WIDE or r.height >= RULE_THICK or not zone:
             continue
         if g.get("fill") and "s" not in g["type"]:
             thick, colour = max(r.height, 0.25), g["fill"]
@@ -3329,9 +3459,9 @@ def _rule_style(group):
     return ("thinThickSmallGap" if a < b else "thickThinSmallGap"), max(a, b)
 
 
-def _header_rule(path, doc):
+def _header_rule(path, doc, foot=False):
     with pymupdf.open(path) as d:
-        pages = [_page_rules(p) for p in d]
+        pages = [_page_rules(p, foot) for p in d]
     seen = collections.Counter()
     for rules in pages:
         if rules:
@@ -3351,14 +3481,56 @@ def _header_rule(path, doc):
             groups[-1].append((y, t, c))
         else:
             groups.append([(y, t, c)])
-    sides = [("bottom", groups[-1])] if len(groups) == 1 else \
+    # A header's single line is under it; a footer's, over it.
+    sides = [("top" if foot else "bottom", groups[-1])] if len(groups) == 1 else \
         [("top", groups[0]), ("bottom", groups[-1])]
     out = []
     for side, g in sides:
         style, thick = _rule_style(g)
         eighths = max(2, min(96, round(thick * 8)))
         out.append((side, style, eighths, g[0][2]))
-    doc.header_rules = out
+    if foot:
+        doc.footer_rules = out
+    else:
+        doc.header_rules = out
+
+
+# The footer's lines and the box around its page number (`z18048055`: a
+# thin line over a thick one across the page, a rounded box round the
+# number), drawn on most pages and never written.
+FOOTER_LOOK_ON = os.environ.get("QIRTAS_FOOTER_LOOK", "1") != "0"
+BOX_MAX = 0.25           # of the page width: a box round a page number is small
+
+
+def _number_box(path, doc):
+    """(x0, x1, thickness in points, colour) of a small closed outline
+    at the foot of most pages, round a number; None when there is none."""
+    seen = collections.Counter()
+    with pymupdf.open(path) as d:
+        for page in d:
+            H, W = page.rect.height, page.rect.width
+            words = page.get_text("words")
+            for g in page.get_drawings():
+                r = pymupdf.Rect(g["rect"])
+                if not g.get("color") or r.y0 < (1 - RULE_TOP) * H or \
+                        not (8 < r.width < BOX_MAX * W) or not (8 < r.height < 60):
+                    continue
+                if not any(pymupdf.Rect(w[:4]) in r + (-1, -1, 1, 1)
+                           and NUMBER_OR_LETTER.fullmatch(w[4]) for w in words):
+                    continue
+                seen[(round(r.x0 / 3), round(r.x1 / 3),
+                      round(g.get("width") or 0.75, 2),
+                      "%02X%02X%02X" % tuple(round(c * 255) for c in g["color"][:3]))] += 1
+            n = page.number + 1
+    if not seen:
+        return None
+    (x0, x1, width, colour), k = seen.most_common(1)[0]
+    if k < max(2, n // 2):
+        return None
+    return (x0 * 3, x1 * 3, width, colour)
+
+
+NUMBER_OR_LETTER = re.compile(r"[0-9٠-٩۰-۹]{1,4}|[ء-ي]")
 
 
 # The footnotes as the original sets them. Word's own line above them is 2
@@ -3371,6 +3543,9 @@ def _header_rule(path, doc):
 # the one just above its first note, the page's full-width one being Word's
 # line for a note carried over - and the distance between the notes' lines.
 NOTE_LOOK_ON = os.environ.get("QIRTAS_NOTE_LOOK", "1") != "0"
+# Signs from Webdings/Wingdings written in that font (Part 3 leftovers,
+# 2026-09-30): `z20973693`'s header opens with a book that came out a box.
+SYMBOLS_ON = os.environ.get("QIRTAS_SYMBOL_FONT", "1") != "0"
 NOTE_RULE_NEAR = 4.0     # of the note size: how far above the notes the line sits
 
 
@@ -3603,7 +3778,9 @@ def _held_by(b, table, words, joined="", text=None):
         return False
     mine = (b.text if text is None else text).split()
     if text is None:
-        return bool(mine) and all(_has(w, words, joined) for w in mine)
+        if bool(mine) and all(_has(w, words, joined) for w in mine):
+            return True
+        return TABLE_PIECES_ON and _held_pieces(mine, words)
     # Compared without the marks (`_unmarked`): a word of four letters or
     # more is also held where the table's letters have it with the spaces
     # out - the clip breaks words the page draws in pieces (`المع ا لم` for
@@ -3615,6 +3792,49 @@ def _held_by(b, table, words, joined="", text=None):
                               for w in mine)
 
 
+# A caption row read again under the table with a word drawn in two pieces
+# ("M 𝑜𝑑𝑒 4" for the cell's "M𝑜𝑑𝑒 4") and a stray letter: `z19773087`'s
+# grid of six pictures wrote its lower captions a second time. Still whole
+# words: two neighbours joined must make one of the table's.
+TABLE_PIECES_ON = os.environ.get("QIRTAS_TABLE_PIECES", "1") != "0"
+
+
+def _held_pieces(mine, words, lead=False):
+    """Are all these words the table's? `lead`: how many of the first ones
+    are (0 when fewer than 3)."""
+    # Only English or maths pieces, two at most: split or joined Arabic let
+    # `z18037898`'s reference list, inside a table found round it, pass as
+    # the table's ("(1993)." as "(1993)" and "."), and 93 words were lost.
+    # And no Arabic word at all but a stray letter: a reference list shares
+    # its words (القاهرة:, دار, ط) between entries, so the table holding
+    # each word said nothing about the entry.
+    if not lead and any(ARABIC.search(w) and len(w) > 1 for w in mine):
+        return False
+    i, stray, found, fuzzy = 0, 0, 0, 0
+    while i < len(mine):
+        if lead and ARABIC.search(mine[i]) and len(mine[i]) > 1:
+            break
+        near = fuzzy < 2 and not ARABIC.search(mine[i])
+        if mine[i] in words:
+            i, found = i + 1, found + 1
+        elif near and i + 1 < len(mine) and not ARABIC.search(mine[i + 1]) \
+                and mine[i] + mine[i + 1] in words:
+            i, found, fuzzy = i + 2, found + 1, fuzzy + 1
+        elif near and any(mine[i][:k] in words and mine[i][k:] in words
+                          and len(mine[i][:k]) > 1 and len(mine[i][k:]) > 1
+                          for k in range(1, len(mine[i]))):
+            i, found, fuzzy = i + 1, found + 1, fuzzy + 1   # two drawn together
+        elif len(mine[i]) == 1 and not stray:
+            i, stray = i + 1, 1
+        elif lead:
+            break
+        else:
+            return False
+    if lead:
+        return i if found >= 3 else 0
+    return found >= 3
+
+
 def _inside(b, table):
     """Does this paragraph sit within the table's height? Unknown counts as yes:
     the tags route carries no positions, and there text is all there is."""
@@ -3622,6 +3842,26 @@ def _inside(b, table):
         return True
     mid = (b.y + b.y1) / 2
     return table.y - 2 <= mid <= table.y1 + 2
+
+
+# Brackets turned round one English word, number or web address: ")59(",
+# ")https://www.total.eg(", "(www.globalreporting.org(". Word draws them as
+# stored, the wrong way round, where the page drew "(59)" (`z7456037`'s
+# captions, `z18441713`'s addresses, `z22643426`'s years; tested in Word
+# 2026-09-30). Only a piece with no space, no Arabic and no bracket of its
+# own, not joined to a letter on either side: `Y)-(T` in a formula stays.
+TURNED_ON = os.environ.get("QIRTAS_TURNED_BRACKETS", "1") != "0"
+_PIECE = r"([^\s()ء-يٱ-ۓ]*[A-Za-z0-9٠-٩]" \
+         r"[^\s()ء-يٱ-ۓ]*)"
+TURNED = re.compile(r"(?<![A-Za-z0-9])\)" + _PIECE + r"\((?![A-Za-z0-9])")
+TURNED_URL = re.compile(r"\(((?:https?://|www\.)[^\s()]+)\(|\)((?:https?://|www\.)[^\s()]+)\)")
+
+
+def _unturn(t):
+    if not t or ("(" not in t and ")" not in t):
+        return t
+    t = TURNED.sub(r"(\1)", t)
+    return TURNED_URL.sub(lambda m: f"({m.group(1) or m.group(2)})", t)
 
 
 def read(path, image_dir=None):
@@ -3745,6 +3985,13 @@ def read(path, image_dir=None):
             if b.rows:
                 b.rows = [[fix(c) for c in row] for row in b.rows]
 
+    if TURNED_ON:
+        for b in best.blocks:
+            b.text = _unturn(b.text)
+            if b.spans:
+                b.spans = [(_unturn(t), *rest) for t, *rest in b.spans]
+            if b.rows:
+                b.rows = [[_unturn(c) for c in row] for row in b.rows]
     best = _backfill(best, results, path,
                      (lambda t: apply_fixes(t, fixes)) if fixes else None)
     _page_numbers(best, path)
@@ -3763,6 +4010,12 @@ def read(path, image_dir=None):
             _header_rule(path, best)
         except Exception:
             pass
+    if FOOTER_LOOK_ON:
+        try:
+            _header_rule(path, best, foot=True)
+            best.number_box = _number_box(path, best)
+        except Exception:
+            pass
     if PARTS_ON:
         try:
             _header_parts(path, best)
@@ -3774,6 +4027,18 @@ def read(path, image_dir=None):
     if NOTE_LOOK_ON:
         try:
             _note_look(path, best)
+        except Exception:
+            pass
+    if SYMBOLS_ON:
+        try:
+            best.symbols = _symbols(path)
+        except Exception:
+            pass
+    # The repaired copy took Word's line numbers out (glyphs.line_numbers).
+    lines = Path(path).with_suffix(".lines")
+    if lines.exists():
+        try:
+            best.line_numbers = json.loads(lines.read_text())
         except Exception:
             pass
     return best

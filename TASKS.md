@@ -116,6 +116,18 @@ early or closing a line late, the fault Moaz saw. Words in order 94.0 ->
 Left: `z17366480`'s Basmala (words stored backwards), `z15446639` (letters
 not stored), a dozen words on `z18037898`, QCF codes (holdout);
 `z21145041`'s formula brackets face the other way.
+Part 3 leftovers DONE 30 Sept, Moaz's pick (PLAN "Part 3 leftovers"):
+header size and signs, notes numbered plainly and notes in two paragraphs,
+side cells into the margins, pictures the text is printed over
+(`z20585114` right page 25 -> 86%), footer numbers in stretches with their
+lines and box, a centred English heading, links, brackets turned round a
+number or address, Word's line numbers, a picture grid's captions written
+twice. Right page 71.3 -> 73.7%, nothing lost 100%. Left: headers in fonts
+not installed look lighter and wrap; `z21850164`'s French title lines not
+centred; the Thuluth verse on `z20585114` comes apart; citations and
+formulas cut into pieces keep some brackets wrong; links in notes. **Next,
+before more changes that can drop text: FLAGS 34** - the gate does not
+check reference lists (93 words went unnoticed).
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

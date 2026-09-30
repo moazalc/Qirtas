@@ -24,7 +24,7 @@ from convert.glyphs import spell_out
 from convert.model import Doc, HEADING, FOOTNOTE, LIST_ITEM, IMAGE, TABLE, PARAGRAPH
 from convert.footnotes import (MARKER as FN_MARKER, NUMBER as FN_NUMBER, FIRST_ID, split_number,
                                marker_numbers, RAISED, WESTERN,
-                               build_xml, install, directional)
+                               build_xml, install, directional, NOTE_PARA)
 
 PT_PER_EMU = 12700
 RTL_CHARS = re.compile(r"[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]")
@@ -443,6 +443,7 @@ class Furniture:
         self.blocks, self.parity, self.run = blocks, parity, run
         self.silent = False
         self.shown = None
+        self.restarts = {}      # {page: number less page} where numbering jumps
 
     @property
     def text(self):
@@ -494,10 +495,51 @@ def _page_run(blocks):
     return best and best[:2]
 
 
-def _agrees(b, run):
+def _agrees(b, run, restarts=None):
     i, start = run
     runs = DIGITS.findall(_furniture_text(b))
+    if restarts:
+        # the stretch this page is in
+        start = next((s for p, s in sorted(restarts.items(), reverse=True)
+                      if p <= b.page), start)
     return len(runs) > i and int(runs[i].translate(WESTERN)) - b.page == start
+
+
+# Page numbers in stretches that each follow the page - `z18048055` as cut
+# for the corpus prints 1-3, 21-28, 54-55; a thesis can number its appendices
+# afresh. Taken as one run they failed, and every page printed a fixed "1".
+# Word's numbering restarts at each jump (a section each, `_restart`).
+STRETCHES_ON = os.environ.get("QIRTAS_PAGE_STRETCHES", "1") != "0"
+STRETCH_SHARE = 0.8      # of the copies, in stretches
+STRETCH_MAX = 4
+
+
+def _page_stretches(blocks):
+    """-> ((index, number on page 0 by the first stretch), {first page of
+    each later stretch: its number less its page}) or (None, None). Each
+    stretch two pages or more, numbers going up."""
+    runs = [[int(d.translate(WESTERN)) for d in DIGITS.findall(_furniture_text(b))]
+            for b in blocks]
+    if not STRETCHES_ON or not any(runs):
+        return None, None
+    width = Counter(len(r) for r in runs if r).most_common(1)[0][0]
+    for i in range(width):
+        pairs = sorted((b.page, r[i]) for r, b in zip(runs, blocks) if len(r) == width)
+        stretches = []
+        for p, v in pairs:
+            if stretches and v - p == stretches[-1][1] and p > stretches[-1][2]:
+                stretches[-1][2] = p
+                stretches[-1][3] += 1
+            else:
+                stretches.append([p, v - p, p, 1])
+        good = [s for s in stretches if s[3] >= 2 and s[1] >= 0]
+        if not 2 <= len(good) <= STRETCH_MAX or \
+                sum(s[3] for s in good) < STRETCH_SHARE * len(blocks):
+            continue
+        if any(b[0] + b[1] <= a[2] + a[1] for a, b in zip(good, good[1:])):
+            continue                  # numbers must go up
+        return (i, good[0][1]), {s[0]: s[1] for s in good[1:]}
+    return None, None
 
 
 def _letters(text):
@@ -626,12 +668,16 @@ def _running_text(model):
             parity = side
         elif len(on) < need:
             continue
-        run = _page_run(blocks)
+        run, restarts = _page_run(blocks), None
+        if not run:
+            run, restarts = _page_stretches(blocks)
         if run:
             # Only the copies whose number IS the page number. The rest - the
             # year on the title page - stay where they were.
-            blocks = [b for b in blocks if _agrees(b, run)]
-        found.setdefault(where, []).append(Furniture(blocks, parity, run))
+            blocks = [b for b in blocks if _agrees(b, run, restarts)]
+        f = Furniture(blocks, parity, run)
+        f.restarts = restarts or {}
+        found.setdefault(where, []).append(f)
         for b in blocks:
             lift[id(b)] = where
 
@@ -773,6 +819,7 @@ def _centred(block, model, within=None):
 # more than the original's and ran long (`z20782957`, Part 3). They go into a
 # borderless table of two cells instead, the one read first in cell one.
 BESIDE_ON = os.environ.get("QIRTAS_BESIDE", "1") != "0"
+BESIDE_MARGINS_ON = os.environ.get("QIRTAS_BESIDE_MARGINS", "1") != "0"
 BESIDE_SLACK = 2.0       # points two edges may overlap and still count apart
 
 
@@ -996,11 +1043,13 @@ GAP_MAX = 6              # lines: more is a page laid out some other way
 GAP_PAGE_WORDS = 150     # pages with fewer words than this get their gaps
 
 
-def _gap_above(block, above, model):
+def _gap_above(block, above, model, on=False):
     """Points of space above `block`: from the one written before it on the
     page, or from the top margin for the first. 0 when not clearly more than
-    the ordinary gap between two lines of a paragraph."""
-    if not GAP_ON or not block.y or not model.line_pitch:
+    the ordinary gap between two lines of a paragraph. `on`: whatever GAP_ON
+    says - a page whose pictures sit behind its text (Block.behind) has room
+    for the original's gaps, and without them its text sat at the top."""
+    if not (GAP_ON or on) or not block.y or not model.line_pitch:
         return 0.0
     size = block.text_size or block.size or model.body_size
     # between two lines of one paragraph, bottom of one to top of the next
@@ -1026,6 +1075,12 @@ def _furniture_align(model, line, rtl):
         return WD_ALIGN_PARAGRAPH.CENTER
     x0 = min(f.block.x0 for f in line)
     x1 = max(f.block.x1 for f in line)
+    # A line across the whole text width is a line that starts at its side:
+    # centred, the words it wraps in a wider stand-in font sat in the middle
+    # (`z20973693`'s header, set in AGA Aladdin, which is not installed).
+    text = W - model.margin_left - model.margin_right
+    if FURNITURE_FULL_ON and text > 0 and x1 - x0 > 0.9 * text:
+        return ALIGN_START
     mid = (x0 + x1) / 2
     if abs(mid - W / 2) < 0.1 * W:
         return WD_ALIGN_PARAGRAPH.CENTER
@@ -1120,6 +1175,8 @@ FURNITURE_STYLE_ON = os.environ.get("QIRTAS_FURNITURE_STYLE", "1") != "0"
 # the far side in either direction; Word's positional tab, tried first,
 # wrapped the second part onto a line of its own in a right-to-left header.
 PARTS_OUT_ON = os.environ.get("QIRTAS_HEADER_PARTS", "1") != "0"
+FURNITURE_TEXT_SIZE_ON = os.environ.get("QIRTAS_FURNITURE_TEXT_SIZE", "1") != "0"
+FURNITURE_FULL_ON = os.environ.get("QIRTAS_FURNITURE_FULL", "1") != "0"
 
 
 def _draw_parts(p, f, fallback, model, rtl, section):
@@ -1142,7 +1199,11 @@ def _draw_parts(p, f, fallback, model, rtl, section):
 
 
 def _furniture_run(p, text, f, fallback, model, rtl):
-    size = f.block.size if f.block.size and f.block.size >= 5 else fallback
+    # The size most of its letters are set at: `size` is the largest, and
+    # `z20973693`'s 12pt header came out 14pt for the sign in front of it.
+    size = f.block.text_size if FURNITURE_TEXT_SIZE_ON and f.block.text_size \
+        else f.block.size
+    size = size if size and size >= 5 else fallback
     run = p.add_run(text)
     run.font.size = Pt(size)
     _ink(run, f.block)
@@ -1245,6 +1306,36 @@ def _end_front(doc, first_el):
         ppr = OxmlElement("w:pPr")
         prev.insert(0, ppr)
     ppr.append(brk)
+
+
+def _restart(doc, first_el, number):
+    """Word's page numbering starts again at `number` from the page that
+    `first_el` opens: the pages before it end a section of their own, with
+    the same header and footer and the numbering they had."""
+    main = doc.sections[-1]._sectPr
+    brk = copy.deepcopy(main)
+    for el in brk.findall(qn("w:type")):
+        brk.remove(el)
+    kind = OxmlElement("w:type")
+    kind.set(qn("w:val"), "continuous")
+    brk.insert(0, kind)
+    prev = first_el.getprevious()
+    if prev is None or prev.tag != qn("w:p"):
+        prev = OxmlElement("w:p")
+        first_el.addprevious(prev)
+    ppr = prev.find(qn("w:pPr"))
+    if ppr is None:
+        ppr = OxmlElement("w:pPr")
+        prev.insert(0, ppr)
+    ppr.append(brk)
+    # The pages from here on: the new number, and no title page of their own.
+    for el in main.findall(qn("w:titlePg")):
+        main.remove(el)
+    for el in main.findall(qn("w:pgNumType")):
+        main.remove(el)
+    el = OxmlElement("w:pgNumType")
+    el.set(qn("w:start"), str(max(0, number)))
+    main.append(el)
 
 
 def _set_page_number_start(section, start):
@@ -1408,6 +1499,15 @@ def _emit_beside(doc, g, model, k, img_k, notes, first_break):
     left, right = model.margin_left, model.page_width - model.margin_right
     spans = [_span(r) for r in g.runs]
     rtl = spans[0][0] >= spans[1][1] - BESIDE_SLACK
+    # Out into the margins as far as the original's runs reach: `z21850164`'s
+    # French and Arabic headers do, and the ministry line, kept inside
+    # them, wrapped onto three lines.
+    reach = (0.0, 0.0)
+    if BESIDE_MARGINS_ON and model.page_width:
+        edge = 18.0
+        reach = (max(0.0, left - max(edge, min(s[0] for s in spans))),
+                 max(0.0, min(model.page_width - edge, max(s[1] for s in spans)) - right))
+        left, right = left - reach[0], right + reach[1]
     # Cell edges halfway across each gap, the outer ones at the column's
     # edges; in reading order, which runs right to left when `rtl`.
     edges = [(a[0] + b[1]) / 2 if rtl else (a[1] + b[0]) / 2
@@ -1421,6 +1521,14 @@ def _emit_beside(doc, g, model, k, img_k, notes, first_break):
     _fix_columns(t, widths, [0])
     if rtl:
         _flag(t._tbl.tblPr, "w:bidiVisual")
+    # Moved back by what it reaches past the margin it starts from - the
+    # right one in a right-to-left table.
+    back = reach[1] if rtl else reach[0]
+    if back:
+        ind = OxmlElement("w:tblInd")
+        ind.set(qn("w:w"), str(-int(back * TWIPS_PER_PT)))
+        ind.set(qn("w:type"), "dxa")
+        t._tbl.tblPr.append(ind)
     for cell, run, width in zip(t.rows[0].cells, g.runs, widths):
         centre = _run_centred(run)
         for b in run:
@@ -1601,6 +1709,71 @@ def _header_rules(doc, model):
             _border(p, side, style, eighths, colour)
 
 
+def _footer_look(doc, model):
+    """The footer's lines, on a paragraph of their own above it, and the box
+    round its page number (model.footer_rules, model.number_box)."""
+    if not FOOTER_LOOK_OUT_ON or not (model.footer_rules or model.number_box):
+        return
+    section = doc.sections[0]
+    parts = [section.footer]
+    if doc.settings.odd_and_even_pages_header_footer:
+        parts.append(section.even_page_footer)
+    for part in parts:
+        if part.is_linked_to_previous or not part.paragraphs:
+            continue                       # no footer of ours to dress
+        paras = part.paragraphs
+        if model.footer_rules:
+            first = paras[0]
+            if model.number_box:
+                # The box goes round the number alone: the line gets a
+                # paragraph of its own, a point high.
+                p = OxmlElement("w:p")
+                first._p.addprevious(p)
+                first = type(first)(p, first._parent)
+                first.paragraph_format.line_spacing = Pt(1)
+                first.paragraph_format.space_after = Pt(4)
+            for side, style, eighths, colour in model.footer_rules:
+                _border(first if side == "top" else paras[-1], side, style,
+                        eighths, colour)
+        box = model.number_box
+        if box:
+            left = max(0.0, box[0] - model.margin_left)
+            right = max(0.0, model.page_width - model.margin_right - box[1])
+            for p in part.paragraphs:
+                if not p._p.findall(".//" + qn("w:fldSimple")):
+                    continue
+                for side in ("top", "left", "bottom", "right"):
+                    _border(p, side, "single", max(2, round(box[2] * 8)), box[3])
+                pf = p.paragraph_format
+                # w:ind is logical like w:jc (ALIGN_START).
+                rtl = p._p.pPr is not None and p._p.pPr.find(qn("w:bidi")) is not None
+                pf.left_indent, pf.right_indent = (Pt(right), Pt(left)) if rtl \
+                    else (Pt(left), Pt(right))
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
+FOOTER_LOOK_OUT_ON = os.environ.get("QIRTAS_FOOTER_LOOK", "1") != "0"
+
+
+def _line_numbering(doc, model):
+    """Word's own line numbers where the original had them on."""
+    lines = model.line_numbers
+    if not lines:
+        return
+    el = OxmlElement("w:lnNumType")
+    el.set(qn("w:countBy"), "1")
+    # Word counts from start + 1.
+    el.set(qn("w:start"), str(max(0, int(lines.get("start", 1)) - 1)))
+    el.set(qn("w:restart"), lines.get("restart", "continuous"))
+    pr = doc.sections[0]._sectPr
+    for old in pr.findall(qn("w:lnNumType")):
+        pr.remove(old)
+    pr.insert_element_before(el, "w:pgNumType", "w:cols", "w:formProt", "w:vAlign",
+                             "w:noEndnote", "w:titlePg", "w:textDirection", "w:bidi",
+                             "w:rtlGutter", "w:docGrid", "w:printerSettings",
+                             "w:sectPrChange")
+
+
 def _ink(run, block):
     """Text on a band in its own colour - white on a black band."""
     if block.fill and block.ink:
@@ -1723,6 +1896,52 @@ def _place(para, path, width_pt, dropped, height_pt=None):
         return False
 
 
+WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+
+
+def _emit_behind(doc, block, dropped):
+    """A picture the text is printed over (Block.behind): at its place on the
+    page, behind the text, in a paragraph one point high."""
+    p = doc.add_paragraph()
+    pf = p.paragraph_format
+    pf.space_before = pf.space_after = Pt(0)
+    pf.line_spacing = Pt(1)
+    width, height = block.x1 - block.x0, block.y1 - block.y
+    if not _place(p, block.image, width, dropped, height):
+        p._element.getparent().remove(p._element)
+        return None
+    inline = p._p.find(".//{%s}inline" % WP)
+    anchor = OxmlElement("wp:anchor")
+    for a, v in (("distT", "0"), ("distB", "0"), ("distL", "0"), ("distR", "0"),
+                 ("simplePos", "0"), ("relativeHeight", "0"), ("behindDoc", "1"),
+                 ("locked", "0"), ("layoutInCell", "1"), ("allowOverlap", "1")):
+        anchor.set(a, v)
+    pos = OxmlElement("wp:simplePos")
+    pos.set("x", "0")
+    pos.set("y", "0")
+    anchor.append(pos)
+    for tag, at in (("wp:positionH", block.x0), ("wp:positionV", block.y)):
+        e = OxmlElement(tag)
+        e.set("relativeFrom", "page")
+        off = OxmlElement("wp:posOffset")
+        off.text = str(int(at * PT_PER_EMU))
+        e.append(off)
+        anchor.append(e)
+    anchor.append(inline.find("{%s}extent" % WP))
+    eff = OxmlElement("wp:effectExtent")
+    for a in ("l", "t", "r", "b"):
+        eff.set(a, "0")
+    anchor.append(eff)
+    anchor.append(OxmlElement("wp:wrapNone"))
+    for tag in ("docPr", "cNvGraphicFramePr"):
+        e = inline.find("{%s}%s" % (WP, tag))
+        if e is not None:
+            anchor.append(e)
+    anchor.append(inline.find("{http://schemas.openxmlformats.org/drawingml/2006/main}graphic"))
+    inline.getparent().replace(inline, anchor)
+    return p
+
+
 def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
     """Place a picture at the size it was drawn at, capped to the text column."""
     width = (block.x1 - block.x0) * k
@@ -1776,6 +1995,8 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
     # addresses spread each line's words across the page.
     if block.align == "start" and block.kind != HEADING:
         align = ALIGN_START
+    elif block.align == "center":
+        align = WD_ALIGN_PARAGRAPH.CENTER
     p = doc.add_paragraph()
     if block.kind == HEADING:
         _heading_style(p, block.level or 2)
@@ -1832,6 +2053,8 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
 
     def add(text, sbold, sital, lead=False):
         # English in an Arabic paragraph is a run of its own (`directional`).
+        # A note written in the body keeps its two paragraphs as one.
+        text = text.replace(NOTE_PARA, " ")
         for piece, prtl in directional((" " if lead else "") + text, rtl):
             run = p.add_run(piece)
             run.font.size = Pt(size)
@@ -2072,6 +2295,88 @@ def _endnotes(pages):
     return anchors, notes
 
 
+def _symbol_runs(root, symbols):
+    """Each sign from a font of signs (Doc.symbols) as a run of its own in
+    that font; the rest of its run keeps the run's own font."""
+    for r in list(root.iter(qn("w:r"))):
+        t = r.find(qn("w:t"))
+        if t is None or not t.text or not any(c in symbols for c in t.text):
+            continue
+        pieces = [(k, "".join(g)) for k, g in
+                  itertools.groupby(t.text, key=lambda c: symbols.get(c))]
+        for font, text in pieces:
+            new = copy.deepcopy(r)
+            for e in new.findall(qn("w:t")):
+                new.remove(e)
+            nt = OxmlElement("w:t")
+            nt.text = text
+            nt.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            new.append(nt)
+            if font:
+                rPr = new.find(qn("w:rPr"))
+                if rPr is None:
+                    rPr = OxmlElement("w:rPr")
+                    new.insert(0, rPr)
+                rf = rPr.find(qn("w:rFonts"))
+                if rf is None:
+                    rf = OxmlElement("w:rFonts")
+                    rPr.append(rf)
+                for a in ("w:cs", "w:ascii", "w:hAnsi"):
+                    rf.set(qn(a), font)
+            r.addprevious(new)
+        r.getparent().remove(r)
+
+
+# Web addresses as links a reader can click (Part 3 leftovers, 2026-09-30:
+# `z21145041`'s and `z22058810`'s references). Their look stays as written.
+LINKS_ON = os.environ.get("QIRTAS_LINKS", "1") != "0"
+URL = re.compile(r"(?:https?://|www\.)[^\s<>\"]+")
+URL_TAIL = ".,;:)]}»،؛"
+
+
+def _link_runs(doc):
+    """Each web address in the body's runs inside a w:hyperlink of its own."""
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    part = doc.part
+    for r in list(doc.element.body.iter(qn("w:r"))):
+        t = r.find(qn("w:t"))
+        if t is None or not t.text or r.getparent().tag == qn("w:hyperlink"):
+            continue
+        found = []
+        for m in URL.finditer(t.text):
+            end = m.end()
+            while end > m.start() and t.text[end - 1] in URL_TAIL:
+                end -= 1
+            if end - m.start() > 6:
+                found.append((m.start(), end))
+        if not found:
+            continue
+        at, pieces = 0, []
+        for a, z in found:
+            pieces += [(t.text[at:a], None), (t.text[a:z], t.text[a:z])]
+            at = z
+        pieces.append((t.text[at:], None))
+        for text, url in pieces:
+            if not text:
+                continue
+            new = copy.deepcopy(r)
+            for e in new.findall(qn("w:t")):
+                new.remove(e)
+            nt = OxmlElement("w:t")
+            nt.text = text
+            nt.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            new.append(nt)
+            if url:
+                link = OxmlElement("w:hyperlink")
+                target = url if url.startswith("http") else "http://" + url
+                link.set(qn("r:id"), part.relate_to(target, RT.HYPERLINK, is_external=True))
+                link.append(new)
+                r.addprevious(link)
+            else:
+                r.addprevious(new)
+        r.getparent().remove(r)
+
+
 def write(model: Doc, out_path, scale=None):
     doc = Document()
     _scrub(model)
@@ -2098,6 +2403,8 @@ def write(model: Doc, out_path, scale=None):
         _first_page_number(doc, model, tdraw, tlift)
         lift = {**lift, **tlift}
     _header_rules(doc, model)
+    _footer_look(doc, model)
+    _line_numbering(doc, model)
     front = _bare_front(model, lift)
     if front:
         # The main section now starts at page `front`: its first number is
@@ -2125,13 +2432,19 @@ def write(model: Doc, out_path, scale=None):
 
     body_el = doc.element.body
     front_el = None          # the first thing written on page `front`
+    restarts = {p: s for lines in tdraw.values() for line in lines for f in line
+                for p, s in f.restarts.items()} if tdraw else {}
+    restart_at = {}
     for n, (page, blocks) in enumerate(pages.items()):
         if front and n == front:
             # Content goes in just before the body's own w:sectPr, so the
             # last child now is the one the page's first element will follow.
             front_at = len(body_el) - 1
+        if page in restarts:
+            restart_at[page] = len(body_el) - 1
         body = [b for b in blocks if b.kind not in (FOOTNOTE, IMAGE, TABLE)]
-        pics = [b for b in blocks if b.kind in (IMAGE, TABLE)]
+        pics = [b for b in blocks if b.kind in (IMAGE, TABLE) and not b.behind]
+        behind = [b for b in blocks if b.kind == IMAGE and b.behind]
         notes = [b for b in blocks if b.kind == FOOTNOTE]
 
         # Pair each note with its marker in this page's body. Numbering restarts
@@ -2173,6 +2486,11 @@ def write(model: Doc, out_path, scale=None):
         # pages -> 14).
         spaced = sum(len(b.text.split()) for b in body if b.kind not in (IMAGE, TABLE)) \
             < GAP_PAGE_WORDS
+        for b in behind:
+            para = _emit_behind(doc, b, model.dropped_images)
+            if para is not None and first and n:
+                para.paragraph_format.page_break_before = True
+                first = False
         for b in body + notes:
             if isinstance(b, Beside):
                 _emit_beside(doc, b, model, k, img_fit.get(page, 1.0), anchors,
@@ -2215,10 +2533,13 @@ def write(model: Doc, out_path, scale=None):
                              first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False),
                              notes=anchors if b.kind != FOOTNOTE else None,
                              base_pt=model.body_size)
-                if b.kind in (HEADING, PARAGRAPH) and _centred(b, model):
+                # Over a picture the text is centred on the page, whose middle
+                # need not be the column's (`z20585114`'s verse).
+                if b.kind in (HEADING, PARAGRAPH) and (_centred(b, model) or (
+                        behind and _centred(b, model, (0, model.page_width)))):
                     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 if b.kind != FOOTNOTE and spaced:
-                    gap = _gap_above(b, above, model)
+                    gap = _gap_above(b, above, model, on=bool(behind))
                     if gap:
                         para.paragraph_format.space_before = Pt(gap * k * FIT)
                     above = b
@@ -2229,11 +2550,24 @@ def write(model: Doc, out_path, scale=None):
                 para.paragraph_format.page_break_before = True
             first = False
 
-    if front and front < len(pages):
-        front_el = body_el[front_at]
-        if front_el.tag != qn("w:sectPr"):
-            _end_front(doc, front_el)
+    # Found before anything is put in between, while the indexes still hold.
+    restart_els = [(page, body_el[at]) for page, at in sorted(restart_at.items())
+                   if body_el[at].tag != qn("w:sectPr")]
+    front_el = body_el[front_at] if front and front < len(pages) else None
+    for page, el in restart_els:
+        _restart(doc, el, restarts[page] + page)
+    if front_el is not None and front_el.tag != qn("w:sectPr"):
+        _end_front(doc, front_el)
 
+    if model.symbols:
+        parts = [doc.element.body] + [
+            getattr(s, w)._element for s in doc.sections
+            for w in ("header", "footer", "even_page_header", "even_page_footer")
+            if not getattr(s, w).is_linked_to_previous]
+        for part in parts:
+            _symbol_runs(part, model.symbols)
+    if LINKS_ON:
+        _link_runs(doc)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(out_path))
     note_pt = _note_size(model)

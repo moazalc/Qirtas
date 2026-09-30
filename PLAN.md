@@ -3736,6 +3736,130 @@ whose letters are not stored) and where the OCR is missing - then the plain
 list, as before. Tests: `harness.test_fonts` (the message; `z18441713`
 wrong, `z22855164` right).
 
+### Part 3 leftovers, 2026-09-30
+
+Moaz: "do items 10-19" of the list of what is left - the looks items found
+on the way. Each was looked at on its page first; two were already fixed by
+earlier work. Every change has a switch; tests `harness.test_leftovers`.
+
+**Headers (`z20973693`, `z7456037`).** The header was written at the size
+of its largest letter - Webdings' book in front of it, 14pt, for 12pt text
+- now at the size most letters have (`writer._furniture_run`,
+`QIRTAS_FURNITURE_TEXT_SIZE`). The book came out an empty box: signs a font
+of signs draws with no letter of their own (U+F0xx) are written in that font
+(`reader._symbols` -> `Doc.symbols`, `writer._symbol_runs`,
+`QIRTAS_SYMBOL_FONT`). A header line across the whole text width starts at
+its side rather than centred (`_furniture_align`, `QIRTAS_FURNITURE_FULL`).
+**Not fixed:** both headers are set in fonts this PC lacks (AGA Aladdin,
+Sultan Medium, ae_AlArabiya), heavy designs; the stand-in is lighter and
+wider, so the header looks less bold and `z20973693`'s wraps. The PDFs'
+font weights (/StemV, /FontWeight) are Word's placeholders and say nothing.
+The missing-font message already names these fonts.
+
+**Footnotes.** Notes numbered plainly in one piece, "1 ... . 2 ... . 3"
+(`z17804101` page 5), are cut at a number after a full stop that is the
+next note and is referred to on the page (`_split_typed_notes`,
+`QIRTAS_PLAIN_NOTES`). A cut must leave words after the number: `z18048055`'s
+"(8) سورة الحجر: (9)." had its verse number cut off as note 9, and the "(9)."
+dropped (`QIRTAS_NOTE_WORDS`, found looking at the page). A note's second
+paragraph - after a full stop, a line below opening on an indent typed as
+spaces - keeps its own paragraph: `footnotes.NOTE_PARA` marks it in the
+reading and `build_xml` starts a new paragraph of the note there
+(`QIRTAS_NOTE_PARAS`; `z18048055` 1 note, `z18037898` 4). First version
+took any indent and split `z14065750`'s notes mid-line, "(849 - 911 هـ)" ->
+"(849-911هـ)"; caught comparing the Word files' words with the switches on
+and off. The checker read a note's paragraphs glued ("سابق.قال") - it now
+joins them with a space, as it does headers (`compare._footnote_texts`).
+
+**Side cells reach into the margins** (`z21850164`'s title page): the
+table of blocks side by side is as wide as the original's runs, moved back
+by what it reaches past the start margin (`_emit_beside`,
+`QIRTAS_BESIDE_MARGINS`). The ministry line wraps on two lines, not three
+(one in the original). Left: the French lines, one paragraph with the
+original's line ends lost, are not centred; lines spaced wider.
+
+**A picture the text is printed over** (`z20585114` page 2: a frame
+filling the page, a parchment in it, a verse over both). Written in the flow
+it took a page, the verse under it, and the parchment's photo carried the
+verse too. A picture of 60% of the page or more with page text drawn after
+it inside it, and the pictures within it, go behind the text at their place
+on the page (`reader._backdrops`, `writer._emit_behind`, Word's behindDoc
+anchor; `QIRTAS_BACKDROP`); the photo is taken again with the page's text
+redacted. On that page only the original's gaps are kept and text centred on
+the page (it has room: the picture takes none). `z20585114` right page 25.0
+-> 86.1%, 15 -> 14 pages. Left: the verse's letters come apart (س ع ى) - its
+DecoType Thuluth text is stored so; the header shows over the frame where
+the original's frame hides it.
+
+**The footer** (`z18048055`). Every page printed "1": the cut numbers
+1-3, 21-28, 54-55, and one run across most pages failed. Page numbers in
+stretches, each following the page, 2 to 4 stretches holding 80% of the
+copies, going up, now restart Word's numbering at each jump - a continuous
+section each, same header and footer (`_page_stretches`, `_restart`,
+`QIRTAS_PAGE_STRETCHES`). A real thesis does this when appendices number
+afresh; the cuts do it everywhere. The footer's lines (thin over thick,
+across the page) and the box round the number are read like the header's
+(`_header_rule(foot=True)`, `_number_box` -> `Doc.footer_rules`,
+`Doc.number_box`) and drawn: the lines on a paragraph of their own above,
+the box as the number paragraph's border, indented to the box's width
+(`writer._footer_look`, `QIRTAS_FOOTER_LOOK`). Square, not rounded.
+
+**English in Arabic.** "COVID19." was already right - the full stop in the
+English run draws after "19" (tested in Word; it was fixed on the way).
+A centred English line where the tags route has no positions ("Abstract",
+`z22058810` page 13): its drawn lines, short and centred on the column the
+document's lines make, mark it centred (`_drawn_align`,
+`QIRTAS_DRAWN_CENTRE`). Web addresses are links (`writer._link_runs`,
+`QIRTAS_LINKS`), in the body; not in notes, whose part has no links set
+up. The originals show them blue and underlined; ours keep their own look.
+
+**Brackets turned round one piece.** Tested in Word: ")59(" and
+")https://www.total.eg(" draw the wrong way round; "(59)" draws as the
+page does. A pair turned round a piece with no space, no Arabic letter and
+no bracket of its own, not joined to a letter either side, and "(" URL "("
+are put right (`reader._unturn`, `QIRTAS_TURNED_BRACKETS`): `z7456037`'s
+captions, `z18441713`'s addresses, `z22643426`'s years. The instrument
+(`harness.brackets`) scores these slightly lower (70.8 -> 71.5% overall,
+`z22643426` 88.1 -> 86.9%) - looked at on the page, "سليمان (٢٠٢٤)" is
+right; the instrument misreads a bracket round a number read left to
+right. Left: citations and formulas cut into many pieces
+(`z21644412`, `z3387756`).
+
+**Pictures side by side** (`z19773087` page 18): already side by side -
+Part 3's blocks side by side covers it.
+
+**Word's line numbers** (`z19773087`: 417, 418 ... in 8pt beside each
+line, in both columns) were read into the sentences. `glyphs.line_numbers`
+finds them - small figures going up 1 to 5 in value order across the
+page's columns, evenly spaced (half the gaps within 20% of the middle one;
+a page's footnote numbers, `z20763272`, reach 40%), on 60% of pages - and
+the repaired copy both the converter and the checker read has them redacted,
+so the gate compares like with like (`REPAIR_VERSION` 10). Word's own line
+numbering is switched on instead (`w:lnNumType`, `Doc.line_numbers`,
+`QIRTAS_LINE_NUMBERS`); its numbers follow our lines, not the original's.
+Found on 1 of 270 files, no thesis.
+
+**A picture grid's captions written twice** (`z19773087` page 19): the
+lower captions were read again under the table, one word drawn in two
+pieces ("M 𝑜𝑑𝑒") and two drawn together ("𝑀𝑜𝑑𝑒6:"). A paragraph with no
+Arabic word, whose words are the table's with at most two such pieces and
+one stray letter, is the table's (`_held_pieces`, `QIRTAS_TABLE_PIECES`),
+also when it leads a paragraph that runs on below the table. First version
+allowed Arabic and took 93 words of `z18037898`'s reference list, inside a
+table found round it - every word of an entry is somewhere in a reference
+list. **The gate did not see those 93 words go** (FLAGS 34).
+
+**Gaps above paragraphs** stay off except on a page whose pictures sit
+behind its text.
+
+**Full run** `2026-09-30-{thesis,regression}-leftovers2` against `quran1`:
+nothing lost 100.0% on every file; right page 71.3 -> 73.7%
+(`z20585114`); words in order 94.4% and page truth (wrong 6.8 -> 6.9%)
+unchanged; regression set unchanged. Looked at: `z20973693` page 5,
+`z21850164` page 1, `z20585114` pages 1-3, `z18048055` page 7,
+`z17804101` page 5, `z18441713` page 5, `z22643426`, and `z19773087`
+pages 18-19 (the wild file, converted alone).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

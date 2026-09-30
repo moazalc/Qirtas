@@ -56,6 +56,10 @@ class Block:
     # collage). The writer keeps Word's header and footer off that page, since
     # the photo already shows everything the original printed there.
     collage: bool = False
+    # A picture the page's text is printed over - a frame filling the page,
+    # and what lies inside it (`z20585114` page 2). Drawn behind the text at
+    # its place on the page, taking no room; photographed without the text.
+    behind: bool = False
     # Every word of this block came from a picture's /Alt description in the
     # structure tree, none from /ActualText or the page. It describes a picture
     # rather than being text the document printed - often Word's automatic
@@ -102,6 +106,10 @@ class Doc:
     # [(side "top"/"bottom", Word border style, width in eighths of a point,
     # colour "RRGGBB")].
     header_rules: List[tuple] = field(default_factory=list)
+    # The same for the footer, and the box round its page number: (x0, x1,
+    # line width in points, colour "RRGGBB"), None when there is none.
+    footer_rules: List[tuple] = field(default_factory=list)
+    number_box: tuple = None
     # The line above the footnotes as most pages draw it: (length in points,
     # side "right"/"left" it starts from, width in eighths of a point,
     # colour "RRGGBB"); empty if not found. And the notes' own distance
@@ -111,6 +119,13 @@ class Doc:
     # (path, reason) for every picture the writer could not place. Filled by
     # write(); a silent drop is how one lost picture went unnoticed for weeks.
     dropped_images: List[tuple] = field(default_factory=list)
+    # Signs a font of signs draws that have no letter of their own (Webdings'
+    # book before a header, U+F0A8): char -> the font, "Webdings". Written in
+    # that font they show as drawn; in the text's font, as an empty box.
+    symbols: dict = field(default_factory=dict)
+    # Word's line numbering the original had on ({"start", "restart"},
+    # glyphs.line_numbers); None when it had none.
+    line_numbers: dict = None
 
     def add(self, block: Block):
         if block:

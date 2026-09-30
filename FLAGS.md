@@ -1019,3 +1019,29 @@ on `z18037898` whose right spelling depends on words on the next line, or
 that the thesis also uses in its own writing (a repair is never keyed on
 letters the thesis's prose has); QCF. **Closes when:** those are repaired or
 Moaz calls them good enough.
+
+## 34. The gate cannot see a reference list's entries go
+
+**Status: OPEN (raised 2026-09-30).** A change under test (PLAN "Part 3
+leftovers", the table-caption match) dropped 93 words of `z18037898`'s
+reference list - seven whole entries - and nothing lost still read 100.0%.
+Found only by comparing the Word files' words with the change on and off.
+
+Why: the gate cuts the text into sentences at `.` `:` `،` and checks only
+pieces of 40 characters or more (`harness/loss.py`, `MIN_SENT`). A reference
+entry - "مطر، أميرة حلمي. (1994). جمهورية أفلاطون. دط. القاهرة: الهيئة ..." -
+is all short pieces, so none of it is checked. The same holds for tables of
+contents, lists of figures, short captions and anything else written in
+fragments.
+
+Why it matters: "nothing lost is a hard gate" is the project's first rule,
+and reference lists are a few pages of every thesis. A change that drops
+them passes.
+
+What would close it: a second check for the short pieces - each word of 3+
+letters of the original counted, the way the gate already does for a
+sentence not found whole (`words_survive`), over the text the sentence
+check skips - measured on the full run to see it does not raise false
+alarms (the old reason for `MIN_SENT`). Until then, compare the Word files'
+words with a change on and off (PLAN "Part 3 leftovers" has the command's
+shape) whenever a change can drop text.
