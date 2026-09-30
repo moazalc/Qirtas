@@ -125,9 +125,14 @@ number or address, Word's line numbers, a picture grid's captions written
 twice. Right page 71.3 -> 73.7%, nothing lost 100%. Left: headers in fonts
 not installed look lighter and wrap; `z21850164`'s French title lines not
 centred; the Thuluth verse on `z20585114` comes apart; citations and
-formulas cut into pieces keep some brackets wrong; links in notes. **Next,
-before more changes that can drop text: FLAGS 34** - the gate does not
-check reference lists (93 words went unnoticed).
+formulas cut into pieces keep some brackets wrong; links in notes.
+The gate's blind spot (FLAGS 34) CLOSED the same day (PLAN "The gate
+checks text in short pieces"): short text is checked; it found
+`z21145041`'s title page lost, now put back. For any change that can drop
+text, also compare the Word files' words with it on and off - the gate
+cannot see text the PDF's stored text lacks (a verse only in the labels).
+**Next: Moaz's call** - tables (parked), the Quran leftovers, or the
+numbers warning (FLAGS 13).
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the
