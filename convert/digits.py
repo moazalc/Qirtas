@@ -33,8 +33,13 @@ then shows stored "4" on a glyph that is a 2. The reader turns some of those
 back (`z22245438`'s "02"), so the message states what the PDF stores and
 shows, and asks to check, rather than claiming what the Word file says.
 
-Looked at on 2026-10-01: 18 of 338 corpus files, four of them theses; about 45
-numbers cropped from the pages, every one showing what this said it shows.
+Run it on the copy the converter reads (`glyphs.repaired`): the letter repair
+already puts some numbers right (`z18047321`'s 74.4%), and checking the
+original named those while the Word file had them right.
+
+Looked at on 2026-10-01, on the repaired copies: 14 of 338 corpus files,
+three of them theses; the numbers cropped from the pages all showed what
+this said they show.
 Not seen: a font with no usable table, or one not embedded.
 
 It does not correct anything. The check knows what the page draws, but a
