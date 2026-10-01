@@ -123,7 +123,8 @@ restored set matches.
 
 ## 5. `corpus/*.pdf` cannot be recovered by anything
 
-**Status: needs a manual backup.**
+**Status: CLOSED 2026-10-01 - Moaz backed the corpus folder up to his own
+machine (zipped, copied out of the VM). Back it up again if files are added.**
 
 Moaz's 8 thesis chapters, 37MB. Not in the repo — they are someone else's
 unpublished work. No command restores them. They are the regression set;
