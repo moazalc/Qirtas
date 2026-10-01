@@ -135,9 +135,12 @@ Numbers warning (FLAGS 13) DONE 1 Oct (PLAN "The numbers warning"):
 after converting, the pages whose numbers the PDF shows one way and stores
 another, with both - checked on the repaired copy, after Moaz's page
 showed the repair already fixes some. 14 of 338 files, three theses; every
-number looked at right. Not corrected - that needs its own check first.
-**Next: Moaz's call** - tables (parked), the Quran leftovers, or
-correcting the numbers the warning finds.
+number looked at right. Corrected the same day, Moaz's pick (PLAN "The
+numbers corrected"): OCR agreed with the new digits 434 to 1; nothing lost
+100%. Left: numbers stored turned round (still warned), brackets written
+as ص on `z18047321`.
+**Next, as suggested 1 Oct (Moaz picked the first, the numbers):** the held-out theses checked; tables;
+back up the corpus (FLAGS 5, Moaz). Then the Quran and looks leftovers.
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

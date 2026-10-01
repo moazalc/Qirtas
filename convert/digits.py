@@ -42,9 +42,14 @@ three of them theses; the numbers cropped from the pages all showed what
 this said they show.
 Not seen: a font with no usable table, or one not embedded.
 
-It does not correct anything. The check knows what the page draws, but a
-silent rewrite of numbers needs its own independent check first (FLAGS 13,
-the spelling repair's lesson, FLAGS 20 and 22).
+`fixes` corrects them (Moaz, 2026-10-01), in the repaired copy both the
+converter and the checker read (glyphs.repair): the same evidence, the
+font's own table, written into the stored-text table. The independent check
+first asked of a silent rewrite (FLAGS 13, 20, 22) was Windows' OCR reading
+every changed number on four pages of each file touched: 434 agreed with
+the new digits, 1 with the old - and that one, cropped, was the OCR's
+misreading. What `fixes` cannot reach - a number stored turned round - the
+warning still names.
 """
 import os
 import sys
@@ -56,6 +61,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 
 ON = os.environ.get("QIRTAS_DIGITS_WARN", "1") != "0"
+# Correct them in the repaired copy (glyphs.repair). QIRTAS_DIGITS_FIX=0: off.
+FIX_ON = os.environ.get("QIRTAS_DIGITS_FIX", "1") != "0"
 DIGITS = "0123456789"
 SEPARATORS = ".,٫٬"    # inside a number: 74.4, 150,000, ٫ ٬
 SHOWN = 3          # numbers quoted per page in the message
@@ -278,6 +285,31 @@ def scan(path):
         out.append(Wrong(pno, "".join(s for s, _d, _b in run), drawn,
                          tuple(box)))
     return out
+
+
+def fixes(doc, xref, stored):
+    """{code: character} for the digits, points and commas a font's stored-text
+    table names wrong, by the font's own table; {} if it cannot be told.
+
+    `stored` is the table as it stands (code -> text), after any letter repair.
+    Only where the code IS the glyph (Identity-H, CIDToGIDMap Identity): there
+    the font's own table, character -> glyph, says what each glyph is. Only a
+    font where at least one digit agrees - a renumbered subset disagrees about
+    all of them and proves nothing. A glyph the font names as no digit, point
+    or comma - an Arabic-Indic ٢ that Word draws for a typed 2 - is left as
+    stored, so a typed 2 stays a 2 (glyphs._trust)."""
+    if not FIX_ON or not _claims(doc, xref):     # the Identity checks
+        return {}
+    _own, table, _c = Fonts._table(doc, xref)
+    shape = {g: ch for ch, g in table.items()}
+    if len(shape) != len(table):
+        return {}
+    named = {c: t for c, t in stored.items() if t in DIGITS or t in ".,"}
+    agree = sum(1 for c, t in named.items() if t in DIGITS and shape.get(c) == t)
+    if len(named) < 3 or not agree:
+        return {}
+    return {c: shape[c] for c, t in named.items()
+            if c in shape and shape[c] != t}
 
 
 def message(wrong):

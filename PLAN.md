@@ -4001,9 +4001,42 @@ still named, `z21490618` clear on its repaired copy (as is `z20276145`). Moaz's 
 chapters: nothing. 1-2 seconds a file once the repaired copy exists - the
 converter has made it by then.
 
-Not seen: a font not embedded, or with no usable table. Not corrected: the
-check knows the shown number, but a silent rewrite needs its own check
-first (FLAGS 13).
+Not seen: a font not embedded, or with no usable table.
+
+### The numbers corrected (FLAGS 13), 2026-10-01
+
+Moaz's pick, the same day. The warning's evidence - the embedded font's own
+table, which digit each glyph is - is written into the font's stored-text
+table in the repaired copy (`digits.fixes`, called from `glyphs.repair`;
+`QIRTAS_DIGITS_FIX=0` off; REPAIR_VERSION 11). The converter and the
+checker read that copy, so the number is right in the Word file and the
+warning no longer names it. Digits, points and commas only; only where the
+code is the glyph (Identity-H, CIDToGIDMap Identity); only a font where at
+least one digit already agrees. A glyph the font names as no digit - the
+٢ Word draws for a typed 2 - is left alone, so Moaz's chapters: no change.
+
+The first repair rule this replaces for digits, `glyphs._trust`, refused
+any digit-for-digit change because of ٢; that is why `z18047321`'s Times
+kept 614 for 416 while its Simplified Arabic numbers were put right by
+the page's OCR (witness).
+
+**The independent check** a silent rewrite of numbers needed first: Windows'
+OCR on four pages of every file the fix touches (20 files), reading each
+changed number - 434 matched the new digits, 1 the old, 62 neither (OCR
+reading part of a number, or its digits in another order), 59 not read.
+The 1 and a dozen of the 62, cropped and looked at: every one the new
+digits right (17.406, 2020, 32.757, 2015, 08, 2019), the OCR wrong.
+
+**Full run** `2026-10-01-{thesis,regression}-numfix1` against `gate4`:
+nothing lost 100.0%, every score the same; page truth `z14714045` wrong
+4.3 -> 3.8%. Words with the fix on and off, by the reader on the repaired
+copies of the three theses touched: the same count; every word changed has
+a digit in it, but a web address on `z18047321` page 79, "ar(4" now "ar(."
+where the page shows a comma. `z18047321` page 7 converted whole: its 15
+numbers all as the page.
+
+Left: numbers stored turned round (the warning still names those), fonts
+not embedded, and on that page the brackets written as ص.
 
 ## Known unfinished
 

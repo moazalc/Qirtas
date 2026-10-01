@@ -904,3 +904,28 @@ Moaz's call: do the repair. Pushed the verse work first.
   0005, 1,210 times). On your page it names exactly the six. Across the
   corpus: 14 of 338 files, three of them theses. I looked at about 30 of
   the flagged numbers after the change: all right.
+
+### 1 Oct — the wrong numbers, corrected
+
+- **What it does.** Where the PDF shows one number and stores another, the
+  Word file now gets the number the page shows. It uses the same evidence
+  as the warning: the font itself says which digit each shape is.
+- **Your page 7:** all 15 numbers now match the page - 416, 411, 200, 189,
+  94.5%, 100% were wrong before.
+- **Checked independently, as we said it must be:** Windows' text
+  recognition read the changed numbers straight off the page images, in
+  every file the fix touches (20 files). It agreed with the new numbers
+  434 times and the old ones once - and that one, when I looked, was the
+  recognition misreading. A dozen other odd cases, looked at: the new
+  number right every time.
+- **Nothing lost:** still 100%; the other scores the same, one thesis
+  slightly better. Word for word, the fix changes only numbers (and one
+  web address ending, a little closer to the page than before).
+- **The warning:** on the 14 files it used to name, it now has nothing
+  left to say. It stays switched on for files we have not seen.
+- **Your own chapters:** no change - Arabic-style digits (٢ for a typed 2)
+  are left alone.
+- **Still wrong on that page:** brackets come out as ص, and a few words
+  are cut short. Those are separate faults.
+- **Next:** check the 12 held-out theses, then tables. And please back up
+  the corpus folder (five minutes, FLAGS 5).

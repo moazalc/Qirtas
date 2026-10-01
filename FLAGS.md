@@ -374,8 +374,11 @@ repair: it also flips the lam-alef ligature. `harness/test_tables.py`. See
 (`convert/digits.py`, PLAN "The numbers warning"): after converting, the
 pages are named with each number as shown and as stored, checked on the
 repaired copy the converter reads. 14 of 338 corpus files, three of them
-theses; every flagged number looked at was right. Still
-open: correcting them, and fonts not embedded.**
+theses; every flagged number looked at was right. CORRECTED the same day
+(PLAN "The numbers corrected"): the font's own table written into the
+repaired copy; Windows' OCR agreed with the new digits 434 times, the old
+once (an OCR misreading). Still open: numbers stored turned round (warned,
+not corrected), and fonts not embedded.**
 
 Not our bug. Our output is still wrong, and every score says 100%.
 

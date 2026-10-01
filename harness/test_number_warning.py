@@ -96,6 +96,16 @@ def main():
             got = [(w.page, w.stored, w.drawn) for w in scan(lie)]
             check("found, with what the page shows", got,
                   [(1, "1901", "1951")])
+            print("corrected in the repaired copy")
+            from convert.glyphs import repair
+            out = Path(tmp) / "geneva-fixed.pdf"
+            done = repair(lie, out)
+            check("the repair says so", any("digits" in w for _x, w in done),
+                  True)
+            text = pymupdf.open(out)[0].get_text()
+            check("the text now says 1951", "1951" in text and "1901" not in text,
+                  True)
+            check("and the warning has nothing to say", scan(str(out)), [])
             print("PDFs that tell the truth")
             check("the same line, table untouched",
                   scan(_pdf(tmp, "honest", "Geneva 1951, protocol 1967",

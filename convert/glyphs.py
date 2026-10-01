@@ -101,7 +101,9 @@ def spell_out(text):
 SPACE_MARK_ON = os.environ.get("QIRTAS_SPACE_MARK", "1") != "0"
 LINE_NUMBERS_ON_ENV = os.environ.get("QIRTAS_LINE_NUMBERS", "1") != "0"
 # Bumped when the repair changes, so the cached copies are made again.
-REPAIR_VERSION = "10" + ("" if LINE_NUMBERS_ON_ENV else "-nolines") + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
+# Digits the font's table names wrong, corrected (FLAGS 13). QIRTAS_DIGITS_FIX=0.
+DIGITS_FIX_ON = os.environ.get("QIRTAS_DIGITS_FIX", "1") != "0"
+REPAIR_VERSION = "11" + ("" if DIGITS_FIX_ON else "-nodigits") + ("" if LINE_NUMBERS_ON_ENV else "-nolines") + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
                         else "-fourpages") + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
                         else "-nosymbols") + ("" if SPACE_MARK_ON else "-nospacemark")
 
@@ -694,6 +696,21 @@ def repair(pdf_path, out_path):
         fonts = {f[0] for p in doc for f in p.get_fonts()}
         for xref in sorted(fonts):
             table, why = settled[xref] if xref in settled                 else diagnose(doc, xref)
+            # Digits, points and commas the table names wrong, by the font's
+            # own table: 1951 stored as 1901 (FLAGS 13, convert/digits.py).
+            if DIGITS_FIX_ON:
+                try:
+                    kind, tu = doc.xref_get_key(xref, "ToUnicode")
+                    now = table or (read_tounicode(doc.xref_stream(
+                        int(tu.split()[0]))) if kind == "xref" else {})
+                    from convert.digits import fixes as digit_fixes
+                    numbers = digit_fixes(doc, xref, now) if now else {}
+                except Exception:
+                    numbers = {}
+                if numbers:
+                    table = {**now, **numbers}
+                    why = (why if why != "fine" else "") + \
+                        f"; {len(numbers)} digits stored wrong"
             if table is None:
                 continue
             tu = int(doc.xref_get_key(xref, "ToUnicode")[1].split()[0])
