@@ -131,8 +131,12 @@ checks text in short pieces"): short text is checked; it found
 `z21145041`'s title page lost, now put back. For any change that can drop
 text, also compare the Word files' words with it on and off - the gate
 cannot see text the PDF's stored text lacks (a verse only in the labels).
-**Next: Moaz's call** - tables (parked), the Quran leftovers, or the
-numbers warning (FLAGS 13).
+Numbers warning (FLAGS 13) DONE 1 Oct (PLAN "The numbers warning"):
+after converting, the pages whose numbers the PDF shows one way and stores
+another, with both. 18 of 338 files, four theses; every number looked at
+right. Not corrected - that needs its own check first.
+**Next: Moaz's call** - tables (parked), the Quran leftovers, or
+correcting the numbers the warning finds.
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

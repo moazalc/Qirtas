@@ -46,7 +46,9 @@ names the wrong letters for its shapes, and only the font can put them right
 - is named first, with how its text reads and on which pages, and said again
 after converting (FLAGS 23; Windows' OCR reads the pages it is used on).
 `python -m convert.fonts some.pdf` gives the font list alone. Then it converts with Word checking which pages ran over
-(`convert/fit.py`), the same path every score is measured on.
+(`convert/fit.py`), the same path every score is measured on. Afterwards it
+names the pages whose numbers the PDF shows one way and stores another,
+with both (FLAGS 13); `python -m convert.digits some.pdf` gives that alone.
 
 ## setup
 

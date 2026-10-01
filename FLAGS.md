@@ -370,7 +370,11 @@ repair: it also flips the lam-alef ligature. `harness/test_tables.py`. See
 
 ## 13. A PDF can display one number and store another
 
-**Status: DECIDED 2026-09-21 - warn, not refuse (Moaz). Not built yet.**
+**Status: DECIDED 2026-09-21 - warn, not refuse (Moaz). BUILT 2026-10-01
+(`convert/digits.py`, PLAN "The numbers warning"): after converting, the
+pages are named with each number as shown and as stored. 18 of 338 corpus
+files, four of them theses; every flagged number looked at was right. Still
+open: correcting them, and fonts not embedded.**
 
 Not our bug. Our output is still wrong, and every score says 100%.
 

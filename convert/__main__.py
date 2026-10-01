@@ -7,7 +7,9 @@
 
 Before converting it says which of the PDF's fonts this computer lacks, and
 where to get them, and waits while they are installed (convert/fonts.py,
-Moaz 2026-09-23). A scan is refused with a plain message (convert/scan.py).
+Moaz 2026-09-23). A scan is refused with a plain message (convert/scan.py). After converting
+it names the pages whose numbers the PDF shows differently from the text
+stored in it (convert/digits.py, FLAGS 13).
 The conversion itself is convert/fit.py with Word checking which pages ran
 over - the same path every score in this project is measured on.
 """
@@ -17,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from convert import fonts
+from convert import digits, fonts
 from convert.scan import Refused, refuse_scans
 
 ANYWAY = {"go", "g", "skip", "s", "no", "n"}
@@ -99,6 +101,12 @@ def main(argv=None):
             print(f"Note: the text in {m.name}{' ' + m.style if m.style else ''}"
                   f"{fonts._pages(m.pages)} came out wrong. Install that font "
                   f"and convert again.")
+    # Numbers the page shows differently from the text stored in it (FLAGS 13):
+    # the Word file has the stored ones. Said, not corrected.
+    if digits.ON:
+        note = digits.message(digits.scan(str(pdf)))
+        if note:
+            print(note)
 
 
 if __name__ == "__main__":

@@ -865,3 +865,31 @@ Moaz's call: do the repair. Pushed the verse work first.
   everything else the same or slightly better.
 - **Next:** Moaz's call - tables (parked), the Quran leftovers, or the
   numbers warning.
+
+### 1 Oct — the numbers warning
+
+- Pushed the "nothing lost" fix.
+- **What it is about.** Some PDFs show one number on the page and store a
+  different one underneath - the page says 1951, the stored text says 1901.
+  The Word file is made from what is stored, so it says 1901, and none of
+  our scores can notice. You decided in September: convert anyway, and tell
+  the person which pages.
+- **Built.** After converting, it now says, for example:
+  "page 7: 1992 (stored as 2991)". Up to ten pages are spelled out, the
+  rest listed. Nothing in the Word file changes.
+- **Better than the old check.** The old one could only say "this file is
+  suspect". The new one reads, for each digit on the page, what is stored
+  and what is actually drawn, so it can say the exact number the page shows.
+- **How often:** 18 of 338 files, four of them theses - one thesis on 146
+  of its 195 pages ("74.4%" stored as "47.7"). I cropped about 45 of the
+  flagged numbers from the pages and looked: every one was what the check
+  said. Your own chapters: nothing flagged.
+- **What went wrong on the way:** the first try flagged 69 files, mostly
+  nonsense - two fonts with the same name, and it read the digits with the
+  wrong one. Now it only judges a font when there is no doubt which one it
+  is.
+- **What it cannot do yet:** fix the numbers. It knows what the page
+  shows, but changing numbers silently needs its own independent check
+  first. It also cannot check fonts that are not inside the PDF.
+- **Next:** your call - tables (parked), the Quran leftovers, or actually
+  correcting these numbers.

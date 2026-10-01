@@ -3938,6 +3938,52 @@ unchanged; regression set unchanged. Looked at: `z20973693` page 5,
 `z17804101` page 5, `z18441713` page 5, `z22643426`, and `z19773087`
 pages 18-19 (the wild file, converted alone).
 
+### The numbers warning (FLAGS 13), 2026-10-01
+
+Moaz decided 2026-09-21: a file whose numbers the page shows one way and
+stores another converts, and the person is told which pages. Built as
+`convert/digits.py`; `python -m convert` prints it after "Done", beside the
+font note. Off: `QIRTAS_DIGITS_WARN=0`. Nothing in the Word file changes, so
+no score moves and no full run was needed.
+
+**Not `harness/digits.py` moved over - a better test.** That one compared
+the stored-text table with the font's own table, entry by entry, and could
+only say "this file is suspect". PyMuPDF's text trace gives, for every
+character drawn, the stored character AND the glyph drawn; the embedded
+font says which digit that glyph is. So the check knows the page, the stored
+number and the number shown: `z21358439` page 8, 1951 (stored as 1901),
+1967 (stored as 1922).
+
+Traps, each met on the way:
+
+- **A span names its font, not which one.** `z20026356` draws its year in
+  a system Times that shares its name with an embedded Times; read against
+  the embedded one's table, 2026 became "0004". First sweep: 69 of 338
+  files, mostly that. A name is judged only where every font of that name
+  on the page is embedded and they agree about the digits (`z21358439`
+  has two Traditional Arabics, `z21490618` subsets carrying different
+  digits - both fine).
+- **The name a span carries is the one inside the font** ("ArialMT"), not
+  always the one the PDF lists ("Arial Regular"); both are keys. Found
+  by the test, not the corpus, where they happened to match.
+- **Numbers stored turned round** (2014 as 4102, FLAGS 1) show up too,
+  wherever the PDF pairs stored characters with glyphs in drawing order.
+  The reader turns some back (`z22245438`'s "02"), so the message says
+  what the PDF stores and shows and asks to check - it does not claim what
+  the Word file says.
+
+**Measured:** 18 of 338 corpus files (5.3%), four of them theses
+(`z18047321`: 146 of 195 pages, "74.4%" stored as "47.7"). About 45
+flagged numbers cropped from the pages across 17 files: every one showing
+what the check said. `harness/digits.py` found 7 candidates in 102 dev files
+and 4 real; this finds those 4, and two of the three it called "right
+where looked" are wrong elsewhere: `z21813345` on 115 pages (page 26's
+"24" stored as "13"), `z20276145` on 6. The third, `z19773087`, is clear. Moaz's own chapters: nothing. Takes 1-2 seconds a file.
+
+Not seen: a font not embedded, or with no usable table. Not corrected: the
+check knows the shown number, but a silent rewrite needs its own check
+first (FLAGS 13).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
