@@ -68,7 +68,7 @@ class Wrong:
 @dataclass
 class Fonts:
     """Each embedded font's own digit table, by the name spans carry."""
-    tables: dict = field(default_factory=dict)    # xref -> (own name, {digit: gid})
+    tables: dict = field(default_factory=dict)    # xref -> (own name, {digit: gid}, claims)
 
     def load(self, doc, page):
         """-> {name: digit table} for the names on this page that can be
@@ -80,16 +80,19 @@ class Fonts:
         some of the digits, agreeing where they overlap.
 
         A span carries the name inside the font where there is one ("ArialMT"),
-        which need not be the one the PDF lists ("Arial Regular"): both count."""
+        which need not be the one the PDF lists ("Arial Regular"): both count.
+
+        -> {name: Judge}."""
         names = defaultdict(list)
         for xref, *_rest in page.get_fonts(full=True):
             listed = _rest[2].split("+", 1)[-1]
             if xref not in self.tables:
                 self.tables[xref] = self._table(doc, xref)
-            own, table = self.tables[xref]
+            own, table, claims = self.tables[xref]
             for name in {listed, own} - {""}:
-                names[name].append(table)
-        return {n: m for n, ts in names.items() if (m := _merge(ts))}
+                names[name].append((table, claims))
+        return {n: Judge(_merge([t for t, _c in fs]), fs)
+                for n, fs in names.items()}
 
     @staticmethod
     def _table(doc, xref):
@@ -97,17 +100,87 @@ class Fonts:
             buf = doc.extract_font(xref)[3]
             font = pymupdf.Font(fontbuffer=buf) if buf else None
         except Exception:
-            return "", {}
+            return "", {}, {}
         table = {}
         if font is not None:
-            for d in DIGITS:
+            for d in DIGITS + ".,":     # a stored digit can be drawn as a point
                 try:
                     g = font.has_glyph(ord(d))
                 except Exception:
                     g = 0
                 if g:
                     table[d] = g
-        return (_own_name(buf) if table else ""), table
+        if not table:
+            return "", {}, {}
+        return _own_name(buf), table, _claims(doc, xref)
+
+
+@dataclass
+class Judge:
+    """How to read the digits of spans carrying one name. `merged`: every
+    font of the name agrees. Otherwise, as on `z18047321`, a system Times
+    and an embedded one share the name, and a span - one font - is the
+    embedded one's only if:
+
+      - that font's stored-text table gives every digit glyph of the span
+        exactly the character stored; a system font's glyph numbers do not
+        line up so for long, and
+      - at least one of them not through a spare entry. `z19747130`'s
+        embedded Times says both glyph 19 (its real 0) and glyph 17 are "0",
+        and its system Times draws a lone 0 as glyph 17. A spare proves
+        nothing (harness/digits.py met it on `z20397518`); but `z18047321`'s
+        scrambled table gives "1" to glyph 20, right, and to 28, a 9 - so a
+        spare is judged with the rest of its span, not alone."""
+    merged: dict
+    fonts: list                   # [(table, claims)]
+
+    def table_for(self, digits):
+        """`digits`: [(glyph, stored digit)] of one span -> a table or None."""
+        if self.merged:
+            return self.merged
+        mine = [t for t, claims in self.fonts
+                if t and all(claims.get(g) == ch for g, ch in digits)
+                and any(g == t.get(ch) or claims.get(t.get(ch)) != ch
+                        for g, ch in digits)]
+        return (_merge(mine) or None) if mine else None
+
+
+def _claims(doc, xref):
+    """{glyph: digit} the font's stored-text table claims - only where the
+    code IS the glyph (Identity-H, CIDToGIDMap Identity)."""
+    import re
+    obj = doc.xref_object(xref, compressed=True)
+    if "/Identity-H" not in obj:
+        return {}
+    m = re.search(r"/DescendantFonts\s*\[?\s*(\d+) 0 R", obj)
+    if m:
+        kid = doc.xref_object(int(m.group(1)), compressed=True)
+        kid = kid.replace(" ", "")
+        if "/CIDToGIDMap" in kid and "/CIDToGIDMap/Identity" not in kid:
+            return {}
+    tu = re.search(r"/ToUnicode (\d+) 0 R", obj)
+    if not tu:
+        return {}
+    try:
+        cmap = doc.xref_stream(int(tu.group(1))).decode("latin-1", "replace")
+    except Exception:
+        return {}
+    out = {}
+    for chunk in re.findall(r"beginbfchar(.*?)endbfchar", cmap, re.S):
+        for code, uni in re.findall(r"<([0-9A-Fa-f]{2,8})>\s*<([0-9A-Fa-f]{4,})>",
+                                    chunk):
+            ch = chr(int(uni[:4], 16))
+            if ch in DIGITS:
+                out[int(code, 16)] = ch
+    for chunk in re.findall(r"beginbfrange(.*?)endbfrange", cmap, re.S):
+        for lo, hi, uni in re.findall(
+                r"<([0-9A-Fa-f]{2,8})>\s*<([0-9A-Fa-f]{2,8})>\s*<([0-9A-Fa-f]{4,})>",
+                chunk):
+            for k in range(int(lo, 16), int(hi, 16) + 1):
+                u = int(uni[:4], 16) + k - int(lo, 16)
+                if 0x30 <= u <= 0x39:
+                    out[k] = chr(u)
+    return out
 
 
 def _own_name(buf):
@@ -154,13 +227,18 @@ def scan(path):
             judged = fonts.load(doc, page)
             for span in page.get_texttrace():
                 name = span.get("font", "")
-                table = judged.get(name)
+                judge = judged.get(name)
+                if judge is None:
+                    continue
+                table = judge.table_for(
+                    [(c[1], chr(c[0])) for c in span["chars"]
+                     if 0x30 <= c[0] <= 0x39])
                 if not table:
                     continue
                 run, sep = [], None
                 for c in span["chars"]:
                     ch = chr(c[0]) if c[0] >= 0 else ""
-                    if ch in DIGITS and ch:
+                    if ch and ch in DIGITS:
                         drawn = _read(c[1], table)
                         if drawn == ch:
                             agree[name] += 1
@@ -169,7 +247,8 @@ def scan(path):
                         run.append((ch, drawn, c[3]))
                         sep = None
                     elif ch in SEPARATORS and run and not sep:
-                        sep = (ch, ch, c[3])   # 74.4 is one number
+                        # 74.4 is one number; and a point can be drawn as a digit
+                        sep = (ch, _read(c[1], table) or ch, c[3])
                     elif run:
                         sep = None
                         found.append((page.number + 1, name, run))
@@ -180,13 +259,18 @@ def scan(path):
     for pno, name, run in found:
         if not agree[name]:
             continue                   # renumbered subset: proves nothing
-        if not any(d is not None and d != s for s, d, _b in run):
+        # A point drawn as a comma (9.16 shown 9,16) is the same number.
+        if not any(d is not None and d != s
+                   and not (s in SEPARATORS and d in SEPARATORS)
+                   for s, d, _b in run):
             continue
+        drawn = "".join(d if d is not None else s for s, d, _b in run)
+        if not any(d in DIGITS for d in drawn):
+            continue                   # a lone point: no number to name
         box = pymupdf.Rect(run[0][2])
         for *_sd, b in run:
             box |= pymupdf.Rect(b)
-        out.append(Wrong(pno, "".join(s for s, _d, _b in run),
-                         "".join(d if d is not None else s for s, d, _b in run),
+        out.append(Wrong(pno, "".join(s for s, _d, _b in run), drawn,
                          tuple(box)))
     return out
 

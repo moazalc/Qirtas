@@ -102,9 +102,12 @@ def main(argv=None):
                   f"{fonts._pages(m.pages)} came out wrong. Install that font "
                   f"and convert again.")
     # Numbers the page shows differently from the text stored in it (FLAGS 13):
-    # the Word file has the stored ones. Said, not corrected.
+    # the Word file has the stored ones. Said, not corrected. Checked on the
+    # copy the converter read: the letter repair (FLAGS 22) already puts some
+    # right - `z18047321`'s 74.4%, stored as 47.7.
     if digits.ON:
-        note = digits.message(digits.scan(str(pdf)))
+        from convert.glyphs import repaired
+        note = digits.message(digits.scan(repaired(pdf)))
         if note:
             print(note)
 

@@ -893,3 +893,14 @@ Moaz's call: do the repair. Pushed the verse work first.
   first. It also cannot check fonts that are not inside the PDF.
 - **Next:** your call - tables (parked), the Quran leftovers, or actually
   correcting these numbers.
+- **Correction, same day, from the page you asked for.** Converting a whole
+  thesis page showed the warning was checking the wrong thing. Our letter
+  repair had already put some of the numbers right (74.4% was correct in
+  the Word file), so the warning named numbers that were fine - and missed
+  six that were wrong (416 written as 614, 94.5% as 1645%), because two
+  fonts on the page share the name Times New Roman. Now it checks the
+  copy the converter actually reads, works out which of the two fonts drew
+  each number, and reads decimal points too (one thesis stores 0.05 as
+  0005, 1,210 times). On your page it names exactly the six. Across the
+  corpus: 14 of 338 files, three of them theses. I looked at about 30 of
+  the flagged numbers after the change: all right.

@@ -372,8 +372,9 @@ repair: it also flips the lam-alef ligature. `harness/test_tables.py`. See
 
 **Status: DECIDED 2026-09-21 - warn, not refuse (Moaz). BUILT 2026-10-01
 (`convert/digits.py`, PLAN "The numbers warning"): after converting, the
-pages are named with each number as shown and as stored. 18 of 338 corpus
-files, four of them theses; every flagged number looked at was right. Still
+pages are named with each number as shown and as stored, checked on the
+repaired copy the converter reads. 14 of 338 corpus files, three of them
+theses; every flagged number looked at was right. Still
 open: correcting them, and fonts not embedded.**
 
 Not our bug. Our output is still wrong, and every score says 100%.

@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pymupdf
 
-from convert.digits import Wrong, _merge, _read, message, scan
+from convert.digits import Judge, Wrong, _merge, _read, message, scan
 
 FAILED = []
 ARIAL = Path("C:/Windows/Fonts/arial.ttf")
@@ -70,6 +70,18 @@ def main():
     check("two digits on one glyph: none", _merge([{"1": 20}, {"7": 20}]), {})
     check("one with no table (not embedded): none",
           _merge([{"1": 20}, {}]), {})
+    times = {"0": 19, "1": 20, "4": 23, "6": 25}
+    shared = Judge({}, [({}, {}), (times, {23: "6", 20: "1", 25: "4"})])
+    check("a system Times beside an embedded one: the embedded one's span",
+          shared.table_for([(23, "6"), (20, "1")]), times)
+    check("a glyph its table does not give that character: neither",
+          shared.table_for([(23, "2")]), None)
+    spare = Judge({}, [({}, {}), ({"0": 19, "1": 20, ".": 17},
+                                  {17: "0", 19: "0", 20: "1", 28: "1"})])
+    check("a lone 0 through a spare entry: neither",
+          spare.table_for([(17, "0")]), None)
+    check("a spare beside a digit that is the font's own: the font",
+          bool(spare.table_for([(20, "1"), (28, "1")])), True)
     check("a glyph the font names", _read(24, {"0": 19, "5": 24}), "5")
     check("a glyph it does not: nothing", _read(30, {"0": 19}), None)
 

@@ -3972,13 +3972,34 @@ Traps, each met on the way:
   what the PDF stores and shows and asks to check - it does not claim what
   the Word file says.
 
-**Measured:** 18 of 338 corpus files (5.3%), four of them theses
-(`z18047321`: 146 of 195 pages, "74.4%" stored as "47.7"). About 45
-flagged numbers cropped from the pages across 17 files: every one showing
-what the check said. `harness/digits.py` found 7 candidates in 102 dev files
-and 4 real; this finds those 4, and two of the three it called "right
-where looked" are wrong elsewhere: `z21813345` on 115 pages (page 26's
-"24" stored as "13"), `z20276145` on 6. The third, `z19773087`, is clear. Moaz's own chapters: nothing. Takes 1-2 seconds a file.
+**First measured on the original PDFs:** 18 of 338 files, every cropped
+number right - and still the wrong question. **Moaz asked for a whole page
+converted** (`z18047321` page 7) and the Word file had 74.4% right: the
+letter repair (FLAGS 22) had already put it back, from the font. The
+warning was naming numbers that were fine, and missing six that were not
+(416 written 614, 94.5% written 1645%), in a Times whose name a system
+Times shares. So:
+
+- **It checks the repaired copy** the converter reads (`glyphs.repaired`,
+  cached), not the original.
+- **A shared name is settled by span.** A span is one font: it is the
+  embedded one's if that font's stored-text table gives every digit glyph
+  in it exactly the character stored, at least one not through a spare
+  entry (`z19747130`'s embedded Times also calls glyph 17 "0", and its
+  system Times draws a lone 0 as glyph 17 - a false "point"; `z18047321`'s
+  scrambled table gives "1" to glyph 20, right, and 28, a 9).
+- **Points and commas are read too**, since a stored digit can be a drawn
+  point: `z19747130` stores 0.05 as 0005, 1,210 times; `z21358439`
+  10,000 as 100000. A point drawn as a comma (9.16 shown 9,16) is the same
+  number and not named.
+
+**Measured on the repaired copies:** 14 of 338 files (4.1%), three of them
+theses (`z19747130` 34 pages, `z14714045` 18, `z18047321` 16). Cropped and
+looked at again after each change, about 30 numbers: all right; the page
+Moaz saw now names exactly its six. `harness/digits.py`'s 4 real files: 3
+still named, `z21490618` clear on its repaired copy (as is `z20276145`). Moaz's own
+chapters: nothing. 1-2 seconds a file once the repaired copy exists - the
+converter has made it by then.
 
 Not seen: a font not embedded, or with no usable table. Not corrected: the
 check knows the shown number, but a silent rewrite needs its own check
