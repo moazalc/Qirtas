@@ -929,3 +929,30 @@ Moaz's call: do the repair. Pushed the verse work first.
   are cut short. Those are separate faults.
 - **Next:** check the 12 held-out theses, then tables. And please back up
   the corpus folder (five minutes, FLAGS 5).
+
+### 1 Oct — the 12 held-out theses
+
+- **Backup:** you copied the corpus out of the VM. Done.
+- **The held-out check.** These are the 12 theses I have never tuned on -
+  the honest test of whether our work holds up on new files. It does, and
+  better than on the files I worked on: words in order 97.4% (vs 94.4%),
+  words on the right page 85.1% (vs 73.8%). No sign that I was just
+  fitting the files I could see.
+- **It caught two lost words**, which our "nothing lost" check can only
+  find on files it is run on:
+  - الركوع came out as "الرك عو" - a small piece of the word, labelled on
+    its own in the PDF, was read backwards. Fixed.
+  - ولله came out as "وهلل" - the PDF stores the word backwards; we turn
+    such words round, but missed it with و stuck in front. Fixed.
+  - The fix for the first one also brought back a title-page line that
+    was missing in another thesis ("الأستاذ الدكتور"), though in pieces.
+  - My first version of that fix broke a table's "لا" (No) and wrote its
+    header twice; I caught it comparing the words with the fix on and off,
+    and fixed it before it went anywhere.
+- **Nothing lost on the held-out set:** 99.9%. What is left is one thesis
+  whose own title text is garbled in the PDF (ours is right) and the
+  Quran-font codes we already knew about. The 25 working theses and your
+  chapters: unchanged, 100%.
+- **Not looked into yet:** one held-out thesis reads 48% wrong on the
+  page check, another spills from 13 pages to 15.
+- **Next:** your call - tables (you parked them), or those two files.

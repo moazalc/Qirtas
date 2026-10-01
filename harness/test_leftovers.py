@@ -99,6 +99,23 @@ def main():
     check("the text kept", "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", body_xml)),
           " الباب الثاني see www.example.org.")
 
+    print("\nfound by the held-out theses (1 Oct)")
+    from convert.pdftext import apply_fixes
+    turned = {"هلل": "لله"}
+    check("a turned word with و joined in front", apply_fixes("َّ وَهلل َّ", turned),
+          "َّ وَلله َّ")
+    check("with ف", apply_fixes("فهلل الأمر", turned), "فلله الأمر")
+    check("a longer word that ends in it stays", apply_fixes("كتابهلل", turned),
+          "كتابهلل")
+    from convert.order import _as_stored
+    placed = [{"c": c, "bbox": (x, 362, x + 4, 386)}
+              for c, x in ((" ", 50.2), ("ع", 54.1), ("و", 59.5))]
+    stored = {(" ", 50.2, 362): [1], ("و", 59.5, 362): [2], ("ع", 54.1, 362): [3]}
+    check("as stored: space, و, ع", _as_stored(placed, list(" عو"), stored),
+          [0, 2, 1])
+    check("in stored order already: nothing",
+          _as_stored([placed[0], placed[2], placed[1]], list(" وع"), stored), None)
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

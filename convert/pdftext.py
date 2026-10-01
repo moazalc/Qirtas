@@ -385,7 +385,25 @@ def _joined_fixes(text, fixes):
             if b in plain and a in known:
                 return plain.get(a, a) + plain[b]
         return w
-    return re.sub(r"[ء-ي]{5,}", fix, text)
+    text = re.sub(r"[ء-ي]{5,}", fix, text)
+
+    # A word the map knows, with a one-letter و ف ب ل ك joined in front and
+    # its vowel mark: `z5227331` stores لله backwards, the map turns هلل
+    # round, and the reading joined "وَ" to it - "وَهلل" came out, a word no
+    # fix is keyed on (the held-out set, 1 Oct).
+    # Only a fix that turns the word round: a spelling fix (واإلسالميني)
+    # must not fire inside كواإلسالميني.
+    def prefixed(m):
+        w = m.group(2)
+        if m.group(0) in plain or plain.get(w) != w[::-1]:
+            return m.group(0)
+        return m.group(1) + plain[w]
+    return PREFIXED.sub(prefixed, text) if PREFIXED_ON else text
+
+
+PREFIXED_ON = os.environ.get("QIRTAS_PREFIXED_FIX", "1") != "0"
+PREFIXED = re.compile(r"(?<![ء-يً-ْ])([وفبلك][ً-ْ]*)"
+                      r"([ء-ي]{3,})(?![ء-يً-ْ])")
 
 
 def apply_fixes(text, fixes):

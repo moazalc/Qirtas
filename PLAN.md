@@ -4038,6 +4038,48 @@ numbers all as the page.
 Left: numbers stored turned round (the warning still names those), fonts
 not embedded, and on that page the brackets written as ص.
 
+### The held-out theses opened, 2026-10-01
+
+Moaz unpaused it. The 12 theses never tuned on (`--set thesis-holdout`,
+run `2026-10-01-thesis-holdout-holdout1`), against the 25 tuned on
+(`numfix1`):
+
+    held out    words in order 97.4%   right page 85.1%   OCR wrong 9.8%
+    tuned on    words in order 94.4%   right page 73.8%   OCR wrong 6.9%
+
+**No sign of fitting the files we could see** - the opposite of the 64.7%
+against 22.7% that started the split. The tuned set is pulled down by its
+hard files (`z21145041`, `z22058810` stored backwards; spilled pages).
+OCR wrong is higher on the held-out set mostly from one file, `z18896740`
+(48% - not looked into: what is wrong there is still unseen).
+
+**Nothing lost was 99.9%, worst file 99.4%.** Looked at, as the hard gate
+asks - and so these three files are no longer unseen:
+
+- `z20497593`: الركوع written "الرك عو". The PDF stores "الرك", a stray
+  space, "وع"; read with the structure labels MuPDF gave that small,
+  separately labelled piece left to right. **A labelled line whose
+  characters all sit where the plain reading puts them takes the plain
+  reading's order** (`order._as_stored`, `QIRTAS_STORED_ORDER=0` off) -
+  but not a lam-alef: Word stores لا as "ال", the labelled reading has it
+  right, and the first version put a table's "No" back wrong and its
+  header row was written again (`z17804101`, found comparing words on and
+  off). Also brought back `z18896740`'s title page "الأستاذ الدكتور", twice,
+  in pieces - missing before, and the gate could not see it.
+- `z5227331`: ولله written "وهلل" - the map turns the stored هلل round, but
+  "وَ" was joined in front. **A word the map turns round, with a one-letter
+  و ف ب ل ك and its mark in front, is turned too** (`pdftext._joined_fixes`,
+  `QIRTAS_PREFIXED_FIX=0` off); only a fix that is the word reversed -
+  `test_arabic` caught it firing a spelling fix inside كواإلسالميني.
+- `z18842416`: QCF page-font codes in the reference (FLAGS 33's holdout
+  file) - not text.
+
+After (`holdfix2`): `z5227331` 100%; `z20497593` 99.7% - what is left is
+its title as the PDF garbles it ("المعلةة"; ours المعلّة, right);
+`z18842416` unchanged. Tuned and regression sets: every score the same.
+Words on and off, on the four held-out files that moved: only those
+changes.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

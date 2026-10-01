@@ -139,8 +139,14 @@ number looked at right. Corrected the same day, Moaz's pick (PLAN "The
 numbers corrected"): OCR agreed with the new digits 434 to 1; nothing lost
 100%. Left: numbers stored turned round (still warned), brackets written
 as ص on `z18047321`.
-**Next, as suggested 1 Oct (Moaz picked the first, the numbers):** the held-out theses checked; tables;
-back up the corpus (FLAGS 5, Moaz). Then the Quran and looks leftovers.
+Corpus backed up by Moaz 1 Oct (FLAGS 5 closed). Held-out theses opened 1
+Oct, Moaz's go (PLAN "The held-out theses opened"): 97.4% words in order,
+85.1% right page - better than the tuned set, no sign of fitting; two lost
+words found and fixed (a labelled piece read left to right, a turned word
+with و in front). Not looked into: `z18896740` OCR wrong 48%,
+`z18634114` 13 -> 15 pages.
+**Next:** tables (parked by Moaz 29 Sept - his call to unpark), or those
+two held-out files. Then the Quran and looks leftovers.
 Footnote and page numbers as fixed text: parked by Moaz 25 Sept (FLAGS 31).
 List dashes: fine on the theses (282 spaced, 3 glued) - Moaz's own chapters
 only. Measure bold as Word draws it (the

@@ -16,7 +16,9 @@ Working converter. Last measured 2026-09-20 over the 102-file development set:
 
 The holdout set was opened once, on 2026-09-19, and held: ordinary documents
 scored 92.2% words / 29.4% right page on 61 unseen files, against 92.0% / 24.3%
-on the development set. It generalises.
+on the development set. It generalises. The thesis holdout was opened on
+2026-10-01: 97.4% words in order / 85.1% right page on 12 unseen theses,
+against 94.4% / 73.8% on the 25 tuned on (PLAN "The held-out theses opened").
 
 **Read `PLAN.md` before changing anything.** It carries the work list, what is
 known broken, and ten measurement caveats — every one of which made the numbers

@@ -67,7 +67,11 @@ two cases apart.
 
 ## 2. "Nothing lost 100%" has a known exception, parked in the holdout
 
-**Status: true as stated, but easy to over-read.**
+**Status: true as stated, but easy to over-read.** Restated 2026-10-01: the
+thesis holdout opened (PLAN "The held-out theses opened") reads 99.9%,
+worst 99.7% bar `z18842416`'s QCF codes (99.4%) - two losses found and
+fixed, the rest the reference's own wrong text. Say "100% on the tuned and
+regression sets; 99.9% on the held-out theses".
 
 The gate reports 100% across the dev set and the regression set. The one file with
 verified real loss — `z21312494.pdf`, nine words of author names and

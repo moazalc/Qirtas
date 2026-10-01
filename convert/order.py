@@ -834,6 +834,7 @@ def _line_orders(page, flags, clip):
         kw["clip"] = clip
     out = {}
     whole = _Whole(page, flags, clip)
+    stored = _stored_places(page, flags, clip)
 
     def walk(node):
         for b in node.get("blocks", ()):
@@ -842,6 +843,8 @@ def _line_orders(page, flags, clip):
                 text = [c["c"] for c in chars]
                 placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
                 seq = _turn(order(placed, whole.letterless(line)), chars, whole)
+                if seq is None and stored:
+                    seq = _as_stored(chars, text, stored)
                 if seq is not None and not whole.keeps("".join(text)):
                     seq = _by_pieces(placed, whole.cuts("".join(text)),
                                      whole.letterless(line)) \
@@ -853,6 +856,61 @@ def _line_orders(page, flags, clip):
 
     walk(page.get_text("rawdict", **kw))
     return out
+
+
+# Read with the structure labels, MuPDF can put a small piece of a word that
+# has a label of its own in the order it is drawn, left to right: `z20497593`
+# stores الركوع as "الرك", a stray space, "وع" - and with the labels the "وع"
+# came back " عو", so the Word file said "الرك عو" (the held-out set, 1 Oct).
+# Read without them the page gives the stored order; a labelled line whose
+# characters all sit at the same places there takes that order back. Lam-alef
+# and other joined shapes overlap, so the order cannot be told from positions.
+STORED_ORDER_ON = os.environ.get("QIRTAS_STORED_ORDER", "1") != "0"
+LAM_ALEF = re.compile("ل[ً-ْ]*[اأإآ]|[اأإآ][ً-ْ]*ل")
+
+
+def _place(c):
+    return (c["c"], round(c["bbox"][0], 1), round(c["bbox"][1], 1))
+
+
+def _stored_places(page, flags, clip):
+    """{character and place: [its positions in the stored order]} - only
+    for a reading with the structure labels."""
+    if not STORED_ORDER_ON or not flags & pymupdf.TEXT_COLLECT_STRUCTURE:
+        return None
+    kw = {"flags": flags & ~pymupdf.TEXT_COLLECT_STRUCTURE}
+    if clip is not None:
+        kw["clip"] = clip
+    out, n = {}, 0
+    for b in page.get_text("rawdict", **kw).get("blocks", ()):
+        for line in b.get("lines", ()):
+            for c in _chars(line):
+                out.setdefault(_place(c), []).append(n)
+                n += 1
+    return out
+
+
+def _as_stored(chars, text, stored):
+    """The unit order that puts a labelled line back in stored order, or None
+    where it is in that order already or cannot be placed."""
+    if sum(1 for c in text if ARABIC.match(c)) < 2:
+        return None
+    # Not a lam-alef: Word stores لا as "ال", the labelled reading has it
+    # right, and the stored order put a table's "No" back wrong (`z17804101`,
+    # `z18842416`). pdftext's lam-alef map deals with those.
+    if LAM_ALEF.search("".join(text)):
+        return None
+    at = []
+    for c in chars:
+        got = stored.get(_place(c))
+        if not got or len(got) > 1:
+            return None
+        at.append(got[0])
+    us = units(text)
+    firsts = [at[u[0]] for u in us]
+    if firsts == sorted(firsts):
+        return None
+    return sorted(range(len(us)), key=lambda k: firsts[k])
 
 
 def _bare(t):
