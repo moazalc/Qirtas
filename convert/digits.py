@@ -52,6 +52,7 @@ import pymupdf
 
 ON = os.environ.get("QIRTAS_DIGITS_WARN", "1") != "0"
 DIGITS = "0123456789"
+SEPARATORS = ".,٫٬"    # inside a number: 74.4, 150,000, ٫ ٬
 SHOWN = 3          # numbers quoted per page in the message
 PAGES = 10         # pages quoted; the rest only listed
 
@@ -156,15 +157,21 @@ def scan(path):
                 table = judged.get(name)
                 if not table:
                     continue
-                run = []
+                run, sep = [], None
                 for c in span["chars"]:
                     ch = chr(c[0]) if c[0] >= 0 else ""
                     if ch in DIGITS and ch:
                         drawn = _read(c[1], table)
                         if drawn == ch:
                             agree[name] += 1
+                        if sep:
+                            run.append(sep)
                         run.append((ch, drawn, c[3]))
+                        sep = None
+                    elif ch in SEPARATORS and run and not sep:
+                        sep = (ch, ch, c[3])   # 74.4 is one number
                     elif run:
+                        sep = None
                         found.append((page.number + 1, name, run))
                         run = []
                 if run:
