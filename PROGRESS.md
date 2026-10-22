@@ -956,3 +956,29 @@ Moaz's call: do the repair. Pushed the verse work first.
 - **Not looked into yet:** one held-out thesis reads 48% wrong on the
   page check, another spills from 13 pages to 15.
 - **Next:** your call - tables (you parked them), or those two files.
+
+### 22 Oct — plain Arabic text, measured exactly
+
+- **Why:** you set the first usable version as "pure Arabic text, no
+  tables or pictures, pages the same - 99%". Only 1 of the 37 theses has
+  no table or picture, so they could not measure it.
+- **What I made:** a test set of our own. 40 Arabic documents written by
+  Word from public Arabic Wikipedia text, with different fonts, sizes,
+  spacing, footnotes and page numbers, saved as PDF. Because we have the
+  Word file each one came from, the answer is known exactly - nobody's
+  private work in it, and it can be shared when the project goes public.
+- **Where we stand on it now:**
+  - pages matching: **99.6%** (39 of 40 files, every page the same);
+  - words exactly right: **99.35%**;
+  - nothing lost: 100%.
+- **What it found** that our old scores could not see (they compared PDF
+  with PDF, and Word's PDF makes the same mistakes on both sides):
+  numbers glued to the word before them (عام2015), short words turned
+  backwards (يب for بي, مث for ثم), a vowel mark doubled, and words split
+  by a piece of a letter that the PDF calls a space (الروس ي). All four
+  fixed; your theses and chapters scored exactly as before.
+- **Left:** a vowel mark at the end of a line jumping to the next line's
+  word, some split words, and Hijri years (1427هـ came out 1427 هـ) - the
+  one page that still does not match.
+- **Next:** the check that refuses PDFs with tables or pictures (so the
+  app only takes what it can do), then the small window and installer.

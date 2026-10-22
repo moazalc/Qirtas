@@ -99,13 +99,17 @@ def spell_out(text):
 
 # A space stored as a vowel mark (see diagnose). QIRTAS_SPACE_MARK=0: off.
 SPACE_MARK_ON = os.environ.get("QIRTAS_SPACE_MARK", "1") != "0"
+# One mark stored as two (see diagnose). QIRTAS_MARK_PAIR=0: off.
+MARK_PAIR_ON = os.environ.get("QIRTAS_MARK_PAIR", "1") != "0"
 LINE_NUMBERS_ON_ENV = os.environ.get("QIRTAS_LINE_NUMBERS", "1") != "0"
 # Bumped when the repair changes, so the cached copies are made again.
 # Digits the font's table names wrong, corrected (FLAGS 13). QIRTAS_DIGITS_FIX=0.
 DIGITS_FIX_ON = os.environ.get("QIRTAS_DIGITS_FIX", "1") != "0"
 REPAIR_VERSION = "11" + ("" if DIGITS_FIX_ON else "-nodigits") + ("" if LINE_NUMBERS_ON_ENV else "-nolines") + ("" if os.environ.get("QIRTAS_WITNESS_COVER", "1") != "0"
                         else "-fourpages") + ("" if os.environ.get("QIRTAS_SYMBOLS", "1") != "0"
-                        else "-nosymbols") + ("" if SPACE_MARK_ON else "-nospacemark")
+                        else "-nosymbols") + ("" if SPACE_MARK_ON else "-nospacemark") \
+    + ("-markpair" if MARK_PAIR_ON else "") \
+    + ("-inked2" if os.environ.get("QIRTAS_INKED_SPACE", "1") != "0" else "")
 
 _INDEX = None
 _MAPS = {}
@@ -630,6 +634,14 @@ def diagnose(doc, xref):
         elif SPACE_MARK_ON and len(s) == 1 and unicodedata.combining(s) \
                 and text.get(c) == " ":
             fixes[c] = " "
+        # One mark stored as two: Simplified Arabic's shadda (uni0651) is
+        # stored "ِّ" where Word draws the kasra under it as a shape of its
+        # own, stored ِ - so every قَبِّش read قَبِِّش (the plain set,
+        # harness.plain, 2026-10-22). The font names the shape one mark, and
+        # it is one of the two stored.
+        elif MARK_PAIR_ON and len(s) >= 2 and all(unicodedata.combining(ch) for ch in s) \
+                and len(text.get(c, "")) == 1 and text[c] in s:
+            fixes[c] = text[c]
     if not fixes:
         return None, "fine"
     widths = _widths(doc, desc)
@@ -681,6 +693,70 @@ def _trust(stored, true, scrambled=False):
     return True
 
 
+# A shape stored as a space that draws something is not a space (the made-up
+# plain set, harness.plain, 2026-10-22). Word stores Arial's kasra (`uni0650`)
+# and Simplified Arabic Bold's tanween (`uni064B`) as " ", so أيضاً read أيضا
+# and a mark began the next word; and Sakkal Majalla draws ي after س with a
+# joining piece of its own, `glyph01756`, stored " " - الروسي read "الروس ي",
+# 44 times in 40 files. The page check cannot see it: it reads words with
+# their spaces taken out, so " " matched the page and won. The font settles
+# it by its own glyph: a named one is that mark; an unnamed one stands for no
+# character, and is stored as JOINED, which `order.get_text` takes out - an
+# empty entry makes readers fall back to the code's own value (ۜ for 1756).
+# QIRTAS_INKED_SPACE=0 turns it off.
+INKED_SPACE_ON = os.environ.get("QIRTAS_INKED_SPACE", "1") != "0"
+JOINED = "⁠"            # WORD JOINER: no width, never in Word's own text
+_UNI = re.compile(r"uni([0-9A-F]{4})$")
+
+
+def inked_spaces(doc, xref, table):
+    """{code: text} for the codes `table` stores as a space whose shape in
+    the embedded font draws something."""
+    from fontTools.ttLib import TTFont
+    import io
+    spaces = [c for c, t in table.items() if t == " "]
+    if not INKED_SPACE_ON or len(spaces) < 2:
+        return {}
+    # Not the Quran's fonts: their marks stored as spaces are read by the
+    # verse repair (convert/quran.py), which expects them so - z18037898's 5:5
+    # stopped matching when its shadda came back.
+    from convert.quran import QURAN_FONT
+    if QURAN_FONT.search(doc.xref_get_key(xref, "BaseFont")[1]):
+        return {}
+    try:
+        desc = _descendant(doc, xref)
+        c2g = doc.xref_get_key(desc, "CIDToGIDMap")
+        if c2g[0] == "xref" or c2g[0] == "name" and c2g[1] != "/Identity":
+            return {}
+        fd = doc.xref_get_key(desc, "FontDescriptor")
+        ff = doc.xref_get_key(int(fd[1].split()[0]), "FontFile2")
+        if ff[0] != "xref":
+            return {}
+        with TTFont(io.BytesIO(doc.xref_stream(int(ff[1].split()[0]))), lazy=True) as t:
+            order, glyf = t.getGlyphOrder(), t["glyf"]
+            # The font's own space must be among them, blank: then the others
+            # are what the shapes say, not a second kind of space.
+            real = (t.getBestCmap() or {}).get(32)
+            if real is None or order.index(real) not in spaces \
+                    or glyf[real].numberOfContours != 0:
+                return {}
+            out = {}
+            for c in spaces:
+                if c >= len(order) or order[c] == real:
+                    continue
+                name = order[c]
+                if glyf[name].numberOfContours == 0:
+                    continue                   # a blank: a space of another width
+                m = _UNI.match(name)
+                if m and unicodedata.combining(chr(int(m.group(1), 16))):
+                    out[c] = chr(int(m.group(1), 16))
+                elif not m:
+                    out[c] = JOINED
+            return out
+    except Exception:
+        return {}
+
+
 def repair(pdf_path, out_path):
     """Write a copy with every broken font's table corrected.
     Returns [(font, why)] for the fonts repaired; [] writes nothing."""
@@ -711,6 +787,18 @@ def repair(pdf_path, out_path):
                     table = {**now, **numbers}
                     why = (why if why != "fine" else "") + \
                         f"; {len(numbers)} digits stored wrong"
+            if INKED_SPACE_ON:
+                try:
+                    kind, tu = doc.xref_get_key(xref, "ToUnicode")
+                    now = table or (read_tounicode(doc.xref_stream(
+                        int(tu.split()[0]))) if kind == "xref" else {})
+                    inked = inked_spaces(doc, xref, now) if now else {}
+                except Exception:
+                    inked = {}
+                if inked:
+                    table = {**now, **inked}
+                    why = (why if why and why != "fine" else "") + \
+                        f"; {len(inked)} shapes stored as a space"
             if table is None:
                 continue
             tu = int(doc.xref_get_key(xref, "ToUnicode")[1].split()[0])

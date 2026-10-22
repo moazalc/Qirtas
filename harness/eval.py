@@ -26,12 +26,19 @@ BOLD, DIM, GRN, YEL, RED, OFF = "\033[1m", "\033[2m", "\033[32m", "\033[33m", "\
 # Two of Moaz's chapters, kept as a quick check that nothing obvious broke
 # when the thesis corpus replaced the rest (Moaz, 2026-09-24). The other six
 # stay on disk, out of every score.
+# A page matches when this much of its words land on the same page of ours.
+PAGE_MATCH = 0.98
+
 REGRESSION = ["الفصل الثاني- انفرادات القراء- الشريف.pdf", "مقدمة البحث.pdf"]
 
 
 def files_for(which, split_path="out/split.json"):
     if which == "regression":
         return sorted(str(Path("corpus") / f) for f in REGRESSION)
+    if which == "plain":
+        # harness.plain: plain Arabic documents we made with Word ourselves.
+        from harness.plain import files
+        return files()
     if which in ("thesis", "thesis-holdout"):
         # harness.theses: the cut pages of each Word-made Arabic thesis.
         want = "dev" if which == "thesis" else "holdout"
@@ -70,7 +77,7 @@ def score_one(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression", "thesis", "thesis-holdout"])
+    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression", "thesis", "thesis-holdout", "plain"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
     ap.add_argument("--max-pages", type=int, default=60,
                     help="skip files longer than this (0 = no limit)")
@@ -167,6 +174,13 @@ def main():
     txt = statistics.mean(r["text_score"] for r in rows)
     pg = statistics.mean(r["page_score"] for r in rows)
     infl = statistics.median(r["pages_out"] / max(1, r["pages_orig"]) for r in rows)
+    # Pages that match (Moaz, 2026-10-22: the plain-text version's target is
+    # 99% of pages): nearly all of a page's words on the same page of ours.
+    # A whole file matches when every page does and the page count is the same.
+    per = [p for r in rows for p in r.get("per_page", [])]
+    match = sum(p >= PAGE_MATCH for p in per) / len(per) if per else 0.0
+    whole = sum(1 for r in rows if r.get("per_page") and r["pages_out"] == r["pages_orig"]
+                and all(p >= PAGE_MATCH for p in r["per_page"])) / len(rows)
 
     n_ex = sum(len(r.get("excused", [])) for r in rows)
     f_ex = sum(1 for r in rows if r.get("excused"))
@@ -181,6 +195,7 @@ def main():
         f"  words in order {txt:>7.1%}",
         f"  right page     {pg:>7.1%}   (unrelated docs ~13%)",
         f"  page inflation {infl:>7.2f}x",
+        f"  pages matching {match:>7.1%}   (files with every page matching {whole:.1%})",
     ])
     print(f"\n{BOLD}{head}{OFF}")
     print(f"  nothing lost   {GRN if worst >= 0.999 else RED}{kept:>7.1%}{OFF}  "
@@ -190,6 +205,7 @@ def main():
     print(f"  words in order {txt:>7.1%}")
     print(f"  right page     {pg:>7.1%}   {DIM}(unrelated docs ~13%){OFF}")
     print(f"  page inflation {infl:>7.2f}x")
+    print(f"  pages matching {match:>7.1%}   {DIM}(files with every page matching {whole:.1%}){OFF}")
 
     # Every run records itself, whether or not anyone remembered to ask.
     #
@@ -204,7 +220,9 @@ def main():
                "sample": {"n": a.n, "seed": a.seed} if a.n else None,
                "scores": {"kept": round(kept, 4), "worst_kept": round(worst, 4),
                           "text": round(txt, 4), "page": round(pg, 4),
-                          "inflation": round(infl, 4)},
+                          "inflation": round(infl, 4),
+                          "pages_matching": round(match, 4),
+                          "files_matching": round(whole, 4)},
                "results": rows}
     stamp = datetime.date.today().isoformat()
     name = "-".join(x for x in (stamp, a.set, a.label) if x)

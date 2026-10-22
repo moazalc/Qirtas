@@ -4080,6 +4080,78 @@ its title as the PDF garbles it ("المعلةة"; ours المعلّة, right);
 Words on and off, on the four held-out files that moved: only those
 changes.
 
+## The plain set: Arabic text only, made by us, 2026-10-22
+
+Moaz: the first usable version is for PDFs of pure Arabic text - no tables,
+no pictures - and on those the pages should come out the same, 99%. The
+theses cannot measure that: 36 of 37 hold a table or a picture somewhere.
+
+**The set** (`harness/plain.py`): 50 long Arabic Wikipedia articles
+(public, CC BY-SA), paragraphs holding Latin letters left out; 40 documents
+laid out by Word itself with drawn-at-random looks - five fonts, 12-16pt,
+single to double spacing, justified or right, margins, footnotes, page
+numbers, A4 or Letter - 3-13 pages each, saved as PDF. The Word file each
+PDF came from is kept: **the answer is known exactly**, so it is scored
+against it, not against the PDF's stored text. `corpus/plain/` (not
+committed; `fetch` and `build` remake it from the same seed).
+
+**Two scores** (`python -m harness.plain score <run>`): words exactly right -
+our Word file's words against the true Word file's, marks and all; and
+pages matching - a page matches when 98% of its words (letters only, read
+through the repaired copy and fix map, as the converter reads) are on the
+same page of ours (`harness.eval` reports the same, read off the PDFs).
+
+**Measurement trap, found at once.** Read raw, pages matching was 70%, and
+447 of the 461 words "missing" from failing pages were on no page of ours
+at all: Word's PDFs store a lam-alef turned or cut a word at a line's end,
+on both sides, not always alike. Read the converter's way: 95.9%. The
+spill that sank the theses' right page is not what happens here - words
+almost never move page (14 of 461).
+
+**What the true files showed** - faults the thesis scores could not see,
+because those read both sides from Word's PDFs, which carry the same fault
+(FLAGS 35). 837 of 70,895 words wrong at the start:
+
+- *A number glued to the word before* (262): Word stores the space between
+  عام and 2015 elsewhere in the line, between the touching ا and م of لخام
+  - "عام2015 ... لخا م". The rule that leaves a space stored between two
+  Arabic letters alone now asks where it is drawn: letters touching, the
+  space drawn outside them and filling a hole between two things elsewhere
+  -> moved there (`order._stray`, QIRTAS_SPACE_DRAWN). 262 -> 93.
+- *Two-letter words turned* (97): Traditional Arabic draws بي, تم, ثم, لم,
+  لي as one shape; the reader turns its letters with the line. The letter-
+  pair repair already found them; the fix map refused words under 3 letters.
+  It keeps its own rule - every occurrence must carry the evidence, whole
+  words only - and now takes 2 (`pdftext.MIN_FRAGMENT`,
+  QIRTAS_SHORT_LIGATURES). 97 -> 2.
+- *A kasra stored twice* (قَبِِّش): Simplified Arabic's shadda shape is
+  stored "ِّ" while the kasra under it is a shape of its own. Where the font
+  names a shape stored as two marks as one of them, its name is used
+  (`glyphs.diagnose`, QIRTAS_MARK_PAIR). 54 repeated marks -> 0.
+- *Shapes stored as a space* (الروس ي, 44): Sakkal Majalla draws ي after س
+  with a joining piece, `glyph01756`, stored " "; Arial's kasra and
+  Simplified Arabic Bold's tanween likewise. The page check could not see
+  it - it reads words with their spaces out - so " " won. A shape stored as
+  a space that draws ink: named by the font -> that mark; unnamed -> no
+  character (stored as WORD JOINER, taken out in `order.get_text`;
+  an empty entry made readers fall back to ۜ). Not Quran fonts - their
+  verse repair expects their marks so (`glyphs.inked_spaces`,
+  QIRTAS_INKED_SPACE).
+
+Tried and dropped: two letters whose boxes are exact halves of one box,
+turned - real glyphs are exact halves 14,185 times (ال alone 7,302); and
+MuPDF's "no made-up spaces" switch - no change, the spaces are stored.
+
+**After (`plainfixes`):** words exactly right 98.79 -> 99.35%; pages
+matching 95.9 -> **99.6%**, every page matching in 39 of 40 files; nothing
+lost 100%. The one page left (`plain038` p5): Hijri years, 1427هـ written
+1427 هـ. Thesis and regression sets: every score the same, nothing lost
+100% - as expected, since their scores cannot see these faults.
+
+**Left** (455 words, 0.64%): marks differ 186 (the tanween of أيضاً at a
+line's end comes back on the next line's first word), split in two 154,
+numbers 94 (هـ and م after a year, two years in a row), other 19.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

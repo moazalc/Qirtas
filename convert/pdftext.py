@@ -62,6 +62,14 @@ def enabled():
 # geometric evidence is per-occurrence, but a text substitution is not, so the
 # unit has to be big enough to be specific.
 MIN_FRAGMENT = 3
+# Two-letter words too, when every one of them in the file carries the
+# evidence (the map's own rule, `_lam_alef_map`): Traditional Arabic draws
+# بي, تم, ثم, لم, لي as one shape each, stored turned - إن بي سي came out
+# "إن يب سي", ثم as مث, 97 words of the made-up plain set (harness.plain,
+# 2026-10-22). Whole words only, so ال inside a word is never reached.
+# QIRTAS_SHORT_LIGATURES=0 turns it off.
+if os.environ.get("QIRTAS_SHORT_LIGATURES", "1") != "0":
+    MIN_FRAGMENT = 2
 
 
 

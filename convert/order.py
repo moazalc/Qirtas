@@ -316,7 +316,8 @@ def _order_mixed(line):
             n = next((j for j in range(k + 1, len(base))
                       if base[j][0] != " "), None)
             if p is not None and n is not None and (arabic[p] or ltr[p]) \
-                    and (arabic[n] or ltr[n]):
+                    and (arabic[n] or ltr[n]) \
+                    and not (c == " " and _stray(base, p, n, x0, x1)):
                 continue
             if c != " " and ((p is not None and ltr[p])
                              or (n is not None and ltr[n])):
@@ -339,6 +340,31 @@ def _order_mixed(line):
             out.append(k)
         out.extend(sorted(after.get(k, ()), key=lambda j: -base[j][1]))
     return [~k if k in moved else k for k in out]
+
+
+# A space Word stores inside a word, two Arabic letters drawn touching on
+# either side of it, while it is drawn far off beside a number: the made-up
+# plain set (harness.plain, 2026-10-22) has "وفي عام2015 ... لخا م" for
+# "وفي عام 2015 ... لخام" - the space drawn at x 207, between عام and 2015,
+# stored between the ا and م of لخام at x 355. Letters touching need no
+# space; one drawn outside the gap it is stored in is moved to where it is
+# drawn (QIRTAS_SPACE_DRAWN=0 turns it off).
+SPACE_DRAWN_ON = os.environ.get("QIRTAS_SPACE_DRAWN", "1") != "0"
+
+
+def _stray(base, p, n, x0, x1):
+    """Is the space drawn at x0..x1, stored between Arabic letters p and n,
+    drawn somewhere else? Right to left: n is drawn left of p."""
+    if not SPACE_DRAWN_ON or not (ARABIC.match(base[p][0]) and ARABIC.match(base[n][0])):
+        return False
+    touching = base[p][1] - base[n][2] <= TOL
+    outside = x1 < base[n][1] - TOL or x0 > base[p][2] + TOL
+    # And where it is drawn it fills a hole, touching something on both
+    # sides (the م of عام and the 5 of 2015). One drawn beside nothing is
+    # not evidence of where it goes (`سبق قدم`, harness/test_order.py).
+    fills = any(abs(c[2] - x0) <= TOL for c in base) \
+        and any(abs(c[1] - x1) <= TOL for c in base)
+    return touching and outside and fills
 
 
 DRAWN_ON = os.environ.get("QIRTAS_DRAWN_BRACKETS", "1") != "0"
@@ -990,8 +1016,40 @@ def _walk(node, orders):
         _walk(b, orders)
 
 
+# The repaired copy stores a shape that stands for no character as this
+# (glyphs.JOINED, Sakkal Majalla's joining piece): it is taken out of every
+# reading here, after the order is found, so both sides see the word whole.
+JOINED = "⁠"
+
+
+def _unjoined(got):
+    if isinstance(got, str):
+        return got.replace(JOINED, "") if JOINED in got else got
+
+    def walk(node):
+        for b in node.get("blocks", ()):
+            for line in b.get("lines", ()):
+                for s in line.get("spans", ()):
+                    if "chars" in s:
+                        s["chars"] = [c for c in s["chars"] if c["c"] != JOINED]
+                    if JOINED in s.get("text", ""):
+                        s["text"] = s["text"].replace(JOINED, "")
+            walk(b)
+    walk(got)
+    return got
+
+
 def get_text(page, kind="text", **kw):
     """page.get_text, with each Arabic line's punctuation where it is drawn."""
+    got = _get_text(page, kind, **kw)
+    if kind in ("text", "rawdict", "dict"):
+        return _unjoined(got)
+    if kind == "blocks":
+        return [b[:4] + (_unjoined(b[4]),) + tuple(b[5:]) for b in got]
+    return got
+
+
+def _get_text(page, kind="text", **kw):
     if kind == "rawdict":
         raw = page.get_text("rawdict", **kw)
         whole = _Whole(page, kw.get("flags", pymupdf.TEXTFLAGS_RAWDICT),

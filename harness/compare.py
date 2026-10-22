@@ -551,4 +551,5 @@ def compare(orig_pdf, rebuilt_pdf, docx=None, dpi=72):
     align, per_page = page_alignment(orig_pdf, rebuilt_pdf)
     out["page_score"] = round(align, 4)
     out["worst_pages"] = sorted(range(len(per_page)), key=lambda i: per_page[i])[:5]
+    out["per_page"] = [round(p, 4) for p in per_page]
     return out

@@ -207,6 +207,17 @@ content and invent faults that are not there.
 
     .venv/Scripts/python -m harness.digits --set dev
 
+The plain set - Arabic text only, made by Word from Arabic Wikipedia, with
+the true Word file kept beside each PDF (`corpus/plain/`, not committed):
+
+    .venv/Scripts/python -m harness.plain fetch --n 50       # the articles
+    .venv/Scripts/python -m harness.plain build --n 40       # Word lays them out
+    .venv/Scripts/python -m harness.eval --set plain --label <what>
+    .venv/Scripts/python -m harness.plain score out/runs/<date>-plain-<label> --show
+
+`score` checks our Word files against the true ones: words exactly right,
+and pages matching (98% of a page's words on the same page of ours).
+
 Is the text what the original's page shows? Every other score compares with
 the PDF's hidden text, which can be wrong (FLAGS 25). This one reads three
 pages of each file with Windows' Arabic OCR and compares page by page - run

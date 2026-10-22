@@ -11,6 +11,17 @@ file, open risks and decisions in `FLAGS.md`.
 
 ## Start here (2026-09-24)
 
+**Now (Moaz, 22 Oct): the first usable version - plain Arabic text only.**
+PDFs with no tables or pictures, pages the same, 99%. Measured on our own
+plain set (`harness/plain.py`, PLAN "The plain set"): pages matching 99.6%,
+words exactly right 99.35%, nothing lost 100%. Next, in order:
+1. Refuse what it cannot do yet: tables, pictures, text boxes, columns -
+   a plain message, as scans are refused.
+2. A small window (pick a PDF, get the .docx) and one installer.
+3. The plain set's leftovers: a tanween at a line's end moves to the next
+   line's first word; words split in two (154); Hijri years (1427هـ).
+4. Ten or twenty real plain PDFs from people, not made by us.
+
 **Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
 must match the printed page before any work on looks. The plan and its
 progress are in `PROGRESS.md` ("Plan from here").

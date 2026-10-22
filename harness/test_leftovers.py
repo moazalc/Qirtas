@@ -116,6 +116,34 @@ def main():
     check("in stored order already: nothing",
           _as_stored([placed[0], placed[2], placed[1]], list(" وع"), stored), None)
 
+    print("\nfound by the made-up plain set (22 Oct)")
+    from convert.order import _order_mixed, _reorder, _stray
+    # وفي عام2015 ... لخا م: the space drawn between عام and 2015, stored
+    # between the ا and م of لخام (plain008 page 3).
+    ln = [("ل", 365.0, 367.7), ("خ", 358.1, 365.0), ("ا", 355.2, 358.1),
+          (" ", 206.6, 210.7), ("م", 350.5, 354.9), (" ", 346.6, 350.7),
+          ("ع", 217.5, 224.3), ("ا", 214.5, 217.5), ("م", 210.1, 214.4),
+          ("2", 179.2, 186.0), ("0", 186.0, 192.8), ("1", 192.9, 199.7),
+          ("5", 199.7, 206.5)]
+    seq = _order_mixed(ln)
+    check("the space goes where it is drawn",
+          _reorder("".join(c for c, _, _ in ln), seq, len(ln)) if seq else None,
+          "لخام عام 2015")
+    check("letters drawn apart keep their space",
+          _stray([("ا", 355, 358), ("م", 340, 345)], 0, 1, 206.6, 210.7), False)
+    check("a space beside nothing is not moved",
+          _stray([("ا", 355.2, 358.1), ("م", 350.5, 355.2)], 0, 1, 330, 334), False)
+    from convert.order import _unjoined, JOINED
+    check("the joining piece taken out of the text", _unjoined(f"الروس{JOINED}ي"), "الروسي")
+    raw = {"blocks": [{"lines": [{"spans": [{"chars": [{"c": "س"}, {"c": JOINED}, {"c": "ي"}]}]}]}]}
+    check("... and out of a detailed reading",
+          [c["c"] for c in _unjoined(raw)["blocks"][0]["lines"][0]["spans"][0]["chars"]],
+          ["س", "ي"])
+    from convert import pdftext
+    check("two-letter words reach the map", pdftext.MIN_FRAGMENT, 2)
+    check("a two-letter word turned whole", apply_fixes("إن يب سي", {"يب": "بي"}), "إن بي سي")
+    check("... never inside a longer word", apply_fixes("ترتيب", {"يب": "بي"}), "ترتيب")
+
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0
 

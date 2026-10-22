@@ -1074,3 +1074,21 @@ check skips - measured on the full run to see it does not raise false
 alarms (the old reason for `MIN_SENT`). Until then, compare the Word files'
 words with a change on and off (PLAN "Part 3 leftovers" has the command's
 shape) whenever a change can drop text.
+
+## 35. The thesis scores cannot see faults Word's own PDF carries
+
+**Status: OPEN, found 2026-10-22** (PLAN "The plain set").
+Every thesis score reads both sides from PDFs: the original's stored text,
+and our Word file rendered by Word and read back. Where Word's PDF stores a
+word wrongly - a space in the wrong place, a ligature's letters turned, a
+mark twice - it does so on both sides, and the scores agree with each other
+and with the fault. The plain set, scored against the true Word files, found
+837 wrong words (1.2%) the PDF-against-PDF scores had all passed; the four
+fixes for them left every thesis score exactly as it was, which says the
+same thing from the other side.
+Why it matters: "words in order" and "nothing lost" on the theses say
+nothing about these faults; only the plain set's true files, and the
+thesis page check (Windows' OCR, which ignores spaces and marks), can.
+What would close it: nothing on the theses themselves - they have no true
+Word file. Keep the plain set as the measure of word-level accuracy, and
+read a thesis change's effect there too.
