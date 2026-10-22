@@ -1031,4 +1031,4 @@ Moaz's call: do the repair. Pushed the verse work first.
   الثالثة coming out لاثلاثة in three plain files. Listed in TASKS.
 - **Waiting on you:** item 4 - ten or twenty real plain PDFs from people.
   Send them, or tell me I may download public ones.
-- **Committed, not pushed.**
+- **Pushed** to GitHub the same day.

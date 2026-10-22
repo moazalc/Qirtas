@@ -37,7 +37,7 @@ nothing lost 100%; looks (`harness.plain looks`) - page numbers in place
    text start lifted, page 1's title, the first-line indent measured, lines
    drawn closer before letters shrink.
 
-State on 22 Oct, end of chat: committed, not pushed. Last full runs:
+State on 22 Oct, end of chat: committed and pushed (eaf3851). Last full runs:
 `2026-10-22-{plain,thesis,regression}-final3`.
 
 **Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
