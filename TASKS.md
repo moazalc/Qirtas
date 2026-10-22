@@ -21,6 +21,15 @@ words exactly right 99.35%, nothing lost 100%. Next, in order:
 3. The plain set's leftovers: a tanween at a line's end moves to the next
    line's first word; words split in two (154); Hijri years (1427هـ).
 4. Ten or twenty real plain PDFs from people, not made by us.
+5. Looks the pages-matching score cannot see (FLAGS 36): every page number
+   moves from the centre to the corner (34 of 34 files), the text starts
+   10-20pt lower on most pages, and one file (plain009) came out a size
+   smaller. Moaz asked for pages that look the same, so this counts.
+
+State on 22 Oct, end of chat: all committed and pushed (80668e1 on main).
+Last full runs: `2026-10-22-{plain,thesis,regression}-plainfixes`.
+Example picture: `out/demo/plain009-p4.png`. Moaz has not yet picked
+between item 1 and item 5 - ask.
 
 **Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
 must match the printed page before any work on looks. The plan and its

@@ -982,3 +982,13 @@ Moaz's call: do the repair. Pushed the verse work first.
   one page that still does not match.
 - **Next:** the check that refuses PDFs with tables or pictures (so the
   app only takes what it can do), then the small window and installer.
+- **Pushed** to GitHub the same day.
+- **Example, and an honest catch:** the picture I showed you (plain009
+  page 4) has the same words on the page, but it does not look the same:
+  the page number moved from the middle to the corner (that happens in
+  every file), the text starts a little lower, and this one file came out
+  one size smaller. Our "pages matching" number only checks the words,
+  so it missed this. Written down as FLAGS 36.
+- **Next:** your call - the refusal check for tables and pictures first,
+  or making the pages look the same first (page numbers, top margin).
+

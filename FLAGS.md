@@ -1092,3 +1092,24 @@ thesis page check (Windows' OCR, which ignores spaces and marks), can.
 What would close it: nothing on the theses themselves - they have no true
 Word file. Keep the plain set as the measure of word-level accuracy, and
 read a thesis change's effect there too.
+
+## 36. "Pages matching" counts words, not looks
+
+**Status: OPEN, found 2026-10-22** while picking an example for Moaz
+(plain009 page 4, `out/demo/plain009-p4.png`).
+A page "matches" when 98% of its words are on the same page; how the page
+looks is not scored. Checked by hand across the plain set against Word's
+own PDF of the true file:
+- the page number: centred in the original, in the corner in ours - every
+  one of the 34 files that have page numbers;
+- the text starts 10-20pt lower than the original on page 2 of most files
+  (25 of 40 off by more than 6pt at the top or left; the right edge is
+  exact);
+- plain009 was shrunk a size (16 -> 15pt) by `fit.py`, though its words
+  all land on the right pages; the other 39 kept their size.
+Why it matters: Moaz's target is "every page looking identical", and the
+99.6% says nothing about this.
+What would close it: a looks check on the plain set (page-number place,
+top of text, text size, against the true file's PDF), then fixing what it
+finds. Decision for Moaz: before or after the refusal check (TASKS item 1).
+
