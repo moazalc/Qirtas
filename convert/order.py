@@ -46,7 +46,11 @@ ARABIC = re.compile(r"[\u0621-\u064A\u066E-\u06D3\u06FA-\u06FF\u0640"
 # read by _order_mixed (DVB-S, 2 . 11 - TASKS N5c).
 LEFT_TO_RIGHT = re.compile(r"[%٪A-Za-z0-9\u0660-\u0669\u06F0-\u06F9]")
 LATIN = re.compile(r"[A-Za-zÀ-ɏ]")
-MARKS = set(".،,:؛;!؟?" + VERSE)
+# A slash is drawn and stored like a mark: "1427هـ/ 2001" is stored
+# ` /هـ2001`, the slash drawn on the left of هـ (the plain set, 2026-10-22;
+# QIRTAS_SLASH=0 turns it off).
+SLASH = "/" if os.environ.get("QIRTAS_SLASH", "1") != "0" else ""
+MARKS = set(".،,:؛;!؟?" + VERSE + SLASH)
 # What may stand between a word and its mark: it is already after the word.
 BETWEEN = set(" ()[]«»\"'") | MARKS
 # And what is not drawn at all: `z21850164` puts a zero-width non-joiner after
@@ -367,6 +371,184 @@ def _stray(base, p, n, x0, x1):
     return touching and outside and fills
 
 
+# Spaces and vowel marks stored away from where they are drawn, on any Arabic
+# line (QIRTAS_HOME=0 turns it off). The plain set (harness.plain,
+# 2026-10-22) has Word storing a line's last vowel mark at its start, with a
+# space before it - "ُوظفت ... س مح" for "وظفت ... سُمح", the damma drawn
+# inside the س at x 149 and the space stored between س and م drawn at the
+# line's end, x 65 - so the mark came back on the next line's first word
+# (أيضاً at a line's end, ًالتي below it: 118 marks in the set). And two
+# spaces traded places, "في عام1967" for "في عام 1967": the one stored after
+# في is drawn between عام and 1967, the one stored at the line's start
+# between في and عام. Positions settle both: a mark stored after no letter
+# goes after the letter it is drawn on; a space drawn touching neither of
+# the characters stored beside it goes beside the Arabic letter it is drawn
+# touching. Done on the characters, before anything is reordered by units.
+HOME_ON = os.environ.get("QIRTAS_HOME", "1") != "0"
+
+
+def _home(placed):
+    """placed: [(char, x0, x1)] as stored. -> the order to read the
+    characters in (indices into `placed`), or None where nothing moves."""
+    if not HOME_ON:
+        return None
+    text = [c for c, _, _ in placed]
+    n = len(text)
+    letter = [bool(ARABIC.match(c)) and not _combining(c) for c in text]
+    if sum(letter) < 2:
+        return None
+    xs = {round(placed[i][1], 1) for i in range(n) if letter[i]}
+    if len(xs) < PLACED * sum(letter):
+        return None                # no place of its own: see _order
+    steps = [placed[i][1] - placed[i + 1][1] for i in range(n - 1)
+             if letter[i] and letter[i + 1]]
+    if sum(1 for d in steps if d > 0) < PLACED * sum(1 for d in steps if d):
+        return None                # stored in drawing order as a whole
+
+    def end(j):                    # a letter with the marks stored after it
+        while j + 1 < n and _combining(text[j + 1]):
+            j += 1
+        return j
+
+    def base(i, way):              # the next character that is not a mark
+        i += way
+        while 0 <= i < n and _combining(text[i]):
+            i += way
+        return i if 0 <= i < n else None
+
+    # Spaces stored together move together, drawn as one gap (plain025
+    # stores two inside الاحتكاك, both drawn between فيفا and a dash).
+    runs, i = [], 0
+    while i < n:
+        if text[i] == " ":
+            j = i
+            while j + 1 < n and text[j + 1] == " ":
+                j += 1
+            runs.append(list(range(i, j + 1)))
+            i = j
+        i += 1
+    # Those stored inside a word: between two letters drawn touching.
+    inner = [r for r in runs if base(r[0], -1) is not None
+             and base(r[-1], 1) is not None and letter[base(r[0], -1)]
+             and letter[base(r[-1], 1)]
+             and placed[base(r[0], -1)][1] - placed[base(r[-1], 1)][2] <= TOL]
+
+    def far(j, x):                 # how far x is drawn from letter j
+        return max(placed[j][1] - x, x - placed[j][2], 0.0)
+
+    def on_next(i, x):
+        """Is the mark drawn on the letter stored after it - well inside
+        it, or where a shape's letters all stand at one point? The shadda
+        of عبد ّللاّه is the next word's, drawn at x 283.8 with all of its
+        letters (plain038)."""
+        q = base(i, 1)
+        if q is None or not letter[q]:
+            return False
+        x0, x1 = placed[q][1], placed[q][2]
+        if x1 - x0 < TOL / 2:
+            return abs(x - x0) < TOL / 2
+        return x0 + TOL / 2 < x < x1 - TOL / 2
+
+    after, before, moved = {}, {}, set()
+    evicted = []
+    for i, c in enumerate(text):
+        if not _combining(c):
+            continue
+        p = base(i, -1)
+        if p is not None and letter[p]:
+            continue
+        x = (placed[i][1] + placed[i][2]) / 2
+        k = p
+        while k is not None and text[k] == " ":
+            k = base(k, -1)
+        free = [r for r in inner if r not in evicted]
+        if k is None and free:
+            # At the line's start: Word traded it for a space inside the
+            # word it belongs to (س مح, نظر ا) - the mark takes that place.
+            r = min(free, key=lambda r: far(base(r[0], -1), x))
+            evicted.append(r)
+            after.setdefault(end(base(r[0], -1)), []).append(i)
+        elif k is not None and letter[k] and k != p and not on_next(i, x):
+            # Stored after the space that follows its word (فضال ًعن).
+            after.setdefault(end(k), []).append(i)
+        else:
+            # Else the letter it is drawn on, the nearest where two touch.
+            over = [j for j in range(n) if letter[j]
+                    and placed[j][1] - TOL / 2 <= x <= placed[j][2] + TOL / 2]
+            if not over:
+                continue
+            j = min(over, key=lambda j: abs((placed[j][1] + placed[j][2]) / 2 - x))
+            after.setdefault(end(j), []).append(i)
+        moved.add(i)
+    spaces = []                    # [(run, where it goes, the gap it leaves)]
+    for run in runs:
+        x0 = min(placed[k][1] for k in run)
+        x1 = max(placed[k][2] for k in run)
+        p, q = base(run[0], -1), base(run[-1], 1)
+        # In place: drawn touching what it is stored after or before.
+        if (p is not None and abs(placed[p][1] - x1) <= TOL) or \
+                (q is not None and abs(placed[q][2] - x0) <= TOL):
+            continue
+        # Only one stored inside Arabic, or at a line's end beside it.
+        if (p is not None and not letter[p]) or (q is not None and not letter[q]):
+            continue
+        # Drawn over a letter, it is not a gap of its own.
+        if any(letter[j] and min(x1, placed[j][2]) - max(x0, placed[j][1]) > TOL
+               for j in range(n)):
+            continue
+        # The nearest: letters overlap - a final ة is drawn over the ر before
+        # it, and taken for the space's neighbour the ر split المتغير ة.
+        right = sorted((abs(placed[j][1] - x1), -j) for j in range(n)
+                       if letter[j] and abs(placed[j][1] - x1) <= TOL)
+        left = sorted((abs(placed[j][2] - x0), j) for j in range(n)
+                      if letter[j] and abs(placed[j][2] - x0) <= TOL)
+        if right:
+            to = ("after", end(-right[0][1]))
+        elif left:
+            to = ("before", left[0][1])
+        else:
+            continue
+        gap = p is not None and q is not None and placed[p][1] - placed[q][2] > TOL
+        spaces.append((run, to, (p, q) if gap else None))
+    # A space stored in a real gap - its letters drawn apart - leaves only if
+    # another comes into that gap: `plain001` stores a line's end between
+    # النسائية and وحققت, drawn apart for "»، " stored at the line's start,
+    # and taken out alone it left النسائيةوحققت.
+    into = {to for _, to, _ in spaces}
+    for run, to, hole in spaces:
+        if hole is not None and ("after", end(hole[0])) not in into \
+                and ("before", hole[1]) not in into:
+            continue
+        (after if to[0] == "after" else before).setdefault(to[1], []).extend(run)
+        moved.update(run)
+    # A space whose place a mark took, drawn nowhere it can be put: the
+    # line's end, where Word keeps the space it wraps at.
+    tail = [k for r in evicted if r[0] not in moved for k in r]
+    moved.update(tail)
+    if not moved:
+        return None
+    out = []
+    for k in range(n):
+        if k in moved:
+            continue
+        out.extend(before.get(k, ()))
+        out.append(k)
+        # marks first: they are the letter's; then a space
+        out.extend(sorted(after.get(k, ()), key=lambda j: text[j] == " "))
+    out.extend(tail)
+    return out if len(out) == n else None
+
+
+def _home_for(placed, whole):
+    """_home, only where the structure-label reading holds the line whole:
+    one it cuts into pieces is cut by units, which moving a space shifts."""
+    perm = _home(placed)
+    if perm and whole is not None and not whole.keeps(
+            "".join(c for c, _, _ in placed)):
+        return None
+    return perm
+
+
 DRAWN_ON = os.environ.get("QIRTAS_DRAWN_BRACKETS", "1") != "0"
 BRACKETS = set("()[]")
 
@@ -648,6 +830,12 @@ def _fix_raw(line, whole=None):
     `whole`: see _Whole."""
     chars = _chars(line)
     placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
+    perm = _home_for(placed, whole)
+    homed = set()
+    if perm:
+        homed = {id(chars[i]) for k, i in enumerate(perm) if k != i}
+        chars = [chars[i] for i in perm]
+        placed = [placed[i] for i in perm]
     seq = _turn(order(placed, whole.letterless(line) if whole else None),
                 chars, whole)
     if seq is not None and whole and not whole.keeps(
@@ -658,10 +846,13 @@ def _fix_raw(line, whole=None):
         seq = _by_pieces(placed, whole.cuts(text), whole.letterless(line)) \
             or _digits_drawn(placed, None)
     if seq is None:
-        return None
+        if not perm:
+            return None
+        seq = list(range(len(units([c["c"] for c in chars]))))
     new = []
-    shifted = {id(chars[i]) for i in _moved(units([c["c"] for c in chars]),
-                                             seq)}
+    # A space or mark put home joins the span of the character now before it.
+    shifted = homed | {id(chars[i]) for i in _moved(
+        units([c["c"] for c in chars]), seq)}
     turned = _turned(units([c["c"] for c in chars]), seq)
     copied = {}
     for i in _indices(units([c["c"] for c in chars]), seq):
@@ -675,7 +866,7 @@ def _fix_raw(line, whole=None):
             copied[id(new[-1])] = chars[i]
         else:
             new.append(chars[i])
-    stored = "".join(c["c"] for c in chars)
+    stored = "".join(c["c"] for c in _chars(line))
     # A moved mark, space or bracket joins the span of the character now
     # before it.
     owner = {id(c): s for s in line["spans"] for c in s["chars"]}
@@ -695,9 +886,12 @@ def _fix_raw(line, whole=None):
     return stored, "".join(c["c"] for c in new)
 
 
-def _reorder(text, seq, n):
+def _reorder(text, seq, n, perm=None):
     """Apply a unit order to a line read another way (with or without its
-    vowel marks); None if its units do not line up."""
+    vowel marks); None if its units do not line up. `perm`: the characters
+    put home first (_home), where the line holds the same characters."""
+    if perm and len(perm) == len(text):
+        text = "".join(text[i] for i in perm)
     us = units(text)
     if len(us) != n:
         return None
@@ -867,17 +1061,28 @@ def _line_orders(page, flags, clip):
             for line in b.get("lines", ()):
                 chars = _chars(line)
                 text = [c["c"] for c in chars]
+                key = _bare("".join(text))
                 placed = [(c["c"], c["bbox"][0], c["bbox"][2]) for c in chars]
+                perm = _home_for(placed, whole)
+                if perm:
+                    chars = [chars[i] for i in perm]
+                    text = [text[i] for i in perm]
+                    placed = [placed[i] for i in perm]
                 seq = _turn(order(placed, whole.letterless(line)), chars, whole)
-                if seq is None and stored:
+                # Not after _home: put back in stored order, its spaces and
+                # marks went back where they were stored.
+                if seq is None and stored and not perm:
                     seq = _as_stored(chars, text, stored)
                 if seq is not None and not whole.keeps("".join(text)):
                     seq = _by_pieces(placed, whole.cuts("".join(text)),
                                      whole.letterless(line)) \
                         or _digits_drawn(placed, None)   # see _fix_raw
+                if seq is None and perm:
+                    seq = list(range(len(units(text))))
                 if seq is not None:
-                    out.setdefault(_bare("".join(text)), []).append(
-                        (seq, len(units(text))))
+                    # by the line as stored: that is what the other readings hold
+                    out.setdefault(key, []).append(
+                        (seq, len(units(text)), perm))
             walk(b)             # a structure tree nests blocks in nodes
 
     walk(page.get_text("rawdict", **kw))
@@ -953,8 +1158,8 @@ def _fix_text(text, orders):
     for i, ln in enumerate(lines):
         todo = orders.get(_bare(ln))
         if todo:
-            seq, n = todo.pop(0)
-            fixed = _reorder(ln, seq, n)
+            seq, n, perm = todo.pop(0)
+            fixed = _reorder(ln, seq, n, perm)
             if fixed is not None:
                 lines[i] = fixed
     for stored, todo in orders.items():
@@ -968,8 +1173,8 @@ def _fix_text(text, orders):
                 end = keep[at + len(stored) - 1] + 1
                 while end < len(ln) and _combining(ln[end]):
                     end += 1
-                seq, n = todo[0]
-                fixed = _reorder(ln[start:end], seq, n)
+                seq, n, perm = todo[0]
+                fixed = _reorder(ln[start:end], seq, n, perm)
                 if fixed is not None:
                     lines[i] = ln[:start] + fixed + ln[end:]
                 break
@@ -986,13 +1191,18 @@ def _fix_dict_line(line, orders):
     todo = orders.get(_bare(text))
     if not todo:
         return
-    seq, n = todo[0]
+    seq, n, perm = todo[0]
+    homed = set()
+    if perm and len(perm) == len(owned):
+        homed = {k for k, i in enumerate(perm) if k != i}
+        owned = [owned[i] for i in perm]
     us = units([c for _, c in owned])
     if len(us) != n:
         return
     todo.pop(0)
     spans = [[] for _ in line["spans"]]
-    shifted = _moved(us, seq)
+    # a space or mark put home joins the span before it, as a moved one does
+    shifted = _moved(us, seq) | homed
     turned = _turned(us, seq)
     prev = None
     for i in _indices(us, seq):

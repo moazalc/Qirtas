@@ -342,9 +342,88 @@ def score_run(run):
     return rows, all_pages
 
 
+# ---------------------------------------------------------------- looks
+#
+# Pages matching counts words; it cannot see a page number moved to the
+# corner, text starting lower, or a document shrunk a size (FLAGS 36). This
+# reads each page of the original PDF and of ours by the same rule and puts
+# the three side by side (2026-10-22).
+
+NUMBER = re.compile(r"^\s*[-–(]?\s*[0-9٠-٩]{1,4}\s*[-–)]?\s*$")
+
+
+def _page_looks(pdf):
+    """[{"number": x centre of the page number or None, "top": top of the
+    first line of text, "size": the commonest text size}] per page."""
+    import collections
+    import pymupdf
+    out = []
+    with pymupdf.open(pdf) as d:
+        for p in d:
+            H, W = p.rect.height, p.rect.width
+            number, low, tops, sizes = None, 0.0, [], collections.Counter()
+            for b in p.get_text("rawdict")["blocks"]:
+                for ln in b.get("lines", ()):
+                    chars = [c for s in ln["spans"] for c in s["chars"]
+                             if not c["c"].isspace()]
+                    if not chars:
+                        continue
+                    text = "".join(c["c"] for c in chars)
+                    y0 = min(c["bbox"][1] for c in chars)
+                    if y0 > 0.88 * H and NUMBER.match(text):
+                        # the lowest: a footnote's number sits above it
+                        if number is None or y0 > low:
+                            xs = [c["bbox"][0] for c in chars] + [c["bbox"][2] for c in chars]
+                            number, low = (min(xs) + max(xs)) / 2, y0
+                        continue
+                    if y0 < 0.06 * H or y0 > 0.92 * H:
+                        continue
+                    tops.append(y0)
+                    for s in ln["spans"]:
+                        n = sum(1 for c in s["chars"] if not c["c"].isspace())
+                        sizes[round(s["size"])] += n
+            out.append({"number": number, "top": min(tops) if tops else None,
+                        "size": sizes.most_common(1)[0][0] if sizes else None,
+                        "width": W})
+    return out
+
+
+def looks_run(run):
+    """Per file: page numbers off centre by more than 10pt, pages whose text
+    starts more than 6pt away, and the text size, original against ours."""
+    res = json.loads((Path(run) / "results.json").read_text(encoding="utf-8"))
+    rows = []
+    for r in res["results"]:
+        a, b = _page_looks(r["path"]), _page_looks(r["rebuilt"])
+        numbers = moved = tops = off = 0
+        shifts = []
+        for pa, pb in zip(a, b):
+            if pa["number"] is not None:
+                numbers += 1
+                if pb["number"] is None or abs(pa["number"] - pb["number"]) > 10:
+                    moved += 1
+            if pa["top"] is not None and pb["top"] is not None:
+                tops += 1
+                shifts.append(pb["top"] - pa["top"])
+                if abs(pb["top"] - pa["top"]) > 6:
+                    off += 1
+        size_a = collections_mode([p["size"] for p in a])
+        size_b = collections_mode([p["size"] for p in b])
+        rows.append({"file": r["file"], "numbers": numbers, "moved": moved,
+                     "tops": tops, "off": off, "shifts": shifts,
+                     "size": (size_a, size_b)})
+    return rows
+
+
+def collections_mode(xs):
+    import collections
+    xs = [x for x in xs if x is not None]
+    return collections.Counter(xs).most_common(1)[0][0] if xs else None
+
+
 def main():
     ap = argparse.ArgumentParser(prog="python -m harness.plain")
-    ap.add_argument("what", choices=["fetch", "build", "score"])
+    ap.add_argument("what", choices=["fetch", "build", "score", "looks"])
     ap.add_argument("run", nargs="?", help="score: an out/runs folder of --set plain")
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--seed", type=int, default=22)
@@ -354,6 +433,23 @@ def main():
         fetch(a.n)
     elif a.what == "build":
         build(a.n, a.seed)
+    elif a.what == "looks":
+        rows = looks_run(a.run)
+        if a.show:
+            for r in rows:
+                med = sorted(r["shifts"])[len(r["shifts"]) // 2] if r["shifts"] else 0
+                print(f"{r['file']}  number moved {r['moved']}/{r['numbers']}  "
+                      f"text start off {r['off']}/{r['tops']} (middle {med:+.1f}pt)  "
+                      f"size {r['size'][0]} -> {r['size'][1]}")
+        numbers = sum(r["numbers"] for r in rows)
+        tops = sum(r["tops"] for r in rows)
+        print(f"plain set looks, {len(rows)} files, the original's PDF against ours")
+        print(f"  page numbers in place   {1 - sum(r['moved'] for r in rows) / max(1, numbers):7.1%}"
+              f"   ({numbers} pages with one)")
+        print(f"  text starts in place    {1 - sum(r['off'] for r in rows) / max(1, tops):7.1%}"
+              f"   (within 6pt; {tops} pages)")
+        print(f"  text size kept          "
+              f"{sum(r['size'][0] == r['size'][1] for r in rows) / len(rows):7.1%}   of files")
     else:
         rows, pages = score_run(a.run)
         exact = sum(r["exact"] for r in rows) / len(rows)

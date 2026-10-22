@@ -280,14 +280,16 @@ def _top_border(p):
     pPr.append(borders)
 
 
-def _page_setup(doc, model: Doc):  # noqa: C901
+def _page_setup(doc, model: Doc, lift=0.0):  # noqa: C901
+    """`lift`: points to raise the text by, as measured by fit.py (_lift)."""
     s = doc.sections[0]
     s.page_width = Emu(int(model.page_width * PT_PER_EMU))
     s.page_height = Emu(int(model.page_height * PT_PER_EMU))
     s.left_margin = Emu(int(model.margin_left * PT_PER_EMU))
     s.right_margin = Emu(int(model.margin_right * PT_PER_EMU))
-    s.top_margin = Emu(int(model.margin_top * PT_PER_EMU))
-    s.bottom_margin = Emu(int(model.margin_bottom * PT_PER_EMU))
+    lift = min(lift, model.margin_top - 18.0) if lift > 0 else 0.0
+    s.top_margin = Emu(int((model.margin_top - lift) * PT_PER_EMU))
+    s.bottom_margin = Emu(int((model.margin_bottom + lift) * PT_PER_EMU))
     if is_rtl(" ".join(b.text for b in model.blocks[:400])):
         _flag(s._sectPr, "w:bidi")       # only when the document really is RTL
     # These theses restart footnote numbering on every page - page 1 runs 1..4
@@ -546,6 +548,9 @@ def _letters(text):
     return Counter(c for c in text if c.isalpha())
 
 
+SHORT_NUMBERS_ON = os.environ.get("QIRTAS_SHORT_NUMBERS", "1") != "0"
+
+
 def _running_text(model):
     """Text that repeats at the same edge of most pages is furniture, not content.
 
@@ -584,8 +589,12 @@ def _running_text(model):
     each inner list one line of the header, top to bottom.
     """
     pages = max(1, model.pages)
-    if pages < 4:
-        # Too few pages for "repeats on most of them" to mean anything.
+    # Too few pages for "repeats on most of them" to mean anything - but a
+    # number at the same edge of every page, counting up with them, is a page
+    # number however short the file: the plain set's 3-page files lost theirs
+    # (FLAGS 36; QIRTAS_SHORT_NUMBERS=0 turns it off).
+    short = pages < 4
+    if pages < (2 if SHORT_NUMBERS_ON else 4):
         return {}, {}
     top, bottom = _text_column(model)
     H = model.page_height or 0.0
@@ -655,13 +664,16 @@ def _running_text(model):
         key = (where, b.kind == TABLE, DIGITS.sub("#", flat))
         groups.setdefault(key, []).append(b)
 
-    need = max(3, pages // 2)
+    need = pages if short else max(3, pages // 2)
     lift, found = {}, {}
     for (where, _, _), blocks in groups.items():
         on = {b.page for b in blocks}
         sides = {p % 2 for p in on}
         parity = None
-        if len(sides) == 1:
+        if short:
+            if len(on) < pages or not _page_run(blocks):
+                continue
+        elif len(sides) == 1:
             side = next(iter(sides))
             if len(on) < max(3, PARITY_SHARE * len(range(side, pages, 2))):
                 continue
@@ -1090,6 +1102,32 @@ def _furniture_align(model, line, rtl):
     return WD_ALIGN_PARAGRAPH.LEFT if left != rtl else WD_ALIGN_PARAGRAPH.RIGHT
 
 
+# A centred line drawn a little to one side stays there: Word centres its page
+# number in a frame, and the plain set's numbers sit 14pt left of the
+# column's middle - ours, centred, were 14pt off on every page (FLAGS 36;
+# QIRTAS_NUMBER_PLACE=0 turns it off). Indenting one side by twice the
+# distance moves the middle by it. Only a left-to-right line, where left and
+# right are the page's.
+NUMBER_PLACE_ON = os.environ.get("QIRTAS_NUMBER_PLACE", "1") != "0"
+
+
+def _off_centre(p, model, line, rtl):
+    if not NUMBER_PLACE_ON or rtl or p.alignment != WD_ALIGN_PARAGRAPH.CENTER:
+        return
+    x0 = min(f.block.x0 for f in line)
+    x1 = max(f.block.x1 for f in line)
+    if not (x0 or x1):
+        return
+    middle = (model.margin_left + model.page_width - model.margin_right) / 2
+    shift = (x0 + x1) / 2 - middle
+    if abs(shift) < 2.0:
+        return
+    if shift > 0:
+        p.paragraph_format.left_indent = Pt(2 * shift)
+    else:
+        p.paragraph_format.right_indent = Pt(-2 * shift)
+
+
 def _draw_text_furniture(doc, draw, model):
     """Put the running header and footer text into Word's header and footer.
 
@@ -1134,6 +1172,7 @@ def _draw_text_furniture(doc, draw, model):
                 rtl = is_rtl(text)
                 _rtl_paragraph(p, rtl)
                 p.alignment = _furniture_align(model, shown, rtl)
+                _off_centre(p, model, shown, rtl)
                 band = next((f.block for f in shown if f.block.fill), None)
                 if band is not None:
                     _band(p, band)
@@ -1968,7 +2007,9 @@ def _emit_image(doc, block, column_pt, k=1.0, dropped=None):
 
 
 def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False,
-          notes=None, base_pt=None):
+          notes=None, base_pt=None, tight=1.0, indent=24.0):
+    """`tight`: the page's lines drawn this much closer (fit.py), its
+    letters left their size."""
     size = body_pt
     bold = block.bold
     align = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -2014,10 +2055,13 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         # line height had its two lines drawn over each other (`z20782957`).
         own = OWN_SIZE_ON and base_pt and block.text_size
         share = size / body_pt if own else (1.0 if block.kind != FOOTNOTE else 0.62)
-        pf.line_spacing = Pt(pitch * FIT * share)
+        line = pitch * FIT * share
         if block.line_pitch and base_pt:
             # Its own, measured where it is drawn, shrunk as the page is.
-            pf.line_spacing = Pt(block.line_pitch * FIT * body_pt / base_pt)
+            line = block.line_pitch * FIT * body_pt / base_pt
+        # Closer only where the lines have room: below 1.45 of the size an
+        # exact line cuts off the marks above Arabic letters.
+        pf.line_spacing = Pt(max(line * tight, min(line, 1.45 * size)))
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
     if block.kind == HEADING:
@@ -2038,7 +2082,7 @@ def _emit(doc, block, body_pt=BODY_PT, pitch=0.0, font=None, first_on_page=False
         # rather than under the marker.
         pf.first_line_indent = Pt(-LIST_HANG)
     else:
-        pf.first_line_indent = Pt(24)
+        pf.first_line_indent = Pt(indent)
 
     # One Word run per run of like-formatted text, so a bold phrase inside a
     # paragraph stays a bold phrase. A heading was bold as a whole whatever the
@@ -2381,7 +2425,7 @@ def write(model: Doc, out_path, scale=None):
     doc = Document()
     _scrub(model)
     _show_digits(model)
-    _page_setup(doc, model)
+    _page_setup(doc, model, (scale or {}).get("lift", 0.0))
     # write() is called repeatedly on the same model by the fit loop, so start
     # from empty rather than accumulating the same drops once per round.
     model.dropped_images = []
@@ -2532,7 +2576,10 @@ def write(model: Doc, out_path, scale=None):
                 para = _emit(doc, b, model.body_size * k, model.line_pitch * k, model.font,
                              first_on_page=(b.kind == FOOTNOTE and b is notes[0] if notes else False),
                              notes=anchors if b.kind != FOOTNOTE else None,
-                             base_pt=model.body_size)
+                             base_pt=model.body_size,
+                             tight=scale.get(("lines", page), 1.0),
+                             indent=24.0 if model.first_indent is None
+                             else model.first_indent)
                 # Over a picture the text is centred on the page, whose middle
                 # need not be the column's (`z20585114`'s verse).
                 if b.kind in (HEADING, PARAGRAPH) and (_centred(b, model) or (
@@ -2543,6 +2590,12 @@ def write(model: Doc, out_path, scale=None):
                     if gap:
                         para.paragraph_format.space_before = Pt(gap * k * FIT)
                     above = b
+            if first and scale.get(("top", page)):
+                # The page's text starts this much lower (fit.py: a title
+                # with space above it in the original, ours too high).
+                had = para.paragraph_format.space_before
+                para.paragraph_format.space_before = Pt(
+                    (had.pt if had is not None else 0.0) + scale[("top", page)])
             if first and n:
                 # break BEFORE this paragraph rather than inserting an empty one:
                 # the empty paragraph ate a line on every page and the overflow

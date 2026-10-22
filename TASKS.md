@@ -13,23 +13,32 @@ file, open risks and decisions in `FLAGS.md`.
 
 **Now (Moaz, 22 Oct): the first usable version - plain Arabic text only.**
 PDFs with no tables or pictures, pages the same, 99%. Measured on our own
-plain set (`harness/plain.py`, PLAN "The plain set"): pages matching 99.6%,
-words exactly right 99.35%, nothing lost 100%. Next, in order:
-1. Refuse what it cannot do yet: tables, pictures, text boxes, columns -
-   a plain message, as scans are refused.
-2. A small window (pick a PDF, get the .docx) and one installer.
-3. The plain set's leftovers: a tanween at a line's end moves to the next
-   line's first word; words split in two (154); Hijri years (1427هـ).
-4. Ten or twenty real plain PDFs from people, not made by us.
-5. Looks the pages-matching score cannot see (FLAGS 36): every page number
-   moves from the centre to the corner (34 of 34 files), the text starts
-   10-20pt lower on most pages, and one file (plain009) came out a size
-   smaller. Moaz asked for pages that look the same, so this counts.
+plain set (`harness/plain.py`, PLAN "The plain set" and "The plain set:
+leftovers and looks"): pages matching 100%, words exactly right 99.71%,
+nothing lost 100%; looks (`harness.plain looks`) - page numbers in place
+97%, text starting in place 93%. Items, 22 Oct:
+1. ~~Refuse what it cannot do yet~~ - CANCELLED by Moaz 22 Oct: "it
+   doesn't need to refuse, let it accept anything". Tables, pictures, text
+   boxes and columns are converted as best it can. Scans are still refused
+   (out of scope, CLAUDE.md).
+2. DONE: the window (`python -m convert.app`) and one installer
+   (`installer/build.ps1` -> `installer/Output/Qirtas-Setup.exe`). The
+   frozen build converted plain026 word for word as the source does.
+   Not checked: the fonts dialog and OCR in the frozen build, installing
+   on a second computer (Moaz to try).
+3. DONE: tanween at a line's end, split words where the space was stored
+   elsewhere, Hijri years (4 of plain038's 5). Left: الثالثة read لاثلاثة
+   (the lam-alef fix map, 3 files); one "1427 هـ"; numbers glued where the
+   space is stored in another piece (عام1225م); on the theses `z18037898`
+   "ج٣٨" for "ج ٣٨" and a doubled kasra - seen, not looked into.
+4. WAITING ON MOAZ: ten or twenty real plain PDFs from people, not made by
+   us - he sends them, or says I may download public ones.
+5. DONE (FLAGS 36): page numbers in place, the column's far margin, the
+   text start lifted, page 1's title, the first-line indent measured, lines
+   drawn closer before letters shrink.
 
-State on 22 Oct, end of chat: all committed and pushed (80668e1 on main).
-Last full runs: `2026-10-22-{plain,thesis,regression}-plainfixes`.
-Example picture: `out/demo/plain009-p4.png`. Moaz has not yet picked
-between item 1 and item 5 - ask.
+State on 22 Oct, end of chat: committed, not pushed. Last full runs:
+`2026-10-22-{plain,thesis,regression}-final3`.
 
 **Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
 must match the printed page before any work on looks. The plan and its

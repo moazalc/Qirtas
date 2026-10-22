@@ -227,14 +227,14 @@ def main():
     print("\nthe plain text gets the same order")
     ln = [("،", 371, 375), ("ع", 391, 396), ("ش", 382, 391), ("ر", 377, 382)]
     seq = order(ln)
-    orders = {"،عشر": [(seq, 4)]}
+    orders = {"،عشر": [(seq, 4, None)]}
     check("a plain line with a vowel mark the detailed one lacks",
           _fix_text("x\n،عشَر\ny", {k: list(v) for k, v in orders.items()}),
           "x\nعشَر،\ny")
     # The detailed reading ends the line at ،عشر; the plain one runs on.
     ln = [("،", 360, 364), ("ع", 391, 396), ("ش", 382, 391), ("ر", 377, 382),
           ("ي", 372, 377), ("ن", 367, 372)]
-    orders = {"،عشرين": [(order(ln), 6)]}
+    orders = {"،عشرين": [(order(ln), 6, None)]}
     check("a line the plain text runs on into the next",
           _fix_text("،عشرين ومع", orders), "عشرين، ومع")
 
@@ -277,6 +277,35 @@ def main():
               "معين (Benchmark" in text, True)
         check("read by labels: the same",
               any(t.rstrip().endswith("معين (") for t in labels), True)
+
+    print("\nspaces and vowel marks stored away from where they are drawn")
+    from convert.order import _home
+
+    def home(ln):
+        perm = _home(ln)
+        return "".join(ln[i][0] for i in (perm or range(len(ln))))
+    # plain014: the damma of سُمح stored at the line's start after a space,
+    # drawn inside the س; the space stored between س and م drawn at the
+    # line's end.
+    ln = [(" ", 146.1, 149.3), ("ُ", 149.3, 149.3), ("و", 533.2, 538.8),
+          ("ظ", 525.6, 533.2), (" ", 509.8, 513.0), ("ب", 160.2, 170.4),
+          (" ", 152.9, 156.1), ("س", 146.1, 152.9), (" ", 64.8, 68.1),
+          ("م", 140.8, 145.9), ("ح", 134.0, 140.8), (" ", 130.7, 134.0),
+          ("ى", 68.1, 72.0)]
+    check("a mark stored at the start goes on its letter", home(ln),
+          " وظ ب سُمح ى ")
+    # plain037: two spaces traded places.
+    ln = [(" ", 528.2, 531.2), ("ف", 538.2, 541.4), ("ي", 531.1, 538.2),
+          (" ", 512.3, 515.3), ("ع", 521.8, 528.1), ("ا", 519.1, 521.8),
+          ("م", 515.0, 519.1), ("1", 488.3, 494.3), ("9", 494.3, 500.3)]
+    check("two spaces that traded places go back", home(ln), "في عام 19")
+    # plain025: two spaces stored together inside a word move together.
+    ln = [("ك", 494.1, 500.4), ("ا", 490.4, 494.1), (" ", 386.6, 390.6),
+          (" ", 388.7, 392.7), ("ك", 480.7, 490.3), (" ", 476.7, 480.7),
+          ("ف", 396.4, 400.6), ("ا", 392.7, 396.4), ("-", 381.3, 386.6)]
+    check("spaces stored together move together", home(ln), "كاك فا  -")
+    ln = line(("سبق", None), (" ", None), ("قدم", None))
+    check("spaces in place are left alone", _home(ln), None)
 
     print(f"\n{len(FAILED)} failed" if FAILED else "\nall passed")
     return 1 if FAILED else 0

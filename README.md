@@ -52,6 +52,17 @@ after converting (FLAGS 23; Windows' OCR reads the pages it is used on).
 names the pages whose numbers the PDF shows one way and stores another,
 with both (FLAGS 13); `python -m convert.digits some.pdf` gives that alone.
 
+The same, in a small window - pick a PDF, get the Word file beside it, the
+same messages as dialogs (`convert/app.py`, TASKS item 2):
+
+    .venv/Scripts/python -m convert.app
+
+One installer (`installer/Output/Qirtas-Setup.exe`): PyInstaller freezes the
+window, Inno Setup 6 wraps it. Needs `pip install pyinstaller` and Inno Setup
+once; the computer it is installed on needs Microsoft Word (FLAGS 26).
+
+    powershell -ExecutionPolicy Bypass -File installer\build.ps1
+
 ## setup
 
     python -m venv .venv
@@ -217,6 +228,11 @@ the true Word file kept beside each PDF (`corpus/plain/`, not committed):
 
 `score` checks our Word files against the true ones: words exactly right,
 and pages matching (98% of a page's words on the same page of ours).
+Pages matching counts words, not looks (FLAGS 36); `looks` puts the
+original's PDF and ours side by side on what it cannot see - the page
+number's place, where the text starts, the text size:
+
+    .venv/Scripts/python -m harness.plain looks out/runs/<date>-plain-<label> --show
 
 Is the text what the original's page shows? Every other score compares with
 the PDF's hidden text, which can be wrong (FLAGS 25). This one reads three
@@ -268,7 +284,7 @@ environment switch that turns it off (`QIRTAS_SPACE_PLACE`, `QIRTAS_SEAM_TOUCH`,
 `QIRTAS_PUNCT_MIXED`, `QIRTAS_SYMBOLS`, `QIRTAS_PUNCT_ORDER`, `QIRTAS_LTR_RUNS`,
 `QIRTAS_TIGHT`, `QIRTAS_IMG_SHAPE`, `QIRTAS_NEAR`, `QIRTAS_BACKFILL_TURN`,
 `QIRTAS_REPAIR_ONCE`, `QIRTAS_WITNESS_COVER`, `QIRTAS_ALLAH`, `QIRTAS_CS_STYLE`,
-`QIRTAS_NOTE_SIZE`, `QIRTAS_HEADING_OWN`, `QIRTAS_CENTRE`, `QIRTAS_OWN_SIZE`, `QIRTAS_BESIDE`, `QIRTAS_BARE_FRONT`, `QIRTAS_TABLE_THIN`, `QIRTAS_TABLE_WORDS`, `QIRTAS_TABLE_SPAN`, `QIRTAS_TABLE_FLIP`, `QIRTAS_TABLE_JOINED`, `QIRTAS_PLACE_BY_Y`, `QIRTAS_ZWNJ`, `QIRTAS_TAGS_FORMAT`, `QIRTAS_SKEW`, `QIRTAS_FURNITURE_STYLE`, `QIRTAS_TABLE_FILL`, `QIRTAS_BAND`, `QIRTAS_TRUE_ITALIC`, `QIRTAS_HEADER_RULE`, `QIRTAS_HEADER_PARTS`, `QIRTAS_NOTE_LOOK`, `QIRTAS_GLUE_FORMAT`, `QIRTAS_PIC_BESIDE`, `QIRTAS_FOOT_LAST`, `QIRTAS_DRAWN_BRACKETS` = `0`;
+`QIRTAS_NOTE_SIZE`, `QIRTAS_HEADING_OWN`, `QIRTAS_CENTRE`, `QIRTAS_OWN_SIZE`, `QIRTAS_BESIDE`, `QIRTAS_BARE_FRONT`, `QIRTAS_TABLE_THIN`, `QIRTAS_TABLE_WORDS`, `QIRTAS_TABLE_SPAN`, `QIRTAS_TABLE_FLIP`, `QIRTAS_TABLE_JOINED`, `QIRTAS_PLACE_BY_Y`, `QIRTAS_ZWNJ`, `QIRTAS_TAGS_FORMAT`, `QIRTAS_SKEW`, `QIRTAS_FURNITURE_STYLE`, `QIRTAS_TABLE_FILL`, `QIRTAS_BAND`, `QIRTAS_TRUE_ITALIC`, `QIRTAS_HEADER_RULE`, `QIRTAS_HEADER_PARTS`, `QIRTAS_NOTE_LOOK`, `QIRTAS_GLUE_FORMAT`, `QIRTAS_PIC_BESIDE`, `QIRTAS_FOOT_LAST`, `QIRTAS_DRAWN_BRACKETS`, `QIRTAS_HOME`, `QIRTAS_SLASH`, `QIRTAS_YEAR_TIGHT`, `QIRTAS_NUMBER_INK`, `QIRTAS_LIFT`, `QIRTAS_LINES_FIRST`, `QIRTAS_INDENT`, `QIRTAS_MARGIN_INK`, `QIRTAS_SHORT_NUMBERS`, `QIRTAS_NUMBER_PLACE`, `QIRTAS_PAGE_TOPS` = `0`;
 `QIRTAS_GAP=1` turns ON the space above paragraphs, which is off).
 
 **Quick run, after every fix**: 8 theses from the working set that cover

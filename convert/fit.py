@@ -10,7 +10,7 @@ original renderer did.
 So stop predicting. Convert, render, see which pages actually spilled, shrink
 only those, and go again.
 """
-import collections, sys
+import collections, os, re, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -23,6 +23,11 @@ from harness.compare import _page_words
 STEP = 0.94          # how much to shrink a page that spilled
 FLOOR = 0.70         # never shrink further than this
 ROUNDS = 6
+# A page that spills has its lines drawn closer first, once, and only then
+# its letters made smaller: plain009 came out a size smaller, 16 -> 15pt, for
+# a page that ran over by a line (FLAGS 36; QIRTAS_LINES_FIRST=0 off).
+LINES_FIRST_ON = os.environ.get("QIRTAS_LINES_FIRST", "1") != "0"
+LINES_FLOOR = 0.94
 
 
 def _spilled(orig_pdf, rebuilt_pdf):
@@ -99,6 +104,54 @@ def _owners(orig, ours):
     return owners
 
 
+# The text started 10-20pt lower than the original's on most pages (FLAGS
+# 36): the writer sets each line's exact height, and Word draws the text at
+# the bottom of an exact line, where the original's "double" or "1.5" lines
+# have it at the top. How far is measured, not worked out from the font -
+# the font's metrics missed by 3-5pt on a third of the plain set. The page
+# is lifted by that much: the top margin less, the bottom margin as much
+# more, so a page holds what it held (QIRTAS_LIFT=0 turns it off).
+LIFT_ON = os.environ.get("QIRTAS_LIFT", "1") != "0"
+LIFT_MIN = 2.0       # points: less is not worth a render
+PAGE_TOPS_ON = os.environ.get("QIRTAS_PAGE_TOPS", "1") != "0"
+
+
+def _tops(pdf):
+    """The top of each page's first line of text, its page number and any
+    line repeated on a third of the pages (running headers) left out."""
+    with pymupdf.open(pdf) as d:
+        pages = []
+        for p in d:
+            H = p.rect.height
+            lines = []
+            for b in p.get_text("dict")["blocks"]:
+                for ln in b.get("lines", ()):
+                    t = "".join(s["text"] for s in ln["spans"]).strip()
+                    # not a page number
+                    if t.strip("-–()0123456789٠١٢٣٤٥٦٧٨٩ ") and ln["bbox"][1] < 0.9 * H:
+                        lines.append((re.sub(r"[0-9٠-٩]+", "", t), ln["bbox"][1]))
+            pages.append(lines)
+    seen = collections.Counter(t for lines in pages for t in {t for t, _ in lines})
+    many = {t for t, k in seen.items() if len(pages) >= 4 and k >= len(pages) / 3}
+    return [min((y for t, y in lines if t not in many), default=None)
+            for lines in pages]
+
+
+def _lift(orig_pdf, rebuilt_pdf):
+    """How much lower our text starts than the original's, in points: the
+    middle of the pages' differences. 0 where the pages do not pair up."""
+    a, b = _tops(orig_pdf), _tops(rebuilt_pdf)
+    if len(a) != len(b):
+        return 0.0
+    d = sorted(y - x for x, y in zip(a, b) if x is not None and y is not None)
+    return d[len(d) // 2] if d else 0.0
+
+
+def _pages(pdf):
+    with pymupdf.open(pdf) as d:
+        return len(d)
+
+
 def convert(pdf_path, out_path, render=None):
     """render(docx) -> pdf path. Without one this is a single pass."""
     # Matched against the corrected copy when a font needed one: our pages
@@ -107,6 +160,7 @@ def convert(pdf_path, out_path, render=None):
     scale, route = {}, convert_once(pdf_path, out_path)
     if render is None:
         return route
+    rebuilt = None
     for _ in range(ROUNDS):
         try:
             rebuilt = render(out_path)
@@ -117,6 +171,52 @@ def convert(pdf_path, out_path, render=None):
         if not over:
             break
         for i in over:
-            scale[i] = scale.get(i, 1.0) * STEP
+            if LINES_FIRST_ON and scale.get(("lines", i), 1.0) * STEP >= LINES_FLOOR:
+                scale[("lines", i)] = scale.get(("lines", i), 1.0) * STEP
+            else:
+                scale[i] = scale.get(i, 1.0) * STEP
+        route = convert_once(pdf_path, out_path, scale)
+        rebuilt = None
+    if LIFT_ON:
+        try:
+            if rebuilt is None:
+                rebuilt = render(out_path)
+            lift = _lift(pdf_path, rebuilt)
+            if lift >= LIFT_MIN:
+                pages, spilled = _pages(rebuilt), _spilled(pdf_path, rebuilt)
+                route = convert_once(pdf_path, out_path, {**scale, "lift": lift})
+                after = render(out_path)
+                # Kept only where no page runs over for it.
+                if _pages(after) != pages or \
+                        not _spilled(pdf_path, after) <= spilled:
+                    route = convert_once(pdf_path, out_path, scale)
+                else:
+                    scale = {**scale, "lift": lift}
+                    rebuilt = after
+            route = _drop_tops(pdf_path, out_path, scale, rebuilt, render, route)
+        except Exception:
+            route = convert_once(pdf_path, out_path, scale)
+    return route
+
+
+def _drop_tops(pdf_path, out_path, scale, rebuilt, render, route):
+    """After the lift, a page whose text still starts higher than the
+    original's gets the difference as space above its first paragraph: the
+    plain set's page 1 began 12pt high on 39 of 40 files - the title, which
+    Word sets with space above it (FLAGS 36; QIRTAS_PAGE_TOPS=0 off). Kept
+    only where no page runs over for it."""
+    if not PAGE_TOPS_ON:
+        return route
+    a, b = _tops(pdf_path), _tops(rebuilt)
+    if len(a) != len(b):
+        return route
+    tops = {("top", i): round(x - y, 1) for i, (x, y) in enumerate(zip(a, b))
+            if x is not None and y is not None and x - y >= LIFT_MIN}
+    if not tops:
+        return route
+    pages, spilled = _pages(rebuilt), _spilled(pdf_path, rebuilt)
+    route = convert_once(pdf_path, out_path, {**scale, **tops})
+    after = render(out_path)
+    if _pages(after) != pages or not _spilled(pdf_path, after) <= spilled:
         route = convert_once(pdf_path, out_path, scale)
     return route

@@ -102,6 +102,9 @@ class Doc:
     digits: str = ""
     line_spacing: float = 1.15
     line_pitch: float = 0.0     # measured distance between lines, in points
+    # How far a paragraph's first line is set in from the others, in points;
+    # None where it could not be measured.
+    first_indent: float = None
     # Lines ruled above and under the running header on most pages:
     # [(side "top"/"bottom", Word border style, width in eighths of a point,
     # colour "RRGGBB")].

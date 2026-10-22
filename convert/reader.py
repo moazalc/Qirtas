@@ -390,6 +390,26 @@ PAGE_NO = re.compile(r"^[\s.\-–—()\[\]]*"
 PAGE_NO_EDGE = 0.12
 
 
+# A page number's place across the page by its digits, not by its piece:
+# Word's centred number is a frame holding the number and a space drawn to
+# the right margin, so the piece ran from 302 to 524 on a 612pt page, its
+# middle was off centre and the writer put the number in the corner - every
+# one of the plain set's 34 files with page numbers (FLAGS 36;
+# QIRTAS_NUMBER_INK=0 turns it off).
+NUMBER_INK_ON = os.environ.get("QIRTAS_NUMBER_INK", "1") != "0"
+
+
+def _ink_across(page, box, x0, x1):
+    """The left and right of what is drawn in `box` other than spaces;
+    x0, x1 where nothing is."""
+    xs = [c["bbox"] for b in page.get_text("rawdict", clip=box)["blocks"]
+          for ln in b.get("lines", ()) for s in ln["spans"] for c in s["chars"]
+          if not c["c"].isspace()]
+    if not xs:
+        return x0, x1
+    return min(r[0] for r in xs), max(r[2] for r in xs)
+
+
 def _page_numbers(doc, path):
     """Put back printed page numbers the chosen route never saw.
 
@@ -425,6 +445,8 @@ def _page_numbers(doc, path):
                 t = text.strip()
                 if not t or not PAGE_NO.match(t) or t in have.get(i, ()):
                     continue
+                if NUMBER_INK_ON:
+                    x0, x1 = _ink_across(page, (x0, y0, x1, y1), x0, x1)
                 edge = "top" if y1 < PAGE_NO_EDGE * H else \
                     "bottom" if y0 > (1 - PAGE_NO_EDGE) * H else None
                 if edge:
@@ -1380,13 +1402,40 @@ def _edge_spaces(sp, ends, arabic=False):
     size = max(sp["size"], 1.0)
     # A word keeps the space before it: the lam-alef repair reads a word's
     # start by it (لا يوجد read ال يوجد, `z20589058`).
-    if not ARABIC_LETTER.match(body[n]) and             all(c[2] <= min(k[1] for k in ink) + TOUCH * size for c in lead):
+    # Nor one drawn on top of the piece's marks: ` م. ` after 2006 stores a
+    # space drawn over its full stop, and 2006م came out "2006 م." (the
+    # plain set) - drawn left of the first letter, it does not stand before it.
+    first = chars[n]
+    if not ARABIC_LETTER.match(body[n]) and \
+            all(c[2] <= min(k[1] for k in ink) + TOUCH * size for c in lead):
+        return body[n:] + " "
+    def on_ink(c):
+        return any(min(c[2], k[2]) - max(c[1], k[1]) > 0.5 * (c[2] - c[1])
+                   for k in ink)
+    if YEAR_TIGHT_ON and ARABIC_LETTER.match(body[n]) and \
+            all((c[1] + c[2]) / 2 < first[1] and on_ink(c) for c in lead):
         return body[n:] + " "
     bracket = ink[-1]
     if body[-1] in OPENING and len(ink) > 1 and             abs(min(c[1] for c in lead) - bracket[2]) <= TOUCH * size and             all(c[2] <= min(k[1] for k in ink[:-1]) + TOUCH * size
                 for c in lead):
         return " " + body[n:-1] + " " + body[-1] + t[len(body):]
     return t
+
+
+# And a number drawn against an Arabic word: a year and its era, 1427هـ and
+# 2006م, are each two pieces, and joined with a space the plain set's Hijri
+# years came out "1427 هـ" (harness.plain, 2026-10-22). Word draws a space
+# where one is typed, so touching means none was (QIRTAS_YEAR_TIGHT=0 off).
+YEAR_TIGHT_ON = os.environ.get("QIRTAS_YEAR_TIGHT", "1") != "0"
+DIGIT = re.compile(r"[0-9٠-٩۰-۹]")
+
+
+def _year(a, b):
+    """Do the characters either side of a join pair a digit with an Arabic
+    letter?"""
+    return YEAR_TIGHT_ON and bool(
+        (DIGIT.match(a) and ARABIC_LETTER.match(b))
+        or (ARABIC_LETTER.match(a) and DIGIT.match(b)))
 
 
 def _tight(prev, text, sp, run, ends):
@@ -1399,7 +1448,8 @@ def _tight(prev, text, sp, run, ends):
     words drawn touching are still two words (قام|Yazdanian)."""
     if not TIGHT_ON or not prev or not ends or not text or not run:
         return False
-    if text[-1].isspace() or run[0].isspace() or             not (text[-1] in TIGHT or run[0] in TIGHT):
+    if text[-1].isspace() or run[0].isspace() or \
+            not (text[-1] in TIGHT or run[0] in TIGHT or _year(text[-1], run[0])):
         return False
     ea, eb = ends.get(_box(prev["bbox"])), ends.get(_box(sp["bbox"]))
     if not ea or not eb:
@@ -1434,6 +1484,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     letters = {}             # size -> letters set at it
     prev = None
     para = False
+    inked = []               # the boxes of the pieces with text
     for b in text_blocks:
         for line in b["lines"]:
             # A note's own second paragraph: after the first line, an indent
@@ -1452,6 +1503,7 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 run = sp["text"]
                 if not run.strip():
                     continue
+                inked.append(sp["bbox"])
                 run = _edge_spaces(sp, ends, bool(ARABIC.search(text)))
                 glue = _glued(prev, sp, vocab, ends)
                 # A bracket or % drawn against its neighbour is written
@@ -1460,6 +1512,12 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
                 if para:
                     run, glue, para = NOTE_PARA + " " + run.lstrip(), False, False
                 prev = sp
+                if glue:
+                    # a space _edge_spaces moved to the end of the piece
+                    # before is not inside the word put back together
+                    text = text.rstrip()
+                    if spans:
+                        spans[-1] = (spans[-1][0].rstrip(),) + tuple(spans[-1][1:])
                 text += ("" if glue or not text else " ") + run
                 size = max(size, sp["size"])
                 letters[round(sp["size"], 1)] = letters.get(round(sp["size"], 1), 0) + len(run.strip())
@@ -1489,14 +1547,17 @@ def _rich_block(text_blocks, i, kind=PARAGRAPH, vocab=None):
     if not spans:
         return None
     boxes = [b["bbox"] for b in text_blocks]
+    # Across the page, by the pieces with text in them: a piece that is only
+    # a space can run to the margin (see NUMBER_INK_ON).
+    across = inked if NUMBER_INK_ON and inked else boxes
     return Block(kind=kind, text=_clean(text),
                  page=i, size=round(size, 1), bold=bold,
                  text_size=max(letters, key=letters.get) if letters else 0.0,
                  spans=[(_clean(t), b_, i_) for t, b_, i_ in spans],
                  y=round(min(r[1] for r in boxes), 1),
                  y1=round(max(r[3] for r in boxes), 1),
-                 x0=round(min(r[0] for r in boxes), 1),
-                 x1=round(max(r[2] for r in boxes), 1))
+                 x0=round(min(r[0] for r in across), 1),
+                 x1=round(max(r[2] for r in across), 1))
 
 
 # ------------------------------------------------- italic drawn as a slant
@@ -2157,6 +2218,86 @@ TIE_MARGIN = 0.97       # keep the labelled reader unless it loses >3% of the te
 GLYPH_RATIO = 0.94      # inked band height as a fraction of font size, measured
 
 
+# The first line's indent as the original sets it. Every paragraph was
+# written with a 24pt indent: the plain set's documents mostly have none, and
+# a paragraph that took one line more pushed plain009's page 4 over, which
+# the fitting then shrank a size (FLAGS 36; QIRTAS_INDENT=0 turns it off).
+INDENT_ON = os.environ.get("QIRTAS_INDENT", "1") != "0"
+INDENT_MIN_PARAS = 5
+
+
+def _row_edges(page):
+    """Each printed line's start and end edge by its ink: [(left, right,
+    Arabic letters, Latin letters)]. MuPDF cuts one printed line into
+    pieces, so the pieces are put together by where they sit."""
+    rows = []
+    for b in page.get_text("rawdict")["blocks"]:
+        for ln in b.get("lines", ()):
+            ink = [c for s in ln["spans"] for c in s["chars"] if not c["c"].isspace()]
+            if not ink:
+                continue
+            y = (ln["bbox"][1] + ln["bbox"][3]) / 2
+            text = "".join(c["c"] for c in ink)
+            got = [min(c["bbox"][0] for c in ink), max(c["bbox"][2] for c in ink),
+                   len(ARABIC.findall(text)), len(re.findall("[A-Za-z]", text)), y]
+            for r in rows:
+                if abs(r[4] - y) < 3:
+                    r[0], r[1] = min(r[0], got[0]), max(r[1], got[1])
+                    r[2] += got[2]
+                    r[3] += got[3]
+                    break
+            else:
+                rows.append(got)
+    return [tuple(r[:4]) for r in rows]
+
+
+def _first_indent(rows):
+    """The indent most of the document's paragraphs open with, in points:
+    the distance in from the column's start edge - the right in Arabic - that
+    recurs, among the lines that do not start at that edge. 0 where none
+    recurs; None where there are too few lines to say."""
+    rows = [r for r in rows if r[2] + r[3] >= 20]     # lines, not page numbers
+    if len(rows) < 20:
+        return None
+    rtl = sum(r[2] for r in rows) > sum(r[3] for r in rows)
+    edges = [round(r[1] if rtl else r[0]) for r in rows]
+    start = collections.Counter(edges).most_common(1)[0][0]
+    off = collections.Counter(round(abs(start - e)) for e in edges
+                              if 2 < abs(start - e) < 72 and (e < start) == rtl)
+    if not off:
+        return 0.0
+    d, n = off.most_common(1)[0]
+    # with its neighbours: a point either side is the same indent
+    n += off.get(d - 1, 0) + off.get(d + 1, 0)
+    return float(d) if n >= max(INDENT_MIN_PARAS, 0.03 * len(rows)) else 0.0
+
+
+# The margin at the end of the lines - the left in Arabic - by where full
+# lines end, not the middle of where the pieces of text end: a paragraph's
+# short last line pulled it in, a space drawn at a line's end pushed it out,
+# and the plain set's left margins came out 3-12pt off while the right ones
+# were exact. The column off centre moved every centred page number with it
+# (FLAGS 36). Where the lines end ragged, as wide as the other side
+# (QIRTAS_MARGIN_INK=0 turns it off).
+MARGIN_INK_ON = os.environ.get("QIRTAS_MARGIN_INK", "1") != "0"
+
+
+def _far_margin(rows, width):
+    """(side, points) for the margin the lines end at, from _row_edges;
+    points None where they end ragged; None for too few lines."""
+    rows = [r for r in rows if r[2] + r[3] >= 20]
+    if len(rows) < 20:
+        return None
+    rtl = sum(r[2] for r in rows) > sum(r[3] for r in rows)
+    ends = collections.Counter(round(r[0] if rtl else r[1]) for r in rows)
+    at, n = ends.most_common(1)[0]
+    n += ends.get(at - 1, 0) + ends.get(at + 1, 0)
+    side = "left" if rtl else "right"
+    if n < 0.2 * len(rows):
+        return side, None
+    return side, (float(at) if rtl else width - at)
+
+
 def measure_layout(path, doc):
     """Read the original's margins and body font size off the page.
 
@@ -2171,6 +2312,7 @@ def measure_layout(path, doc):
     import statistics
     lefts, rights, tops, bottoms = [], [], [], []
     heights, pitches, spans = [], [], []
+    indents = []
     with pymupdf.open(path) as d:
         if not len(d):
             return doc
@@ -2183,6 +2325,8 @@ def measure_layout(path, doc):
                     continue
                 lefts.append(b[0]); rights.append(b[2])
                 tops.append(b[1]); bottoms.append(b[3])
+            if INDENT_ON or MARGIN_INK_ON:
+                indents.extend(_row_edges(page))
             hh, pit = _ink_rows(page)
             heights.extend(hh); pitches.extend(pit)
             for bl in get_text(page, "dict")["blocks"]:
@@ -2193,13 +2337,23 @@ def measure_layout(path, doc):
                         t = sp["text"].strip()
                         if t and SANE_PT[0] <= sp["size"] <= SANE_PT[1]:
                             spans.extend([sp["size"]] * len(t))
+
     doc.font = _dominant_font(path)
     doc.digits = shown_digits(path)
+    if INDENT_ON:
+        doc.first_indent = _first_indent(indents)
     if lefts:
         doc.margin_left = max(18.0, statistics.median(lefts))
         doc.margin_right = max(18.0, w - statistics.median(rights))
         doc.margin_top = max(18.0, min(tops))
         doc.margin_bottom = max(18.0, h - max(bottoms))
+    if MARGIN_INK_ON and lefts:
+        got = _far_margin(indents, w)
+        if got:
+            side, at = got
+            at = at if at is not None else (
+                doc.margin_right if side == "left" else doc.margin_left)
+            setattr(doc, f"margin_{side}", max(18.0, at))
     # Where the glyphs decode, the font size is stated outright - use it.
     # The ink estimate is for files whose Arabic cannot be decoded, and it
     # overestimated badly on ordinary files, doubling their page count.

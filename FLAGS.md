@@ -1095,7 +1095,15 @@ read a thesis change's effect there too.
 
 ## 36. "Pages matching" counts words, not looks
 
-**Status: OPEN, found 2026-10-22** while picking an example for Moaz
+**Status: MOSTLY CLOSED 2026-10-22 (later).** There is now a looks check,
+`python -m harness.plain looks <run> --show` (page number's place, where
+the text starts, text size). All three faults below were fixed (PLAN "The
+plain set: leftovers and looks"): page numbers in place 6.5 -> 97% of
+pages, text starting in place 36 -> 93% (`final3`). Still not scored: gaps between paragraphs,
+heading sizes, how lines wrap. The check covers the plain set only; the
+theses' looks are still judged by eye.
+
+**Found 2026-10-22** while picking an example for Moaz
 (plain009 page 4, `out/demo/plain009-p4.png`).
 A page "matches" when 98% of its words are on the same page; how the page
 looks is not scored. Checked by hand across the plain set against Word's

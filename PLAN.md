@@ -4152,6 +4152,126 @@ lost 100%. The one page left (`plain038` p5): Hijri years, 1427هـ written
 line's end comes back on the next line's first word), split in two 154,
 numbers 94 (هـ and م after a year, two years in a row), other 19.
 
+## The plain set: leftovers and looks, 2026-10-22 (later)
+
+Moaz: items 2-5 of TASKS, item 1 (refuse tables and pictures) cancelled -
+"it doesn't need to refuse, let it accept anything".
+
+**Spaces and marks put where they are drawn** (`order._home`,
+QIRTAS_HOME). Word stores some characters away from where it draws them,
+and three patterns were most of the leftovers:
+- a line's last vowel mark stored at the line's START after a space, and a
+  space stored inside the word the mark belongs to, exactly where the mark
+  goes: "ُوظفت ... س مح" for "وظفت ... سُمح", "ًالداخلي نظر ا" for
+  "الداخلي نظرًا" (118 marks in the set). The mark takes the space's place;
+  the space goes where it is drawn, else to the line's end.
+- a mark stored after the space that follows its word, "فضال ًعن" - it goes
+  back on that word, unless it is drawn on the next one (the shadda of
+  ّللاّه, drawn with all the Allah shape's letters at one point).
+- two spaces that traded places, "في عام1967": each goes beside the Arabic
+  letter it is drawn touching. A space stored in a real gap (its letters
+  drawn apart) leaves only if another comes into that gap - taken out alone
+  it glued النسائيةوحققت (plain001). Letters overlap, so the nearest
+  neighbour decides: a final ة is drawn over the ر before it.
+Done on the characters before the unit orders; `_line_orders` keeps the
+character order with the unit order so the text and dict readings get it
+too, and `_as_stored` (the labels' stored order) is skipped where it
+applied - it put the spaces straight back.
+
+Mark positions alone were tried first and were not enough: Word draws a
+zero-width mark at the pen position, which can sit on the next letter
+(نظًرا) or in the gap (عًن). The swapped space is the evidence.
+
+**Hijri years.** "1427هـ/ 2006م" is stored as pieces: `1427`, ` /هـ2001`,
+`2006`, ` م. `. A slash is now read as a mark (QIRTAS_SLASH), a number
+drawn touching an Arabic word is joined to it (`reader._year`,
+QIRTAS_YEAR_TIGHT), and a space drawn on top of a piece's full stop is
+not a space before it (`_edge_spaces`). One of plain038's five still reads
+"1427 هـ". Joining a word cut in two pieces now drops a space the piece
+before carried at its end - "إن ترناشونال" otherwise.
+
+**The looks check** (`harness.plain looks`): page number's place (within
+10pt), top of the first line (within 6pt), the commonest text size, the
+original's PDF against ours. Before: page numbers in place 6.5% of 200
+pages, text starting in place 36.2% of 246, size kept 40/40 by its
+rounding (plain009's 15pt was one page). Trap found at once: on pages with
+footnotes it took a footnote's number for the page number - it takes the
+lowest now.
+
+**What it found, and the fixes** (FLAGS 36):
+- *The page number in the corner*: Word's centred number is a frame holding
+  the number and a space drawn to the right margin; the piece's middle was
+  off centre (`reader._ink_across`, and blocks' width by their inked
+  pieces, QIRTAS_NUMBER_INK). Then the column itself was off centre: the
+  left margin, the median of where text pieces end, was 3-12pt wrong -
+  short last lines pulled it in, the space drawn at a line's end pushed it
+  out. Now the commonest place full lines end, by their ink; ragged lines -
+  as wide as the other side (`reader._far_margin`, QIRTAS_MARGIN_INK). All
+  40 left margins within 2pt; the right ones were already exact.
+- *Text starting 10-20pt low*: the shift grew with the spacing - 0-6pt
+  single, 5-11 one-and-a-half, 11-26 double. The writer sets exact line
+  heights; Word draws text at the bottom of an exact line and at the top of
+  a "multiple" one. The font's metrics predicted it 3-5pt wrong on a third
+  of the files, so `fit.py` measures it: after the fitting rounds, the
+  middle of the pages' differences in where the text starts; the top
+  margin less by that, the bottom more, kept only if no page runs over
+  (QIRTAS_LIFT). One more render per file.
+- *plain009 a size smaller*: every paragraph had a 24pt first-line indent;
+  plain009 has none, a paragraph took a line more, its page ran over and
+  the fitting shrank it. The indent is now measured - the distance in from
+  the column's start edge that recurs among lines not at it
+  (`reader._first_indent`, QIRTAS_INDENT); the plain set's indents to 1pt.
+  And a page that runs over has its lines drawn closer once before its
+  letters shrink (QIRTAS_LINES_FIRST; not below 1.45 of the size, where an
+  exact line cuts the marks off).
+
+**After (`2026-10-22-plain-final`):** words exactly right 99.35 ->
+**99.71%**, pages matching 99.6 -> **100%**, nothing lost 100%. Looks:
+page numbers in place 6.5 -> 71%, text starting in place 36 -> 76%.
+Of the page numbers left, two kinds, both fixed after that run: Word's
+original sits 14pt left of the column's middle (its frame) and ours sat at
+the middle - a centred left-to-right line now keeps the original's offset,
+one side indented by twice it (`writer._off_centre`, QIRTAS_NUMBER_PLACE);
+and the 3-page files got no page number at all (`_running_text` wanted 4
+pages, so before today too) - a number counting up at the same edge of
+every page is now one in a file of 2 or 3 (QIRTAS_SHORT_NUMBERS).
+`final2`: page numbers in place 97%. Text starting in place was 76%: the
+later pages 6-7pt out at most, and page 1 12pt high on 39 of 40 files -
+Word sets the title with space above it. After the lift, `fit.py` now gives
+a page whose text still starts 2pt or more higher than the original's the
+difference as space above its first paragraph, kept only where no page runs
+over (`_drop_tops`, QIRTAS_PAGE_TOPS) - one more render. plain009 and
+plain012: every page within 0.1pt. `final3`: text starting in place **93%**, page numbers 97%,
+words exactly right 99.71%, pages matching 100%, nothing lost 100%.
+
+Theses and regression set on `final`: nothing lost 100% on every file;
+right page 73.8 -> 74.1%, words in order 94.4 -> 94.3%. The words-in-order
+loss is the theses' marks put back on their words (الرَّحِيمِ, إِنَّ, عدوٍّ)
+against a PDF whose stored text has them on the next word; page truth by
+OCR read the same on both runs (found 92.6 -> 92.7%, wrong 6.8 -> 6.8%).
+Seen in the diff and not yet looked into: `z18037898`'s "ج ٣٨ ص ٤٧٤" now
+written "ج٣٨ ص٤٧٤" (the number joined to a touching letter), a doubled
+kasra (مِِنَ).
+
+**The window and the installer** (TASKS item 2): `convert/app.py`, Tk -
+pick a PDF, the Word file beside it, the command's messages as dialogs.
+Word over COM belongs to the thread that started it, so one worker thread
+does every conversion. Tk lays a line out left to right as a whole: a line
+mixing Arabic and "PDF" came out scrambled, so every Arabic string is
+Arabic only, English on its own line. `installer/build.ps1`: PyInstaller
+(one folder) then Inno Setup 6 - `installer/Output/Qirtas-Setup.exe`,
+43.7MB, per-user install, Arabic and English, warns where Word is missing.
+Checked by `Qirtas.exe --selftest in.pdf report.txt` on the frozen build:
+plain026 converted, its Word file word for word the same as the source
+run's. Not checked: a file that needs the fonts dialog or the OCR (the
+frozen `ocr_windows.ps1` path), and installing on a second computer.
+
+**Left** on the words: الثالثة read لاثلاثة in three files - the document's
+lam-alef fix map, learned from the whole text, moves with any change
+elsewhere; the tanween before or after the alef (نبيلًا / نبيلاً, drawn
+the same - not judged); numbers glued where the space is stored inside
+another line's piece (عام1225م).
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

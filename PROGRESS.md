@@ -992,3 +992,43 @@ Moaz's call: do the repair. Pushed the verse work first.
 - **Next:** your call - the refusal check for tables and pictures first,
   or making the pages look the same first (page numbers, top margin).
 
+
+### 22 Oct (later) — items 2, 3 and 5 done; item 1 cancelled
+
+- **Item 1 cancelled** (your call): files with tables, pictures or columns
+  are converted as well as it can, not turned away. Scans are still
+  refused.
+- **Item 3, the plain set's leftover text faults.** Word sometimes stores a
+  space or a vowel mark away from where it draws it - a line's last
+  tanween at the start of the line, with a space left inside the word
+  where it belonged (س مح for سُمح). They now go back where the page draws
+  them. Hijri years come out "1427هـ/ 2006م" (4 of 5 in the file that has
+  them).
+  - words exactly right: 99.35% -> **99.71%**;
+  - pages matching: 99.6% -> **100%**;
+  - nothing lost: 100%.
+- **Item 5, pages that look the same.** I built a check for what "pages
+  matching" could not see: where the page number sits, where the text
+  starts, the text size. Then fixed what it found:
+  - page numbers in the right place: 6.5% -> **97%** of pages (our left
+    margin was measured wrong, so the middle of the page was off);
+  - text starting where the original's does: 36% -> **93%** of pages
+    (Word puts the extra line space above the text in our files, below it
+    in yours - the converter now measures the gap and moves the text up);
+  - plain009 no longer comes out a size smaller (we added a first-line
+    indent the original did not have; the indent is now measured).
+- **Item 2, the window and the installer.** A small window: choose a PDF,
+  press Convert, the Word file appears beside it, with the same warnings
+  as before as pop-ups, in Arabic with English underneath. And one
+  installer, `installer\Output\Qirtas-Setup.exe` (44MB), which warns if
+  Word is missing. I tested that the installed program converts a file
+  exactly as the code does; I have not tried installing it on another
+  computer - worth you trying.
+- **Your theses:** nothing lost still 100% on every file. The other scores
+  barely moved (right page 73.8 -> 74.1%).
+- **Honest catches:** a few new small faults on two theses (a number
+  joined to the letter before it, ج٣٨ for ج ٣٨; a doubled vowel mark), and
+  الثالثة coming out لاثلاثة in three plain files. Listed in TASKS.
+- **Waiting on you:** item 4 - ten or twenty real plain PDFs from people.
+  Send them, or tell me I may download public ones.
+- **Committed, not pushed.**

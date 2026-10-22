@@ -44,3 +44,8 @@ corpus/theses/*
 
 # Corpus archive staged from USB, 556MB. Same reason as corpus/ above.
 corpus.zip
+
+# installer/build.ps1 output
+installer/dist/
+installer/build/
+installer/Output/
