@@ -1050,3 +1050,22 @@ Moaz's call: do the repair. Pushed the verse work first.
 - **The installer** is rebuilt with the new look, and the installed
   program still converts a file word for word as before.
 - **Pushed** to GitHub the same day.
+
+### 25 Oct (later) — Nuqta OCR tried and dropped; the logo; a tidier window
+
+- **Nuqta OCR:** you asked if this open Arabic OCR could replace or help
+  ours. I tested its small model against Windows' OCR on one page whose
+  true text we know. Both read about the same share of the words (94.7%
+  Windows, 93.9% Nuqta), but Nuqta took 22 minutes on your laptop against
+  Windows' 2 seconds, added an English sentence that is not on the page,
+  and "corrected" a typo the page prints. Dropped, your call; its files
+  are deleted.
+- **The logo** is now the window's icon, the program's icon and the
+  installer's icon.
+- **The window** is smaller and tighter: logo and name on one line, the
+  file's name and the choose button in one strip, the Convert button right
+  under it, less empty space. It grows only while converting and when
+  done. Buttons are square, gold or outlined in gold, as on the website.
+- **Installer rebuilt** with the logo; the built program still converts a
+  file correctly.
+- **Pushed** to GitHub the same day.

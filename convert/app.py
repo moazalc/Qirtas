@@ -37,14 +37,16 @@ from tkinter import font as tkfont
 
 TITLE = "Qirtas - قرطاس"
 FONT = ("Segoe UI", 11)
-SMALL = ("Segoe UI", 10)
-BIG = ("Segoe UI", 14, "bold")
-TITLE_FONT = ("Segoe UI", 24, "bold")
+SMALL = ("Segoe UI", 9)
+BIG = ("Segoe UI", 13, "bold")
+TITLE_FONT = ("Segoe UI", 18, "bold")
+LOGO = Path(__file__).resolve().parent / "data" / "logo.png"   # 180 px square
 # Moaz's palette (25 Oct): deep green, cream text, gold.
 C = {"bg": "#07281e", "card": "#0d3127", "muted": "#12352a",
      "secondary": "#12382d", "accent": "#163e31", "fg": "#f3ead9",
      "muted_fg": "#cdc3af", "primary": "#d8b66d", "ring": "#b89a5a",
-     "destructive": "#f47c6e", "success": "#7bcc98"}
+     "destructive": "#f47c6e", "success": "#7bcc98",
+     "edge": "#54603f"}     # the site's outline: gold at 35% over the card
 
 
 def _out_path(pdf):
@@ -132,13 +134,14 @@ class Worker(threading.Thread):
 
 
 class Button(tk.Label):
-    """A flat button in the palette's colours. Tk's own button keeps the
-    system's grey on Windows whatever colour it is given."""
+    """A flat square button in the palette's colours, as on the website: gold,
+    or dark with a thin gold outline. Tk's own button keeps the system's grey
+    on Windows whatever colour it is given."""
 
     def __init__(self, master, text, command, primary=False, **kw):
-        self.colours = ((C["primary"], C["bg"], C["ring"]) if primary else
-                        (C["secondary"], C["fg"], C["accent"]))
-        super().__init__(master, text=text, cursor="hand2", padx=22, pady=8,
+        self.colours = ((C["primary"], C["bg"], C["ring"], C["primary"]) if primary
+                        else (C["card"], C["fg"], C["accent"], C["edge"]))
+        super().__init__(master, text=text, cursor="hand2", padx=18, pady=6,
                          justify="center", font=kw.pop("font", FONT),
                          highlightthickness=1, takefocus=1, **kw)
         self.command, self.enabled = command, True
@@ -150,12 +153,12 @@ class Button(tk.Label):
         self.bind("<Leave>", lambda e: self._paint())
 
     def _paint(self, hover=False):
-        bg, fg, over = self.colours
+        bg, fg, over, edge = self.colours
         if not self.enabled:
-            bg, fg = C["muted"], C["muted_fg"]
+            bg, fg, edge = C["muted"], C["muted_fg"], C["muted"]
         elif hover:
             bg = over
-        self.config(bg=bg, fg=fg, highlightbackground=bg,
+        self.config(bg=bg, fg=fg, highlightbackground=edge,
                     highlightcolor=C["ring"],
                     cursor="hand2" if self.enabled else "arrow")
 
@@ -246,9 +249,14 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(TITLE)
-        self.geometry("600x540")
-        self.minsize(520, 520)
+        # No fixed height: the window is as tall as what it shows, and grows
+        # when the progress bar, the status and the open button appear.
+        self.minsize(520, 1)
         self.configure(bg=C["bg"])
+        self.logo = None
+        if LOGO.exists():
+            self.logo = tk.PhotoImage(file=str(LOGO))
+            self.iconphoto(True, self.logo)
         self.events = queue.Queue()
         self.worker = Worker(self.events)
         self.worker.start()
@@ -265,40 +273,47 @@ class App(tk.Tk):
                         arrowcolor=C["muted_fg"], lightcolor=C["accent"],
                         darkcolor=C["accent"])
 
+        # One header row, right to left: the logo, then the name and what it does.
         head = tk.Frame(self, bg=C["bg"])
-        head.pack(fill="x", padx=28, pady=(22, 10))
-        tk.Label(head, text="قرطاس", font=TITLE_FONT, bg=C["bg"], fg=C["primary"],
+        head.pack(fill="x", padx=18, pady=(14, 10))
+        if self.logo:
+            self.mark = self.logo.subsample(4)          # 45 px
+            tk.Label(head, image=self.mark, bg=C["bg"]).pack(side="right")
+        words = tk.Frame(head, bg=C["bg"])
+        words.pack(side="right", fill="x", expand=True, padx=(0, 12))
+        # The website's heading face where this computer has it
+        title = (("Amiri", 22, "bold") if "Amiri" in tkfont.families(self)
+                 else TITLE_FONT)
+        tk.Label(words, text="قرطاس", font=title, bg=C["bg"], fg=C["primary"],
                  anchor="e").pack(fill="x")
-        tk.Label(head, text="حوّل ملف بي دي إف عربيًا إلى ملف وورد يمكن تعديله",
-                 font=FONT, bg=C["bg"], fg=C["fg"], anchor="e").pack(fill="x")
-        tk.Label(head, text="Turn an Arabic PDF back into a Word file you can edit",
-                 font=SMALL, bg=C["bg"], fg=C["muted_fg"], anchor="e").pack(fill="x")
+        tk.Label(words, text="Arabic PDF to editable Word", font=SMALL, bg=C["bg"],
+                 fg=C["muted_fg"], anchor="e").pack(fill="x")
 
         card = tk.Frame(self, bg=C["card"], highlightthickness=1,
                         highlightbackground=C["secondary"])
-        card.pack(fill="both", expand=True, padx=28, pady=(6, 24))
+        card.pack(fill="both", expand=True, padx=18, pady=(0, 18))
         inner = tk.Frame(card, bg=C["card"])
-        inner.pack(fill="both", expand=True, padx=22, pady=20)
+        inner.pack(fill="both", expand=True, padx=16, pady=14)
 
-        row = tk.Frame(inner, bg=C["card"])
+        # The file: a sunken strip with its name, the choose button at its end.
+        row = tk.Frame(inner, bg=C["muted"])
         row.pack(fill="x")
         self.pick = Button(row, "اختر الملف\nChoose a PDF", self.choose)
         self.pick.pack(side="right")
         self.name = tk.Label(row, text="لم يُختر ملف بعد\nNo file chosen yet",
-                             font=FONT, bg=C["card"], fg=C["muted_fg"],
+                             font=SMALL, bg=C["muted"], fg=C["muted_fg"],
                              anchor="e", justify="right")
-        self.name.pack(side="right", fill="x", expand=True, padx=(0, 14))
+        self.name.pack(side="right", fill="x", expand=True, padx=12)
 
         self.go = Button(inner, "حوّل\nConvert", self.convert, primary=True,
                          font=BIG)
-        self.go.pack(pady=(22, 16))
+        self.go.pack(fill="x", pady=(12, 0))
         self.go.set_enabled(False)
 
         self.bar = ttk.Progressbar(inner, mode="indeterminate",
                                    style="Gold.Horizontal.TProgressbar")
-        self.status = tk.Label(inner, text="", font=FONT, bg=C["card"], fg=C["fg"],
-                               anchor="e", justify="right", wraplength=480)
-        self.status.pack(fill="x", pady=(10, 0))
+        self.status = tk.Label(inner, text="", font=SMALL, bg=C["card"], fg=C["fg"],
+                               anchor="e", justify="right", wraplength=440)
         self.open = Button(inner, "افتح الملف\nOpen the Word file", self.open_docx)
         self.after(150, self.poll)
 
@@ -326,7 +341,7 @@ class App(tk.Tk):
         self.pick.set_enabled(not on)
         if on:
             self.open.pack_forget()
-            self.bar.pack(fill="x", before=self.status)
+            self.bar.pack(fill="x", pady=(12, 0), after=self.go)
             self.bar.start(12)
         else:
             self.bar.stop()
@@ -334,6 +349,11 @@ class App(tk.Tk):
 
     def say(self, text, colour="fg"):
         self.status.config(text=text, fg=C[colour])
+        if text:
+            above = self.bar if self.bar.winfo_manager() else self.go
+            self.status.pack(fill="x", pady=(8, 0), after=above)
+        else:
+            self.status.pack_forget()
 
     def poll(self):
         try:
@@ -362,7 +382,7 @@ class App(tk.Tk):
             self.busy(False)
             self.docx = Path(args[0])
             self.say(f"تم\nDone: {self.docx.name}", "success")
-            self.open.pack(pady=(14, 0))
+            self.open.pack(fill="x", pady=(8, 0))
             if args[1]:
                 Dialog(self, "راجع هذه الملاحظات", "Please check these notes",
                        args[1], "primary", OK).ask()

@@ -16,6 +16,8 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\Qirtas.exe
+SetupIconFile=qirtas.ico
+WizardSmallImageFile=logo.bmp
 
 [Languages]
 Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"

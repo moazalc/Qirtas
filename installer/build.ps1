@@ -13,7 +13,7 @@ Set-Location $root
 
 & .venv\Scripts\python -m PyInstaller `
     --noconfirm --clean --windowed --onedir `
-    --name Qirtas `
+    --name Qirtas --icon "$root\installer\qirtas.ico" `
     --distpath installer\dist --workpath installer\build --specpath installer\build `
     --add-data "$root\convert\data;convert\data" `
     --add-data "$root\convert\ocr_windows.ps1;convert" `

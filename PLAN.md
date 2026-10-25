@@ -4287,6 +4287,61 @@ elsewhere; the tanween before or after the alef (نبيلًا / نبيلاً, dr
 the same - not judged); numbers glued where the space is stored inside
 another line's piece (عام1225م).
 
+## Nuqta OCR tried as the page's second reader, and dropped, 2026-10-25
+
+Moaz asked whether Nuqta OCR (github.com/SalahAlHaismawi/nuqta-ocr, an
+open-weights Arabic OCR, Qwen3.5-based, Apache-2.0) could replace or help
+what we have. The two jobs OCR does here are as a referee: `witness.py`
+picks between two names for a broken font's shape by what the page shows,
+and `harness.truth` checks pages against the printed text. In neither does
+OCR write a word into the document.
+
+Not a replacement for reading the text: its own published error is about
+one letter in ten (KITAB-Bench CER 0.117 for the 0.8B), against 99.7% of
+words exactly right from the hidden text on plain files; it returns
+Markdown and HTML tables with no positions, sizes, fonts or breaks (and
+HTML is the route CLAUDE.md rules out); and it wants a GPU.
+
+Tried as the referee: the 0.8B (Q4_K_M GGUF plus its vision part, run by
+llama.cpp b11870 on the CPU, the card's settings: 2.4 MP page, greedy) on
+plain026 page 2 against Windows' OCR at 200 dpi.
+
+    words found       Windows 94.7%    Nuqta 93.9%
+    words invented    Windows  6.8%    Nuqta  9.2%
+    time on the page  Windows  2 s     Nuqta 22 min (i7-1260P, 16 threads)
+
+Most of both readers' remaining misses were the quick truth's own faults
+(the hidden text's split words and digits glued to words, mended by
+position in the converter). Two traps on the way, both in the instrument:
+the first truth was the raw hidden text, with its reversed lam-alef, and
+both readers were marked wrong for reading الا right; and the letter error
+rate ranked Windows at 68% wrong because its words come left to right
+within a line - order, not reading. Nuqta also wrote an English sentence
+that is not on the page ("The reference answer is a complete answer ..."),
+corrected a typo the page prints (مهاجتمهم read مهاجمتهم - wrong for a
+referee, whose job is what is printed), and gives no word boxes, which
+`witness.py` matches by. On a clean Word-made page it is no better and
+hundreds of times slower. Where it might win - old fonts, full tashkeel,
+tables, scans - was not tested; at 22 minutes a page this laptop cannot
+test it fairly. Dropped at Moaz's call; the model files were deleted.
+
+## Window tidied, and the logo, 2026-10-25
+
+The window was 600x540 with most of it empty. Now 520 wide and as tall as
+what it shows (about 300 at rest; the progress bar, the status line and the
+open button appear only when they have something to show): one header row
+(the logo, قرطاس, a one-line English subtitle), the file's name in a sunken
+strip with the choose button at its end, Convert full width beneath it,
+smaller paddings throughout. After the website (qirtas-site-two.vercel.app):
+square buttons, gold filled or dark with a thin gold outline (gold at 35%
+over the card, #54603f); قرطاس in Amiri, the site's heading face, where the
+computer has it, Segoe UI otherwise (Amiri is not bundled; the site's body
+face, IBM Plex Sans Arabic, is not installed here, so the body stays Segoe
+UI). The logo (`convert/data/logo.png`, Moaz's,
+180 px) is the window's icon and sits in the header at a quarter size;
+`installer/qirtas.ico` (made from it) is the program's and the installer's
+icon, and `installer/logo.bmp` the installer's corner picture.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story
