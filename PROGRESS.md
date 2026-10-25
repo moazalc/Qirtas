@@ -1049,4 +1049,4 @@ Moaz's call: do the repair. Pushed the verse work first.
   check again" / "Convert without them").
 - **The installer** is rebuilt with the new look, and the installed
   program still converts a file word for word as before.
-- **Committed, not pushed.**
+- **Pushed** to GitHub the same day.
