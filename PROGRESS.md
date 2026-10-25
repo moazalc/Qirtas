@@ -1068,4 +1068,11 @@ Moaz's call: do the repair. Pushed the verse work first.
   done. Buttons are square, gold or outlined in gold, as on the website.
 - **Installer rebuilt** with the logo; the built program still converts a
   file correctly.
+- **The website's fonts** (Amiri for the name, IBM Plex Sans Arabic for
+  the rest) now come inside the program, so the window looks the same on
+  any computer - nothing gets installed on it. Both are free to share.
+- **Cancelled** (your call): the real plain PDFs from other people (item
+  4) and the small leftover text faults. Worth knowing: the 99.7% is
+  measured on files we made, not checked on anyone else's.
+- **Next:** you plan it in a new chat.
 - **Pushed** to GitHub the same day.

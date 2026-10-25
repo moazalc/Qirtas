@@ -27,18 +27,31 @@ nothing lost 100%; looks (`harness.plain looks`) - page numbers in place
    Not checked: the fonts dialog and OCR in the frozen build, installing
    on a second computer (Moaz to try).
 3. DONE: tanween at a line's end, split words where the space was stored
-   elsewhere, Hijri years (4 of plain038's 5). Left: الثالثة read لاثلاثة
-   (the lam-alef fix map, 3 files); one "1427 هـ"; numbers glued where the
-   space is stored in another piece (عام1225م); on the theses `z18037898`
-   "ج٣٨" for "ج ٣٨" and a doubled kasra - seen, not looked into.
-4. WAITING ON MOAZ: ten or twenty real plain PDFs from people, not made by
-   us - he sends them, or says I may download public ones.
+   elsewhere, Hijri years (4 of plain038's 5). The small faults left -
+   الثالثة read لاثلاثة (the lam-alef fix map, 3 files), one "1427 هـ",
+   numbers glued where the space is stored in another piece (عام1225م),
+   `z18037898`'s "ج٣٨" and doubled kasra - CANCELLED by Moaz 25 Oct; they
+   stay recorded in PLAN "The plain set: leftovers and looks".
+4. ~~Ten or twenty real plain PDFs from people~~ - CANCELLED by Moaz 25
+   Oct. The plain-set numbers are on files we made; nothing has checked
+   them on other people's plain files.
 5. DONE (FLAGS 36): page numbers in place, the column's far margin, the
    text start lifted, page 1's title, the first-line indent measured, lines
    drawn closer before letters shrink.
 
-State on 22 Oct, end of chat: committed and pushed (eaf3851). Last full runs:
-`2026-10-22-{plain,thesis,regression}-final3`.
+25 Oct, also done: the window restyled in Moaz's palette and after the
+website (qirtas-site-two.vercel.app), tightened, with the logo; the logo as
+the program's and installer's icon; the website's fonts (Amiri, IBM Plex
+Sans Arabic, OFL) shipped inside the program and loaded for it alone (PLAN
+"Window tidied, and the logo"). Nuqta OCR tried as the page's second
+reader and dropped (PLAN "Nuqta OCR tried"). Still not checked: installing
+on a second computer, and the fonts dialog and OCR in the installed build.
+
+**Next: Moaz plans it in a new chat.** Nothing from the list above is open.
+
+State on 25 Oct, end of chat: see `git log`; last full runs still
+`2026-10-22-{plain,thesis,regression}-final3` (only the window and the
+installer changed since).
 
 **Focus: Part 1, text accuracy** (Moaz, 22 Sept): the words in the Word file
 must match the printed page before any work on looks. The plan and its

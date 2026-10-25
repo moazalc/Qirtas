@@ -36,11 +36,28 @@ from tkinter import filedialog, ttk
 from tkinter import font as tkfont
 
 TITLE = "Qirtas - قرطاس"
-FONT = ("Segoe UI", 11)
-SMALL = ("Segoe UI", 9)
-BIG = ("Segoe UI", 13, "bold")
-TITLE_FONT = ("Segoe UI", 18, "bold")
 LOGO = Path(__file__).resolve().parent / "data" / "logo.png"   # 180 px square
+# The website's faces, shipped with the program (both SIL Open Font
+# License, the texts beside them): Amiri for the name, IBM Plex Sans Arabic
+# for the rest. Loaded for this program only - nothing is installed.
+FACES = Path(__file__).resolve().parent / "data" / "fonts"
+
+
+def _load_faces():
+    """-> True when the shipped faces are usable in this process."""
+    try:
+        import ctypes
+        add = ctypes.windll.gdi32.AddFontResourceExW
+        return all(add(str(f), 0x10, 0) for f in FACES.glob("*.ttf"))  # FR_PRIVATE
+    except Exception:
+        return False
+
+
+BODY = "IBM Plex Sans Arabic" if _load_faces() else "Segoe UI"
+FONT = (BODY, 10)
+SMALL = (BODY, 9)
+BIG = (BODY, 12, "bold")
+TITLE_FONT = ("Amiri", 22, "bold")
 # Moaz's palette (25 Oct): deep green, cream text, gold.
 C = {"bg": "#07281e", "card": "#0d3127", "muted": "#12352a",
      "secondary": "#12382d", "accent": "#163e31", "fg": "#f3ead9",
@@ -281,9 +298,8 @@ class App(tk.Tk):
             tk.Label(head, image=self.mark, bg=C["bg"]).pack(side="right")
         words = tk.Frame(head, bg=C["bg"])
         words.pack(side="right", fill="x", expand=True, padx=(0, 12))
-        # The website's heading face where this computer has it
-        title = (("Amiri", 22, "bold") if "Amiri" in tkfont.families(self)
-                 else TITLE_FONT)
+        title = (TITLE_FONT if "Amiri" in tkfont.families(self)
+                 else ("Segoe UI", 18, "bold"))
         tk.Label(words, text="قرطاس", font=title, bg=C["bg"], fg=C["primary"],
                  anchor="e").pack(fill="x")
         tk.Label(words, text="Arabic PDF to editable Word", font=SMALL, bg=C["bg"],

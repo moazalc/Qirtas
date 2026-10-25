@@ -4335,9 +4335,12 @@ strip with the choose button at its end, Convert full width beneath it,
 smaller paddings throughout. After the website (qirtas-site-two.vercel.app):
 square buttons, gold filled or dark with a thin gold outline (gold at 35%
 over the card, #54603f); قرطاس in Amiri, the site's heading face, where the
-computer has it, Segoe UI otherwise (Amiri is not bundled; the site's body
-face, IBM Plex Sans Arabic, is not installed here, so the body stays Segoe
-UI). The logo (`convert/data/logo.png`, Moaz's,
+computer has it. The site's faces then shipped with the program
+(`convert/data/fonts`: Amiri Bold from this computer, IBM Plex Sans Arabic
+Regular and SemiBold from google/fonts, each with its OFL text) and loaded
+with `AddFontResourceExW(..., FR_PRIVATE)` - for the program alone, nothing
+installed; Segoe UI if that fails. Checked on this computer, where Plex is
+not installed: Tk lists and draws it. The installer grew 0.3 MB. The logo (`convert/data/logo.png`, Moaz's,
 180 px) is the window's icon and sits in the header at a quarter size;
 `installer/qirtas.ico` (made from it) is the program's and the installer's
 icon, and `installer/logo.bmp` the installer's corner picture.
