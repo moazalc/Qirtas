@@ -11,8 +11,9 @@ or convert without them (convert/fonts.py); after converting, the pages whose
 numbers the PDF stores one way and shows another (convert/digits.py).
 
 Tk lays a line out left to right as a whole, so a line mixing Arabic and
-English comes out scrambled: every Arabic string here is Arabic only, with
-the English on a line of its own.
+English comes out scrambled, and so does an Arabic line with "..." or a full
+stop in it: every Arabic string here is Arabic words only, with the English
+on a line of its own.
 
 Word renders every attempt (convert/fit.py) over COM, and a Word instance
 belongs to the thread that started it (harness/word.py keeps one per
@@ -34,7 +35,14 @@ from tkinter import filedialog, messagebox, ttk
 
 TITLE = "Qirtas - قرطاس"
 FONT = ("Segoe UI", 11)
+SMALL = ("Segoe UI", 10)
 BIG = ("Segoe UI", 14, "bold")
+TITLE_FONT = ("Segoe UI", 24, "bold")
+# Moaz's palette (25 Oct): deep green, cream text, gold.
+C = {"bg": "#07281e", "card": "#0d3127", "muted": "#12352a",
+     "secondary": "#12382d", "accent": "#163e31", "fg": "#f3ead9",
+     "muted_fg": "#cdc3af", "primary": "#d8b66d", "ring": "#b89a5a",
+     "destructive": "#f47c6e", "success": "#7bcc98"}
 
 
 def _out_path(pdf):
@@ -72,7 +80,7 @@ class Worker(threading.Thread):
     def _convert(self, pdf, docx):
         from convert import digits, fonts
         from convert.scan import Refused, refuse_scans
-        self.say("status", "يفحص الملف ...\nChecking the file ...")
+        self.say("status", "يفحص الملف\nChecking the file ...")
         try:
             refuse_scans(str(pdf))
         except Refused as e:
@@ -83,7 +91,7 @@ class Worker(threading.Thread):
             found = fonts.missing(pdf)
             if not found:
                 break
-            self.say("status", "يفحص الخطوط ...\nChecking the fonts ...")
+            self.say("status", "يفحص الخطوط\nChecking the fonts ...")
             fonts.judge(pdf, found)
             if all(m.only_style for m in found):
                 left = found
@@ -93,7 +101,7 @@ class Worker(threading.Thread):
                 left = found
                 break
             fonts.rescan()
-        self.say("status", "يحوّل ... قد يستغرق دقيقة أو دقيقتين لملف طويل.\n"
+        self.say("status", "جار التحويل وقد يستغرق دقيقة أو دقيقتين لملف طويل\n"
                            "Converting - a minute or two for a long file.")
         from convert.fit import convert
         from harness.word import docx_to_pdf
@@ -121,42 +129,97 @@ class Worker(threading.Thread):
         self.say("done", str(docx), "\n\n".join(notes))
 
 
+class Button(tk.Label):
+    """A flat button in the palette's colours. Tk's own button keeps the
+    system's grey on Windows whatever colour it is given."""
+
+    def __init__(self, master, text, command, primary=False, **kw):
+        self.colours = ((C["primary"], C["bg"], C["ring"]) if primary else
+                        (C["secondary"], C["fg"], C["accent"]))
+        super().__init__(master, text=text, cursor="hand2", padx=22, pady=8,
+                         justify="center", font=kw.pop("font", FONT),
+                         highlightthickness=1, takefocus=1, **kw)
+        self.command, self.enabled = command, True
+        self._paint()
+        self.bind("<Button-1>", lambda e: self._press())
+        self.bind("<Return>", lambda e: self._press())
+        self.bind("<space>", lambda e: self._press())
+        self.bind("<Enter>", lambda e: self._paint(hover=True))
+        self.bind("<Leave>", lambda e: self._paint())
+
+    def _paint(self, hover=False):
+        bg, fg, over = self.colours
+        if not self.enabled:
+            bg, fg = C["muted"], C["muted_fg"]
+        elif hover:
+            bg = over
+        self.config(bg=bg, fg=fg, highlightbackground=bg,
+                    highlightcolor=C["ring"],
+                    cursor="hand2" if self.enabled else "arrow")
+
+    def _press(self):
+        if self.enabled:
+            self.command()
+
+    def set_enabled(self, on):
+        self.enabled = on
+        self._paint()
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(TITLE)
-        self.geometry("560x400")
-        self.minsize(480, 380)
+        self.geometry("600x540")
+        self.minsize(520, 520)
+        self.configure(bg=C["bg"])
         self.events = queue.Queue()
         self.worker = Worker(self.events)
         self.worker.start()
         self.pdf = None
         self.docx = None
 
-        pad = {"padx": 16, "pady": 6}
-        tk.Label(self, text="حوّل ملف بي دي إف عربيًا إلى ملف وورد يمكن تعديله",
-                 font=BIG, anchor="e", justify="right").pack(fill="x", **pad)
-        tk.Label(self, text="Turn an Arabic PDF back into a Word file you can edit",
-                 font=FONT, fg="#555", anchor="e").pack(fill="x", padx=16)
+        style = ttk.Style(self)
+        style.theme_use("clam")
+        style.configure("Gold.Horizontal.TProgressbar", troughcolor=C["muted"],
+                        background=C["primary"], bordercolor=C["card"],
+                        lightcolor=C["primary"], darkcolor=C["primary"], thickness=6)
 
-        row = tk.Frame(self)
-        row.pack(fill="x", **pad)
-        self.pick = tk.Button(row, text="اختر الملف\nChoose a PDF", font=FONT,
-                              command=self.choose)
+        head = tk.Frame(self, bg=C["bg"])
+        head.pack(fill="x", padx=28, pady=(22, 10))
+        tk.Label(head, text="قرطاس", font=TITLE_FONT, bg=C["bg"], fg=C["primary"],
+                 anchor="e").pack(fill="x")
+        tk.Label(head, text="حوّل ملف بي دي إف عربيًا إلى ملف وورد يمكن تعديله",
+                 font=FONT, bg=C["bg"], fg=C["fg"], anchor="e").pack(fill="x")
+        tk.Label(head, text="Turn an Arabic PDF back into a Word file you can edit",
+                 font=SMALL, bg=C["bg"], fg=C["muted_fg"], anchor="e").pack(fill="x")
+
+        card = tk.Frame(self, bg=C["card"], highlightthickness=1,
+                        highlightbackground=C["secondary"])
+        card.pack(fill="both", expand=True, padx=28, pady=(6, 24))
+        inner = tk.Frame(card, bg=C["card"])
+        inner.pack(fill="both", expand=True, padx=22, pady=20)
+
+        row = tk.Frame(inner, bg=C["card"])
+        row.pack(fill="x")
+        self.pick = Button(row, "اختر الملف\nChoose a PDF", self.choose)
         self.pick.pack(side="right")
-        self.name = tk.Label(row, text="", font=FONT, anchor="e")
-        self.name.pack(side="right", fill="x", expand=True, padx=8)
+        self.name = tk.Label(row, text="لم يُختر ملف بعد\nNo file chosen yet",
+                             font=FONT, bg=C["card"], fg=C["muted_fg"],
+                             anchor="e", justify="right")
+        self.name.pack(side="right", fill="x", expand=True, padx=(0, 14))
 
-        self.go = tk.Button(self, text="حوّل\nConvert", font=BIG, state="disabled",
-                            command=self.convert)
-        self.go.pack(**pad)
-        self.bar = ttk.Progressbar(self, mode="indeterminate")
-        self.bar.pack(fill="x", **pad)
-        self.status = tk.Label(self, text="", font=FONT, anchor="e", justify="right",
-                               wraplength=520)
-        self.status.pack(fill="x", **pad)
-        self.open = tk.Button(self, text="افتح الملف\nOpen the Word file", font=FONT,
-                              command=self.open_docx)
+        self.go = Button(inner, "حوّل\nConvert", self.convert, primary=True,
+                         font=BIG)
+        self.go.pack(pady=(22, 16))
+        self.go.set_enabled(False)
+
+        self.bar = ttk.Progressbar(inner, mode="indeterminate",
+                                   style="Gold.Horizontal.TProgressbar")
+        self.status = tk.Label(inner, text="", font=FONT, bg=C["card"], fg=C["fg"],
+                               anchor="e", justify="right", wraplength=480)
+        self.status.pack(fill="x", pady=(10, 0))
+        self.open = Button(inner, "افتح الملف\nOpen the Word file", self.open_docx)
         self.after(150, self.poll)
 
     def choose(self):
@@ -166,9 +229,9 @@ class App(tk.Tk):
         if not path:
             return
         self.pdf = Path(path)
-        self.name.config(text=self.pdf.name)
-        self.go.config(state="normal")
-        self.status.config(text="")
+        self.name.config(text=self.pdf.name, fg=C["fg"])
+        self.go.set_enabled(True)
+        self.say("")
         self.open.pack_forget()
 
     def convert(self):
@@ -179,13 +242,18 @@ class App(tk.Tk):
         self.worker.jobs.put((str(self.pdf), str(self.docx)))
 
     def busy(self, on):
-        self.go.config(state="disabled" if on else "normal")
-        self.pick.config(state="disabled" if on else "normal")
+        self.go.set_enabled(not on)
+        self.pick.set_enabled(not on)
         if on:
             self.open.pack_forget()
+            self.bar.pack(fill="x", before=self.status)
             self.bar.start(12)
         else:
             self.bar.stop()
+            self.bar.pack_forget()
+
+    def say(self, text, colour="fg"):
+        self.status.config(text=text, fg=C[colour])
 
     def poll(self):
         try:
@@ -197,10 +265,11 @@ class App(tk.Tk):
 
     def handle(self, kind, *args):
         if kind == "status":
-            self.status.config(text=args[0])
+            self.say(args[0])
         elif kind == "refused":
             self.busy(False)
-            self.status.config(text="لا يمكن تحويل هذا الملف.\nThis file cannot be converted.")
+            self.say("لا يمكن تحويل هذا الملف\nThis file cannot be converted.",
+                     "destructive")
             messagebox.showwarning(TITLE, args[0])
         elif kind == "fonts":
             again = messagebox.askyesno(
@@ -211,13 +280,13 @@ class App(tk.Tk):
         elif kind == "done":
             self.busy(False)
             self.docx = Path(args[0])
-            self.status.config(text=f"تم.\nDone: {self.docx}")
-            self.open.pack(padx=16, pady=6)
+            self.say(f"تم\nDone: {self.docx.name}", "success")
+            self.open.pack(pady=(14, 0))
             if args[1]:
                 messagebox.showinfo(TITLE, args[1])
         elif kind == "failed":
             self.busy(False)
-            self.status.config(text="حدث خطأ.\nSomething went wrong.")
+            self.say("حدث خطأ\nSomething went wrong.", "destructive")
             messagebox.showerror(TITLE, args[0])
 
     def open_docx(self):

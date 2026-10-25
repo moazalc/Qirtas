@@ -1032,3 +1032,19 @@ Moaz's call: do the repair. Pushed the verse work first.
 - **Waiting on you:** item 4 - ten or twenty real plain PDFs from people.
   Send them, or tell me I may download public ones.
 - **Pushed** to GitHub the same day.
+
+### 25 Oct — the window in your colours
+
+- **What changed:** the window now uses your palette - deep green
+  background, a slightly lighter card, cream text, the title and the
+  Convert button in gold, green when it is done and red when something
+  goes wrong. The buttons light up when the mouse is over them; Convert
+  stays greyed out until a PDF is chosen.
+- **A catch on the way:** the window's toolkit put Arabic words in the
+  wrong order whenever a line had "..." or a full stop in it, so the
+  Arabic messages are now plain words. The pop-up messages (missing
+  fonts, file refused) are still Windows' own grey boxes - restyling
+  those is a next step if you want it.
+- **The installer** is rebuilt with the new look, and the installed
+  program still converts a file word for word as before.
+- **Committed, not pushed.**

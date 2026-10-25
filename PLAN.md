@@ -4266,6 +4266,15 @@ plain026 converted, its Word file word for word the same as the source
 run's. Not checked: a file that needs the fonts dialog or the OCR (the
 frozen `ocr_windows.ps1` path), and installing on a second computer.
 
+*Restyled 25 Oct* in Moaz's palette (deep green #07281e, card #0d3127,
+cream text #f3ead9, gold #d8b66d for the title and the Convert button,
+green and red for done and failed). Tk's own button keeps Windows' grey
+whatever colour it is given, so the buttons are labels drawn as buttons
+(`app.Button`: hover, focus ring, keyboard). A second Tk trap: an Arabic
+line with "..." or a full stop in it came out with its words in the wrong
+order too - the Arabic strings are now words only. The dialogs (missing
+fonts, refused, the numbers note) are still Windows' own.
+
 **Left** on the words: الثالثة read لاثلاثة in three files - the document's
 lam-alef fix map, learned from the whole text, moves with any change
 elsewhere; the tanween before or after the alef (نبيلًا / نبيلاً, drawn
