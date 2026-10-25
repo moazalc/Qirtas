@@ -4272,8 +4272,14 @@ green and red for done and failed). Tk's own button keeps Windows' grey
 whatever colour it is given, so the buttons are labels drawn as buttons
 (`app.Button`: hover, focus ring, keyboard). A second Tk trap: an Arabic
 line with "..." or a full stop in it came out with its words in the wrong
-order too - the Arabic strings are now words only. The dialogs (missing
-fonts, refused, the numbers note) are still Windows' own.
+order too - the Arabic strings are now words only. The pop-ups (missing
+fonts, refused, the numbers note, errors) are `app.Dialog` in the same
+colours - a coloured bar on top (gold for notes, red for refused and
+errors), Arabic and English headings, the converter's own English text in
+a box sized to the wrapped text by the font (the box cannot measure itself
+before it is drawn, and every message got the tallest box), scrolled past
+16 lines; the fonts choice "Installed - check again" or "Convert without
+them", checked to reach the worker.
 
 **Left** on the words: الثالثة read لاثلاثة in three files - the document's
 lam-alef fix map, learned from the whole text, moves with any change

@@ -1042,9 +1042,11 @@ Moaz's call: do the repair. Pushed the verse work first.
   stays greyed out until a PDF is chosen.
 - **A catch on the way:** the window's toolkit put Arabic words in the
   wrong order whenever a line had "..." or a full stop in it, so the
-  Arabic messages are now plain words. The pop-up messages (missing
-  fonts, file refused) are still Windows' own grey boxes - restyling
-  those is a next step if you want it.
+  Arabic messages are now plain words.
+- **The pop-up messages too** (missing fonts, file refused, the numbers
+  note, errors): same colours, a gold or red bar on top, the heading in
+  Arabic and English, two clear buttons for the missing fonts ("Installed -
+  check again" / "Convert without them").
 - **The installer** is rebuilt with the new look, and the installed
   program still converts a file word for word as before.
 - **Committed, not pushed.**

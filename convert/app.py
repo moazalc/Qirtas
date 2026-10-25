@@ -20,6 +20,7 @@ belongs to the thread that started it (harness/word.py keeps one per
 process), so every conversion runs on one worker thread that lives as long
 as the window.
 """
+import math
 import os
 import queue
 import sys
@@ -31,7 +32,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
+from tkinter import font as tkfont
 
 TITLE = "Qirtas - قرطاس"
 FONT = ("Segoe UI", 11)
@@ -166,6 +168,80 @@ class Button(tk.Label):
         self._paint()
 
 
+class Dialog(tk.Toplevel):
+    """A message in the window's colours, in place of Windows' grey box.
+    `buttons`: [(Arabic, English, value)], the first gold; the window waits
+    and `.value` is the one pressed (None if closed)."""
+
+    def __init__(self, master, arabic, english, body, colour, buttons):
+        super().__init__(master)
+        self.title(TITLE)
+        self.configure(bg=C["card"])
+        self.transient(master)
+        self.resizable(False, False)
+        self.value = None
+        tk.Frame(self, bg=C[colour], height=4).pack(fill="x")
+        inner = tk.Frame(self, bg=C["card"])
+        inner.pack(fill="both", expand=True, padx=24, pady=(16, 20))
+        tk.Label(inner, text=arabic, font=BIG, bg=C["card"], fg=C[colour],
+                 anchor="e").pack(fill="x")
+        tk.Label(inner, text=english, font=SMALL, bg=C["card"], fg=C["muted_fg"],
+                 anchor="e").pack(fill="x", pady=(0, 10))
+        if body:
+            # The converter's own words: English, left to right, and as long
+            # as a list of fonts can be - scrolled past ten lines.
+            frame = tk.Frame(inner, bg=C["muted"])
+            frame.pack(fill="both", expand=True)
+            box = tk.Text(frame, width=64, height=3, wrap="word", font=SMALL,
+                          bg=C["muted"], fg=C["fg"], relief="flat", padx=12,
+                          pady=10, highlightthickness=0,
+                          insertbackground=C["fg"], selectbackground=C["accent"])
+            box.insert("1.0", body)
+            box.pack(side="left", fill="both", expand=True)
+            # As tall as the text once wrapped, measured with the font (the
+            # box cannot say before it is drawn); past that, scrolled.
+            face = tkfont.Font(font=SMALL)
+            wide = 64 * face.measure("0") * 0.95
+            shown = sum(max(1, math.ceil(face.measure(ln) / wide))
+                        for ln in body.split("\n"))
+            box.config(height=min(MAX_LINES, max(3, shown)))
+            if shown > MAX_LINES:
+                bar = ttk.Scrollbar(frame, orient="vertical", command=box.yview,
+                                    style="Card.Vertical.TScrollbar")
+                bar.pack(side="right", fill="y")
+                box.config(yscrollcommand=bar.set)
+            box.config(state="disabled")
+        row = tk.Frame(inner, bg=C["card"])
+        row.pack(fill="x", pady=(16, 0))
+        first = None
+        for k, (ar, en, value) in enumerate(buttons):
+            b = Button(row, f"{ar}\n{en}", lambda v=value: self._close(v),
+                       primary=(k == 0))
+            b.pack(side="right", padx=(10, 0))
+            first = first or b
+        self.protocol("WM_DELETE_WINDOW", lambda: self._close(None))
+        self.bind("<Escape>", lambda e: self._close(None))
+        self.update_idletasks()
+        x = master.winfo_rootx() + (master.winfo_width() - self.winfo_width()) // 2
+        y = master.winfo_rooty() + (master.winfo_height() - self.winfo_height()) // 3
+        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+        self.grab_set()
+        first.focus_set()
+
+    def _close(self, value):
+        self.value = value
+        self.grab_release()
+        self.destroy()
+
+    def ask(self):
+        self.wait_window()
+        return self.value
+
+
+OK = [("حسنًا", "OK", True)]
+MAX_LINES = 16
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -184,6 +260,10 @@ class App(tk.Tk):
         style.configure("Gold.Horizontal.TProgressbar", troughcolor=C["muted"],
                         background=C["primary"], bordercolor=C["card"],
                         lightcolor=C["primary"], darkcolor=C["primary"], thickness=6)
+        style.configure("Card.Vertical.TScrollbar", troughcolor=C["muted"],
+                        background=C["accent"], bordercolor=C["muted"],
+                        arrowcolor=C["muted_fg"], lightcolor=C["accent"],
+                        darkcolor=C["accent"])
 
         head = tk.Frame(self, bg=C["bg"])
         head.pack(fill="x", padx=28, pady=(22, 10))
@@ -270,12 +350,13 @@ class App(tk.Tk):
             self.busy(False)
             self.say("لا يمكن تحويل هذا الملف\nThis file cannot be converted.",
                      "destructive")
-            messagebox.showwarning(TITLE, args[0])
+            Dialog(self, "لا يمكن تحويل هذا الملف", "This file cannot be converted",
+                   args[0], "destructive", OK).ask()
         elif kind == "fonts":
-            again = messagebox.askyesno(
-                TITLE, args[0] + "\n\n"
-                "Yes: I have installed them - look again.\n"
-                "No: convert without them.")
+            again = Dialog(self, "خطوط غير مثبتة", "Fonts missing on this computer",
+                           args[0], "primary",
+                           [("ثبّتها ثم افحص", "Installed - check again", True),
+                            ("حوّل بدونها", "Convert without them", False)]).ask()
             self.worker.answer.put("again" if again else "go")
         elif kind == "done":
             self.busy(False)
@@ -283,11 +364,13 @@ class App(tk.Tk):
             self.say(f"تم\nDone: {self.docx.name}", "success")
             self.open.pack(pady=(14, 0))
             if args[1]:
-                messagebox.showinfo(TITLE, args[1])
+                Dialog(self, "راجع هذه الملاحظات", "Please check these notes",
+                       args[1], "primary", OK).ask()
         elif kind == "failed":
             self.busy(False)
             self.say("حدث خطأ\nSomething went wrong.", "destructive")
-            messagebox.showerror(TITLE, args[0])
+            Dialog(self, "حدث خطأ", "Something went wrong", args[0],
+                   "destructive", OK).ask()
 
     def open_docx(self):
         if self.docx and self.docx.exists():
