@@ -39,6 +39,10 @@ def files_for(which, split_path="out/split.json"):
         # harness.plain: plain Arabic documents we made with Word ourselves.
         from harness.plain import files
         return files()
+    if which in ("un", "un-holdout"):
+        # harness.un: UN PDFs with the Word file each was printed from.
+        from harness.un import files
+        return files(holdout=which == "un-holdout")
     if which in ("thesis", "thesis-holdout"):
         # harness.theses: the cut pages of each Word-made Arabic thesis.
         want = "dev" if which == "thesis" else "holdout"
@@ -77,7 +81,7 @@ def score_one(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression", "thesis", "thesis-holdout", "plain"])
+    ap.add_argument("--set", default="dev", choices=["dev", "holdout", "regression", "thesis", "thesis-holdout", "plain", "un", "un-holdout"])
     ap.add_argument("--n", type=int, default=0, help="sample this many (0 = all)")
     ap.add_argument("--max-pages", type=int, default=60,
                     help="skip files longer than this (0 = no limit)")
@@ -92,7 +96,7 @@ def main():
                     help="what this run was testing, e.g. 'after-backfill-fix'")
     a = ap.parse_args()
 
-    if a.set in ("holdout", "thesis-holdout"):
+    if a.set in ("holdout", "thesis-holdout", "un-holdout"):
         print(f"{YEL}opening the holdout set - only do this to check generalisation{OFF}")
 
     env = fingerprint()

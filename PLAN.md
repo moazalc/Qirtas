@@ -4345,6 +4345,120 @@ not installed: Tk lists and draws it. The installer grew 0.3 MB. The logo (`conv
 `installer/qirtas.ico` (made from it) is the program's and the installer's
 icon, and `installer/logo.bmp` the installer's corner picture.
 
+## New PC, the corpus gone, and real files with their answer, 2026-10-26
+
+Set up on a new PC (not a VM; Word 16.0, `harness.env` clean, the three
+body fonts installed). The PDFs of every corpus stayed on the old one. The
+theses and wild sets are recoverable (`fetch_corpus --from-manifest`); the
+plain set rebuilds only roughly - `corpus/plain/source.json` was never
+committed and Wikipedia changes, so its 99.7% has to be measured again, not
+carried over. Not yet restored. Moaz: "we lowk gotta find a new strategy" -
+a new way of testing, and real public Arabic PDFs.
+
+**Why.** Every number so far is on files we made (plain set) or tuned on
+(theses), and the "real PDFs from people" item was cancelled (25 Oct). And
+every score except the OCR one reads the PDF's own hidden text as the
+reference, so a fault the PDF carries is invisible (FLAGS 22, 25).
+
+**The UN set (`harness/un.py`, `corpus/un/`).** documents.un.org publishes
+every official document in Arabic as a PDF *and* the Word file it was
+printed from (`/api/symbol/access?s=<symbol>&l=ar&t=pdf|docx`). Real
+documents, made in Word by people who are not us, with the answer beside
+each. 30 pairs drawn at random (seed 1) from GA and HRC resolutions and
+reports, SC and ECOSOC documents; up to 30 pages; 311 pages in all; every
+one "Microsoft Word for Microsoft 365" (one "for Office 365"). 13 to work
+on, 17 held out by a hash of the name (`holdout` in the manifest - the
+hash gave 17 of 30, not the 40% aimed for; left as drawn). Symbols that do
+not exist come back as an HTML error page; only .docx answers are kept.
+
+**What the first look found** (11 hand-picked symbols, then the 13 dev
+files; checks in the session scratchpad, not yet a harness score):
+- **The hidden text of every UN PDF is broken.** Of the PDF's Arabic words,
+  16-55% are words of the true Word file on the 13 dev files. Seen: words
+  stored backwards (ىدتنملل for للمنتدى), lam-alef reversed (األمم),
+  justification stretches stored as repeated letters (المستتتتتو) and on
+  two files letters mapped to the wrong characters. Cause in the UN's
+  production unknown; fonts are Simplified/Traditional Arabic, installed.
+- **Qirtas against the true Word file**, share of the true words we write
+  (by count): S/RES/2720(2023) 100%, S/2024/1 100%, A/RES/77/1 78.5%,
+  A/HRC/RES/52/1 76.4%, A/RES/78/1 **6.1%**. The existing repairs fix some
+  of these files completely.
+- **The 76-78% pair: kashida written as text.** The UN justifies with
+  kashida; the true file has السودان and Word stretches it when laying out.
+  Ours writes الســودان - looks right, but Ctrl+F for السودان misses it.
+  No score could see it: the PDF's text has the same tatweel.
+- **A/RES/78/1, 6%:** hidden text backwards throughout and the backwards
+  repair did not fire. Not diagnosed.
+
+**The web set (`harness/web.py`, `corpus/web/`).** Random Arabic PDFs from
+ordinary websites, no answer key: links sampled from Common Crawl's index
+(crawl CC-MAIN-2026-39) across 18 Arab country domains, downloaded from the
+live site, kept if digital with 150+ Arabic words. Two traps on the way:
+data.commoncrawl.org resets the connection from this PC (and the S3 address
+answers 403), so files come from the live sites and the set lasts only as
+long as they do - `fetch` checks each sha256; and the index answers about
+half its queries with 504, so it retries. A first run sent the two index
+filters as one garbled value (`urlencode` without `doseq`) and kept nothing
+for ten minutes; fixed.
+
+**The web set as drawn:** 30 files, 1,177 pages, 9 held out; 11 Word
+(2013/2016 and others), 10 Adobe PDF Library, 4 iLovePDF, the rest Skia,
+3-Heights, Microsoft Print to PDF. Lopsided by country: 11 of 30 from .ps,
+whose sites served many Arabic PDFs that downloaded cleanly; 38+ links
+were scans, not Arabic, dead or with broken certificates. The first run
+crashed printing an Arabic producer name (cp1252 console) after 23 files;
+the last 7 were drawn with `--seed 2`.
+
+**Not decided:** the new way of testing. The UN pairs make a real answer
+key possible (score our Word file against theirs, for words and for
+pages); the web set has none and needs the page itself (OCR) as its
+reference. Moaz to choose next.
+
+### The UN set scored, 2026-10-27
+
+`python -m harness.eval --set un --label baseline` (run
+`2026-10-26-un-baseline`), then `python -m harness.un score <run> --show`.
+
+    old scores (PDF's hidden text as reference)
+      nothing lost 99.4% (worst 95.5%), words in order 92.2%,
+      right page 79.7%, pages matching 10.9%
+    against the UN's Word files
+      words exactly right 81.3% (worst A/76/780 73.4%; A/RES/78/15 100%)
+      pages matching      43.6% (files with every page matching 15.4%)
+
+**The old scores were 10-18 points too kind** on these files, by
+construction: they compare against text that carries the same faults.
+
+**Three faults of the instrument first**, each caught by looking before
+believing (CLAUDE.md "check the instrument first"):
+1. Pages read 2.7%: the page check compared letters with the stretch line
+   (U+0640) in them, so every stretched word failed its page. Taken off
+   both sides -> 18.1%.
+2. Page by page the words sat 95-98% on the right page, just under the 98%
+   bar; the "missing" ones were Word's own PDF of the true file gluing and
+   cutting words (ميثاقالأمم, أسبو). Only words the true file holds are now
+   asked for -> 43.6%.
+3. Not fixed, small: `plain._docx_words` ignores `<w:tab/>`, so a list
+   number glues to its word in the true file (2ندعو on A/78/508). Same in
+   the plain set's scoring.
+
+What is left of pages looks real: where a file goes off it goes off from
+one page to the end (A/HRC/56/13 from page 13, A/HRC/RES/57/23 from 3) -
+drift that builds up; A/76/780 is off on all 19. A/RES/78/15 has every word
+right and both pages off - not looked at; suspect the instrument.
+
+**Words, what is behind the missing 19%**, largest first:
+1. Kashida written as text on 12 of 13 files (الإنســان, المتحـدة). The UN
+   styles justify with `lowKashida`/`mediumKashida`; Word stretches at
+   layout. But the true files also hold typed tatweel (0-16 a file), so not
+   every ـ can go.
+2. A word's last letter split off: قرار ه for قراره (35-44 a file on the
+   two HRC session reports).
+3. Loose vowel marks on A/HRC/48/40 (ً 101 times as a word of its own).
+4. Tanween order: ours تقريرًا, true تقريراً - drawn the same, stored in
+   another order. Whether that is wrong is a question for the instrument
+   as much as the converter; undecided.
+
 ## Known unfinished
 
 - **Pagination.** 49% of words land on the right page, up from 17%. The story

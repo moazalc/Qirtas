@@ -27,6 +27,14 @@ corpus/theses/*
 !corpus/theses/manifest.jsonl
 !corpus/theses/picked.json
 !corpus/theses/cuts.json
+#  - corpus/un/ is UN PDFs with their Word files, corpus/web/ random Arabic PDFs
+#    from websites (2026-10-26). Only the manifests that rebuild them.
+!corpus/un/
+corpus/un/*
+!corpus/un/manifest.jsonl
+!corpus/web/
+corpus/web/*
+!corpus/web/manifest.jsonl
 
 # Those two exceptions are each ~44KB and neither is regenerable output:
 #

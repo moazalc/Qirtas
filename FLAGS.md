@@ -1121,3 +1121,62 @@ What would close it: a looks check on the plain set (page-number place,
 top of text, text size, against the true file's PDF), then fixing what it
 finds. Decision for Moaz: before or after the refusal check (TASKS item 1).
 
+
+---
+
+## 37. On real UN files the hidden text is wrong everywhere, and only the true Word file can tell
+
+**Status: OPEN, found 2026-10-26** (PLAN "New PC, the corpus gone, and real
+files with their answer").
+
+The UN publishes each Arabic PDF with the Word file it came from. On all
+24 looked at (11 hand-picked, 13 dev of `corpus/un`) the PDF's hidden text
+is broken - backwards words, reversed lam-alef, stretches stored as
+repeated letters, wrong letter maps. Only 16-55% of its Arabic words are
+words of the true file. Every score but OCR uses that hidden text as the
+reference, so on these files "nothing lost" would pass output that is
+wrong. Against the true file Qirtas writes 100% of the right words on two
+of five converted, 76-78% on two (kashida written as text), 6% on one
+(backwards, not repaired).
+
+**Why it matters:** these are real Word-made documents, the kind the tool
+is for. If ordinary Word 365 PDFs carry the same damage, the plain set
+(made by Word on the old PC, clean hidden text) has been measuring an easier
+case than real users bring. Not known whether this is a UN printing step or
+Word itself.
+
+**2026-10-27, scored** (`harness/un.py score`; PLAN "The UN set scored"):
+against the true Word files, words exactly right 81.3% where the old
+scores said nothing lost 99.4% and words in order 92.2%. Pages matching
+43.6% once two faults of the page check were fixed. Word itself, saving the
+true files here, keeps only 84-91% of their words as text; the UN's PDFs
+16-55% - so most of the damage is the UN's printing step, some is Word's.
+
+**Closes when:** the kashida and backwards faults are fixed, and the held-out 17 are
+opened once to check the fixes hold.
+
+---
+
+## 38. PDFs saved by Word on a Mac come out as garbage, and nothing warns
+
+**Status: OPEN, found 2026-10-27** from a file Moaz tried
+(`AhmedAlabbasimastersthesis.pdf`, 182 pages, creator Word, producer
+"macOS Quartz PDFContext"; not in any set - someone else's thesis).
+
+The page looks right; the hidden text has letters replaced by ASCII junk
+throughout: الفصل stored اﻟﻔ$ﻞ, الدراسة stored اﻟ#راﺳﺔ. Qirtas copies it
+as is - the Word file reads الف$ل الأول, ال#راسة - and says nothing.
+
+Why the repair misses it: `convert/glyphs.py` repairs composite (Type0)
+fonts by glyph id. Quartz writes simple TrueType subsets, many per font
+(AAAAAC+SimplifiedArabic, AAAAAE+..., 256 codes each), renumbers the
+glyphs and drops their names (`glyph00001`...), so `diagnose` says "not a
+composite font" for every one. The outlines are kept, and Simplified Arabic
+is installed - matching each embedded outline to the installed font's
+should name every glyph.
+
+**Why it matters:** Mac Word is common, and this fails completely rather
+than partly. At the least the user should be warned.
+
+**Closes when:** Quartz PDFs are repaired by outline matching, or detected
+and warned about; and a few Mac-made Arabic PDFs are in a test set.

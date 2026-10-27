@@ -1076,3 +1076,48 @@ Moaz's call: do the repair. Pushed the verse work first.
   measured on files we made, not checked on anyone else's.
 - **Next:** you plan it in a new chat.
 - **Pushed** to GitHub the same day.
+
+### 26 Oct — new PC, and real files with their answer
+
+- **The corpus:** the PDFs stayed on the old PC. The theses and the
+  Zenodo files can be downloaded again exactly (their lists are saved);
+  the plain set only roughly. Not restored yet - you wanted a new way of
+  testing first.
+- **The new idea:** the UN publishes every Arabic document as a PDF *and*
+  the Word file it was printed from. Real files made by real people, with
+  the right answer beside each. 30 picked at random, 13 to work on and 17
+  kept aside unseen (`corpus/un/`).
+- **The uncomfortable finding:** the text hidden inside every UN PDF is
+  broken - words backwards, letters swapped. Our old scores check against
+  that hidden text, so they could not have noticed. Against the real Word
+  files, Qirtas got 100% of the words right on two files, about 77% on
+  two (the stretch lines in long words are written into the text, so
+  searching for السودان misses الســودان), and 6% on one (backwards, the
+  repair did not kick in).
+- **Random website files:** a second set of Arabic PDFs picked at random
+  from Arab-country websites (`corpus/web/`), no answer key - downloading.
+- **Next:** you choose the new way of testing (proposal in TASKS), then
+  the stretch-line fault and the 6% file.
+
+### 27 Oct — the UN files scored against their real Word files
+
+- **The number:** on the 13 UN files we work on, Qirtas gets **81% of
+  the words exactly right**. Our old scores said 99% nothing lost and 92%
+  in order on the same files - they were checking against the PDF's own
+  broken text, so they were too kind by 10-18 points.
+- **Pages:** 44% of pages land exactly right. Where a file goes wrong it
+  goes wrong from one page to the end - the text slowly drifts.
+- **Caught on the way:** the page check itself was wrong twice (it read
+  2.7%, then 18%); both fixed before believing it. One more suspect file
+  to check.
+- **What costs the most:** the stretch lines (ـ) written into words, on 12
+  of 13 files. Then a word's last letter split off (قرار ه), loose vowel
+  marks on one file.
+- **Website set done:** 30 random Arabic PDFs from 11 countries, 1,177
+  pages - 11 of them from Palestinian sites, so it leans one way.
+- **Decided (you):** the UN score against the real Word files is the main
+  score from now on; website files are checked against the page image and
+  by eye; the theses and plain set check that nothing broke.
+- **Also found:** a thesis saved by Word on a Mac comes out as garbage
+  with no warning (FLAGS 38) - parked, your call.
+- **Next:** the stretch-line fix. Committed and pushed.

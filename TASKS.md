@@ -9,7 +9,43 @@ file, open risks and decisions in `FLAGS.md`.
 
 ---
 
-## Start here (2026-09-24)
+## Start here (2026-10-26)
+
+**New PC; the corpus PDFs stayed on the old one.** Restore before quoting
+any old number: `fetch_corpus --from-manifest` for `corpus/theses` and
+`corpus/wild`; the plain set rebuilds only roughly (PLAN "New PC, the
+corpus gone"). Not yet done - Moaz wants a new way of testing first.
+
+**New test sets (Moaz, 26 Oct): real files.**
+- `corpus/un/` - 30 UN PDFs with their true Word files (`harness/un.py`,
+  13 to work on, 17 held out). Their hidden text is broken on every one
+  (FLAGS 37).
+- `corpus/web/` - random Arabic PDFs from Arab-country websites
+  (`harness/web.py`), no answer key.
+
+Scored 27 Oct (PLAN "The UN set scored"): words exactly right 81.3%
+against the true Word files (old scores said 99.4% / 92.2%); pages
+matching 43.6%. `python -m harness.eval --set un`, then
+`python -m harness.un score <run> --show`.
+
+Next, in order:
+1. DONE 27 Oct, Moaz agreed: the UN score (`harness.un score`, the true
+   Word file as the answer) is the main score; the web set is judged
+   against the page itself (OCR) and by eye; the theses and the plain set
+   are checks that nothing broke.
+2. Kashida written as text - 12 of 13 UN files, the largest piece of the
+   19%. Drop it on lines stretched edge to edge, write those paragraphs
+   with Word's kashida justification; keep it on short and centred lines.
+3. A word's last letter split off (قرار ه).
+4. Pages drifting from one page to the end; A/76/780 off on every page.
+5. Check the instrument: A/RES/78/15 has every word right and both pages
+   off; `_docx_words` ignores tabs.
+6. PDFs from Word on a Mac: total garbage, no warning (FLAGS 38). Repair
+   by matching each glyph's outline to the installed font.
+7. A/RES/78/1 at 6% (hand-picked, not in the set): backwards hidden text
+   the repair misses.
+
+## Before 26 Oct (2026-09-24)
 
 **Now (Moaz, 22 Oct): the first usable version - plain Arabic text only.**
 PDFs with no tables or pictures, pages the same, 99%. Measured on our own
